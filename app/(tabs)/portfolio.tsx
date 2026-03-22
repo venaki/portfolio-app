@@ -104,11 +104,12 @@ export default function Portfolio() {
             {/* Table header */}
             <View style={styles.tableHeader}>
               <Text style={[styles.colHeaderTicker]}>종목</Text>
-              <Text style={[styles.colHeaderOwner]}>명의</Text>
               <Text style={[styles.colHeaderFill]}>현재가</Text>
+              <Text style={[styles.colHeaderFill]}>수익</Text>
+              <Text style={[styles.colHeaderFill]}>평단가</Text>
               <Text style={[styles.colHeaderFill]}>수량</Text>
               <Text style={[styles.colHeaderFill]}>평가금액</Text>
-              <Text style={[styles.colHeaderFill]}>수익률</Text>
+              <Text style={[styles.colHeaderFill]}>매입환율</Text>
             </View>
 
             <ScrollView
@@ -233,12 +234,6 @@ const styles = StyleSheet.create({
   },
   colHeaderTicker: {
     width: 160,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  colHeaderOwner: {
-    width: 70,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
     color: COLORS.textSecondary,

@@ -1,9 +1,12 @@
 export function formatKRW(value: number): string {
-  return `₩${Math.round(value).toLocaleString('ko-KR')}`;
+  const abs = Math.abs(Math.round(value));
+  return value < 0 ? `-₩${abs.toLocaleString('ko-KR')}` : `₩${abs.toLocaleString('ko-KR')}`;
 }
 
 export function formatUSD(value: number): string {
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const abs = Math.abs(value);
+  const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return value < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
 export function formatPercent(value: number): string {
