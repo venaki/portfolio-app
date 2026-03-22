@@ -14,6 +14,7 @@ interface AppContextType {
   market: MarketData & { refresh: () => Promise<void> };
   isLoading: boolean;
   addTransaction: (tx: Omit<Transaction, 'id'>) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id'>>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   updateSettings: (updates: Partial<Settings>) => Promise<void>;
   resetData: () => Promise<void>;
@@ -65,6 +66,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [settings, persist]);
 
+  const updateTransaction = useCallback(async (id: string, updates: Partial<Omit<Transaction, 'id'>>) => {
+    setTransactions(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
+      persist(updated, settings);
+      return updated;
+    });
+  }, [settings, persist]);
+
   const deleteTransaction = useCallback(async (id: string) => {
     setTransactions(prev => {
       const updated = prev.filter(t => t.id !== id);
@@ -111,7 +120,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       transactions, holdings, settings, market, isLoading,
-      addTransaction, deleteTransaction, updateSettings,
+      addTransaction, updateTransaction, deleteTransaction, updateSettings,
       resetData, seedData, getAppDataJson, importData,
     }}>
       {children}

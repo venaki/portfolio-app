@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Pressable, Modal, Alert, RefreshControl, StyleSheet } from 'react-native';
+import { useState, useMemo, useEffect } from 'react';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Pressable, Modal, Alert, RefreshControl, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { formatKRW, formatUSD, formatDate } from '../../src/utils/format';
@@ -63,7 +63,7 @@ const ASSET_LABELS: Record<string, string> = {
 };
 
 export default function History() {
-  const { transactions, settings, market, deleteTransaction } = useApp();
+  const { transactions, settings, market, deleteTransaction, updateTransaction } = useApp();
   const { isMobile } = useResponsive();
 
   const [selectedType, setSelectedType] = useState<TypeFilter>('전체');
@@ -71,6 +71,30 @@ export default function History() {
   const [selectedAssetClass, setSelectedAssetClass] = useState<string>('전체');
   const [showModal, setShowModal] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+
+  // Edit form state
+  const [editTicker, setEditTicker] = useState('');
+  const [editType, setEditType] = useState('buy');
+  const [editOwner, setEditOwner] = useState('본석');
+  const [editShares, setEditShares] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editRate, setEditRate] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editMemo, setEditMemo] = useState('');
+
+  // Populate form when editTx changes
+  useEffect(() => {
+    if (editTx) {
+      setEditTicker(editTx.ticker);
+      setEditType(editTx.type);
+      setEditOwner(editTx.owner);
+      setEditShares(String(editTx.shares));
+      setEditPrice(String(editTx.price));
+      setEditRate(String(editTx.exchangeRate));
+      setEditDate(formatDate(editTx.executedAt));
+      setEditMemo(editTx.memo ?? '');
+    }
+  }, [editTx]);
 
   // Sort all transactions newest-first (used as reference for replay)
   const sortedDesc = useMemo(
@@ -117,6 +141,28 @@ export default function History() {
   }, [sortedDesc, selectedType, selectedOwner, selectedAssetClass]);
 
   const groups = useMemo(() => groupByMonth(filtered), [filtered]);
+
+  const handleSaveTx = async () => {
+    if (!editTx) return;
+    const shares = parseFloat(editShares);
+    const price = parseFloat(editPrice);
+    const rate = parseFloat(editRate);
+    if (isNaN(shares) || isNaN(price) || isNaN(rate)) {
+      Alert.alert('입력 오류', '수량, 가격, 환율을 올바르게 입력해주세요.');
+      return;
+    }
+    await updateTransaction(editTx.id, {
+      ticker: editTicker.trim(),
+      type: editType as any,
+      owner: editOwner as any,
+      shares,
+      price,
+      exchangeRate: rate,
+      executedAt: editDate ? `${editDate}T00:00:00.000Z` : editTx.executedAt,
+      memo: editMemo.trim() || undefined,
+    });
+    setEditTx(null);
+  };
 
   const handleDeleteTx = () => {
     if (!editTx) return;
@@ -217,61 +263,70 @@ export default function History() {
       <Modal visible={!!editTx} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setEditTx(null)}>
           <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>거래 상세</Text>
+            <Text style={styles.modalTitle}>거래 편집</Text>
 
             {editTx && (
-              <View style={{ gap: 14 }}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>종목</Text>
-                  <Text style={styles.detailValue}>{editTx.ticker}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>유형</Text>
-                  <Text style={styles.detailValue}>{TYPE_LABELS[editTx.type] ?? editTx.type}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>자산</Text>
-                  <Text style={styles.detailValue}>{ASSET_LABELS[editTx.assetClass] ?? editTx.assetClass}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>명의</Text>
-                  <Text style={styles.detailValue}>{editTx.owner}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>수량</Text>
-                  <Text style={styles.detailValue}>{editTx.shares}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>가격</Text>
-                  <Text style={styles.detailValue}>
-                    {editTx.currency === 'KRW' ? formatKRW(editTx.price) : formatUSD(editTx.price)}
-                  </Text>
-                </View>
-                {editTx.currency === 'USD' && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>환율</Text>
-                    <Text style={styles.detailValue}>{formatKRW(editTx.exchangeRate)}</Text>
+              <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+                <View style={{ gap: 12 }}>
+                  <View>
+                    <Text style={styles.fieldLabel}>종목코드</Text>
+                    <TextInput style={styles.input} value={editTicker} onChangeText={setEditTicker} />
                   </View>
-                )}
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>일시</Text>
-                  <Text style={styles.detailValue}>{formatDate(editTx.executedAt)}</Text>
-                </View>
-                {editTx.memo && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>메모</Text>
-                    <Text style={styles.detailValue}>{editTx.memo}</Text>
+
+                  <View>
+                    <Text style={styles.fieldLabel}>거래유형</Text>
+                    <FilterTabs
+                      options={['buy', 'sell', 'opening_balance', 'adjustment']}
+                      selected={editType}
+                      onSelect={setEditType}
+                    />
                   </View>
-                )}
-              </View>
+
+                  <View>
+                    <Text style={styles.fieldLabel}>명의</Text>
+                    <FilterTabs
+                      options={['본석', '연지', '나은']}
+                      selected={editOwner}
+                      onSelect={setEditOwner}
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={styles.fieldLabel}>수량</Text>
+                    <TextInput style={styles.input} value={editShares} onChangeText={setEditShares} keyboardType="numeric" />
+                  </View>
+
+                  <View>
+                    <Text style={styles.fieldLabel}>가격 ({editTx.currency})</Text>
+                    <TextInput style={styles.input} value={editPrice} onChangeText={setEditPrice} keyboardType="numeric" />
+                  </View>
+
+                  {editTx.currency === 'USD' && (
+                    <View>
+                      <Text style={styles.fieldLabel}>환율 (KRW/USD)</Text>
+                      <TextInput style={styles.input} value={editRate} onChangeText={setEditRate} keyboardType="numeric" />
+                    </View>
+                  )}
+
+                  <View>
+                    <Text style={styles.fieldLabel}>날짜 (YYYY-MM-DD)</Text>
+                    <TextInput style={styles.input} value={editDate} onChangeText={setEditDate} />
+                  </View>
+
+                  <View>
+                    <Text style={styles.fieldLabel}>메모</Text>
+                    <TextInput style={styles.input} value={editMemo} onChangeText={setEditMemo} placeholder="선택" placeholderTextColor={COLORS.textMuted} />
+                  </View>
+                </View>
+              </ScrollView>
             )}
 
-            <View style={styles.modalButtons}>
+            <View style={[styles.modalButtons, { marginTop: 16 }]}>
               <Pressable style={styles.deleteBtn} onPress={handleDeleteTx}>
                 <Text style={styles.deleteBtnText}>삭제</Text>
               </Pressable>
-              <Pressable style={styles.closeBtn} onPress={() => setEditTx(null)}>
-                <Text style={styles.closeBtnText}>닫기</Text>
+              <Pressable style={[styles.closeBtn, { backgroundColor: settings.accentColor, borderWidth: 0 }]} onPress={handleSaveTx}>
+                <Text style={[styles.closeBtnText, { color: '#FFF', fontFamily: 'Inter_600SemiBold' }]}>저장</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -358,9 +413,11 @@ const styles = StyleSheet.create({
   },
   modalContentPC: { width: 480 },
   modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  detailLabel: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 12, color: COLORS.textTertiary },
-  detailValue: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: COLORS.textPrimary },
+  fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: COLORS.textTertiary, marginBottom: 4 },
+  input: {
+    backgroundColor: '#F8F8F8', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10,
+    fontFamily: 'JetBrainsMono_400Regular', fontSize: 13, color: COLORS.textPrimary,
+  },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
   deleteBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
