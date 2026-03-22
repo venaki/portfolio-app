@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { COLORS } from '../../src/constants';
@@ -50,6 +50,13 @@ export default function Portfolio() {
             style={styles.scrollView}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={market.isLoading}
+                onRefresh={market.refresh}
+                tintColor={settings.accentColor}
+              />
+            }
           >
             {filteredHoldings.length === 0 ? (
               <View style={styles.emptyContainer}>
@@ -104,7 +111,16 @@ export default function Portfolio() {
               <Text style={[styles.colHeaderFill]}>수익률</Text>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={market.isLoading}
+                  onRefresh={market.refresh}
+                  tintColor={settings.accentColor}
+                />
+              }
+            >
               {filteredHoldings.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>보유 종목이 없습니다</Text>

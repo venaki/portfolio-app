@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { COLORS } from '../../src/constants';
@@ -55,7 +55,7 @@ function groupByMonth(transactions: Transaction[]): MonthGroup[] {
 }
 
 export default function History() {
-  const { transactions, settings } = useApp();
+  const { transactions, settings, market } = useApp();
   const { isMobile } = useResponsive();
 
   const [selectedType, setSelectedType] = useState<TypeFilter>('전체');
@@ -146,6 +146,13 @@ export default function History() {
           isMobile && styles.listContentMobile,
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={market.isLoading}
+            onRefresh={market.refresh}
+            tintColor={settings.accentColor}
+          />
+        }
       >
         {groups.length === 0 ? (
           <View style={styles.emptyContainer}>

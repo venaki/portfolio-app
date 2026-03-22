@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { calcTotalValueKRW, calcCostKRW, calcDailyChangeKRW } from '../../src/engine/calculations';
@@ -67,6 +67,13 @@ export default function Dashboard() {
         isMobile && styles.contentMobile,
       ]}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={market.isLoading}
+          onRefresh={market.refresh}
+          tintColor={settings.accentColor}
+        />
+      }
     >
       {/* Header */}
       <View style={[styles.header, isPC && styles.headerPC]}>
