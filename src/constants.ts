@@ -39,11 +39,14 @@ export const SCHEMA_VERSION = 1;
 
 export const ASSET_CLASS_LABELS: Record<string, AssetClass | 'all'> = {
   '전체': 'all',
-  '미국주식': 'us_stock',
-  '한국주식': 'kr_stock',
+  '미국': 'us_stock',
+  '한국': 'kr_stock',
   '기타': 'cash',
 };
 
-export const ASSET_CLASS_OPTIONS = ['전체', '미국주식', '한국주식', '기타'];
+export const ASSET_CLASS_OPTIONS = ['전체', '미국', '한국', '기타'];
+
+export const POSITIVE_COLOR = '#16A34A';
+
 
 // FMP_BASE_URL은 src/api/fmp.ts 내부에서 직접 관리

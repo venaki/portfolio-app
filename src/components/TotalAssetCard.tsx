@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { COLORS, NEGATIVE_COLOR } from '../constants';
+import { COLORS, NEGATIVE_COLOR, POSITIVE_COLOR } from '../constants';
 import { formatKRW, formatUSD, formatPercent } from '../utils/format';
 import { useResponsive } from '../hooks/useResponsive';
 
@@ -30,13 +30,13 @@ export function TotalAssetCard({
 
   // Daily change colors
   const dailyPositive = dailyChangeKRW >= 0;
-  const dailyColor = dailyPositive ? accentColor : NEGATIVE_COLOR;
+  const dailyColor = dailyPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
   const dailyBg = dailyPositive ? '#E8F5E9' : '#FFF0EB';
   const dailySign = dailyPositive ? '+' : '';
 
   // Total profit colors (for expanded section)
   const profitPositive = totalProfitKRW >= 0;
-  const profitColor = profitPositive ? accentColor : NEGATIVE_COLOR;
+  const profitColor = profitPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
 
   // Today's date
   const today = new Date();

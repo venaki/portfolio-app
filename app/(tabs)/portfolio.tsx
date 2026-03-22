@@ -6,7 +6,6 @@ import { COLORS, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS } from '../../src/const
 import { FilterTabs } from '../../src/components/FilterTabs';
 import { HoldingCard } from '../../src/components/HoldingCard';
 import { HoldingRow } from '../../src/components/HoldingRow';
-import { AddTransactionModal } from '../../src/components/AddTransactionModal';
 import { Owner } from '../../src/types';
 
 const OWNER_OPTIONS = ['전체', '본석', '연지', '나은'];
@@ -17,7 +16,7 @@ export default function Portfolio() {
 
   const [selectedAssetClass, setSelectedAssetClass] = useState<string>('전체');
   const [selectedOwner, setSelectedOwner] = useState<string>('전체');
-  const [showModal, setShowModal] = useState(false);
+
 
   const filteredHoldings = holdings.filter((h) => {
     // Asset class filter
@@ -35,27 +34,20 @@ export default function Portfolio() {
         <>
           <View style={styles.headerMobile}>
             <Text style={styles.headerTitle}>포트폴리오</Text>
-            <TouchableOpacity
-              style={[styles.addBtnMobile, { backgroundColor: '#16A34A' }]}
-              onPress={() => setShowModal(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.addBtnText}>추가</Text>
-            </TouchableOpacity>
           </View>
 
-          <View style={styles.filterWrapperMobile}>
-            <FilterTabs
-              options={ASSET_CLASS_OPTIONS}
-              selected={selectedAssetClass}
-              onSelect={setSelectedAssetClass}
-            />
-          </View>
           <View style={styles.filterWrapperMobile}>
             <FilterTabs
               options={OWNER_OPTIONS}
               selected={selectedOwner}
               onSelect={setSelectedOwner}
+            />
+          </View>
+          <View style={styles.filterWrapperMobile}>
+            <FilterTabs
+              options={ASSET_CLASS_OPTIONS}
+              selected={selectedAssetClass}
+              onSelect={setSelectedAssetClass}
             />
           </View>
 
@@ -98,23 +90,16 @@ export default function Portfolio() {
             <Text style={styles.headerTitle}>포트폴리오</Text>
             <View style={styles.headerActions}>
               <FilterTabs
-                options={ASSET_CLASS_OPTIONS}
-                selected={selectedAssetClass}
-                onSelect={setSelectedAssetClass}
-              />
-              <View style={{ width: 8 }} />
-              <FilterTabs
                 options={OWNER_OPTIONS}
                 selected={selectedOwner}
                 onSelect={setSelectedOwner}
               />
-              <TouchableOpacity
-                style={[styles.addBtnPC, { backgroundColor: '#16A34A' }]}
-                onPress={() => setShowModal(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.addBtnText}>종목 추가</Text>
-              </TouchableOpacity>
+              <View style={{ width: 8 }} />
+              <FilterTabs
+                options={ASSET_CLASS_OPTIONS}
+                selected={selectedAssetClass}
+                onSelect={setSelectedAssetClass}
+              />
             </View>
           </View>
 
@@ -161,7 +146,6 @@ export default function Portfolio() {
         </>
       )}
 
-      <AddTransactionModal visible={showModal} onClose={() => setShowModal(false)} />
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Holding, StockQuote } from '../types';
-import { COLORS, NEGATIVE_COLOR } from '../constants';
+import { COLORS, NEGATIVE_COLOR, POSITIVE_COLOR } from '../constants';
 import { calcProfitPercentUSD, calcTotalValueKRW, calcProfitKRW } from '../engine/calculations';
 import { formatUSD, formatKRW, formatPercent, formatShares } from '../utils/format';
 
@@ -27,9 +27,9 @@ export function HoldingRow({ holding, quote, exchangeRate, accentColor }: Props)
   const profitPct = isCash ? 0 : (quote ? calcProfitPercentUSD(holding, price) : 0);
 
   const dailyPositive = dailyChangePct >= 0;
-  const dailyColor = dailyPositive ? accentColor : NEGATIVE_COLOR;
+  const dailyColor = dailyPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
   const profitPositive = profitPct >= 0;
-  const profitColor = profitPositive ? accentColor : NEGATIVE_COLOR;
+  const profitColor = profitPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
 
   const formatPrice = isKRW ? formatKRW : formatUSD;
 
