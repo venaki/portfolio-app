@@ -38,13 +38,14 @@ export function HoldingRow({ holding, quote, exchangeRate, accentColor }: Props)
       {/* 종목 + 명의 */}
       <View style={styles.colTicker}>
         <View style={styles.tickerRow}>
-          <Text style={styles.ticker}>{holding.ticker}</Text>
+          <Text style={styles.ticker}>{isKR && quote?.name ? quote.name : holding.ticker}</Text>
           <View style={styles.ownerBadge}>
             <Text style={styles.ownerText}>{holding.owner}</Text>
           </View>
         </View>
-        {!isCash && quote?.name && (
-          <Text style={styles.tickerName} numberOfLines={1}>{quote.name}</Text>
+        {!isCash && (isKR
+          ? <Text style={styles.tickerName} numberOfLines={1}>{holding.ticker}</Text>
+          : quote?.name && <Text style={styles.tickerName} numberOfLines={1}>{quote.name}</Text>
         )}
       </View>
 

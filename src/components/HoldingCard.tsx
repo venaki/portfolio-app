@@ -40,7 +40,7 @@ export function HoldingCard({ holding, quote, exchangeRate, accentColor }: Props
       {/* Top: ticker + owner + price */}
       <View style={styles.topRow}>
         <View style={styles.tickerArea}>
-          <Text style={styles.ticker}>{holding.ticker}</Text>
+          <Text style={styles.ticker}>{isKR && quote?.name ? quote.name : holding.ticker}</Text>
           <View style={styles.ownerBadge}>
             <Text style={styles.ownerText}>{holding.owner}</Text>
           </View>
@@ -59,9 +59,10 @@ export function HoldingCard({ holding, quote, exchangeRate, accentColor }: Props
         </View>
       </View>
 
-      {/* Name */}
-      {!isCash && quote?.name && (
-        <Text style={styles.name} numberOfLines={1}>{quote.name}</Text>
+      {/* Sub title */}
+      {!isCash && (isKR
+        ? <Text style={styles.name} numberOfLines={1}>{holding.ticker}</Text>
+        : quote?.name && <Text style={styles.name} numberOfLines={1}>{quote.name}</Text>
       )}
 
       {/* Bottom: grid */}
