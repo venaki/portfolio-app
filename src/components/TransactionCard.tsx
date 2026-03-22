@@ -9,6 +9,7 @@ interface TransactionCardProps {
   transaction: Transaction;
   accentColor: string;
   holdingBeforeSell?: Holding;
+  stockName?: string;
 }
 
 type BadgeConfig = {
@@ -28,7 +29,7 @@ function getBadge(type: Transaction['type']): BadgeConfig {
   }
 }
 
-export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSell }: TransactionCardProps) {
+export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSell, stockName }: TransactionCardProps) {
   const isCashAsset = tx.assetClass === 'cash';
   const cashType = isCashAsset && tx.memo ? tx.memo.split(' · ')[0] : '';
   const isLoan = cashType === '대출';
@@ -78,7 +79,7 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
           <View style={[styles.badge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
           </View>
-          <Text style={styles.ticker}>{tx.ticker}</Text>
+          <Text style={styles.ticker}>{tx.assetClass === 'kr_stock' && stockName ? stockName : tx.ticker}</Text>
           <View style={styles.ownerBadge}>
             <Text style={styles.ownerText}>{tx.owner}</Text>
           </View>

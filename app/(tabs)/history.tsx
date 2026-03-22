@@ -255,6 +255,7 @@ export default function History() {
                       transaction={tx}
                       accentColor={settings.accentColor}
                       holdingBeforeSell={holdingBeforeSellMap.get(tx.id)}
+                      stockName={market.quotes[tx.ticker]?.name}
                     />
                   </Pressable>
                 ))}
