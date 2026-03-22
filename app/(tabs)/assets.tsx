@@ -8,6 +8,8 @@ import { formatKRW, formatUSD } from '../../src/utils/format';
 import { Owner, Currency } from '../../src/types';
 
 const OWNER_OPTIONS = ['전체', '본석', '연지', '나은'];
+const ASSET_TYPES = ['예금', '채권', '대출', '기타'] as const;
+type CashAssetType = typeof ASSET_TYPES[number];
 
 export default function Assets() {
   const { holdings, transactions, settings, market, addTransaction, deleteTransaction } = useApp();
@@ -18,6 +20,7 @@ export default function Assets() {
 
   // Form state
   const [formOwner, setFormOwner] = useState<Owner>('본석');
+  const [formType, setFormType] = useState<CashAssetType>('예금');
   const [formName, setFormName] = useState('');
   const [formAmount, setFormAmount] = useState('');
   const [formCurrency, setFormCurrency] = useState<Currency>('KRW');
@@ -47,6 +50,10 @@ export default function Assets() {
       return;
     }
 
+    // 대출은 음수로 저장
+    const finalAmount = formType === '대출' ? -amount : amount;
+    const memoText = [formType, formMemo.trim()].filter(Boolean).join(' · ');
+
     await addTransaction({
       owner: formOwner,
       ticker: formName.trim(),
@@ -54,15 +61,16 @@ export default function Assets() {
       assetClass: 'cash',
       currency: formCurrency,
       shares: 1,
-      price: amount,
+      price: finalAmount,
       exchangeRate: formCurrency === 'KRW' ? 1 : market.exchangeRate,
       executedAt: new Date().toISOString(),
-      memo: formMemo.trim() || undefined,
+      memo: memoText || undefined,
     });
 
     setFormName('');
     setFormAmount('');
     setFormMemo('');
+    setFormType('예금');
     setShowModal(false);
   };
 
@@ -131,12 +139,18 @@ export default function Assets() {
                   <View style={styles.ownerBadge}>
                     <Text style={styles.ownerText}>{h.owner}</Text>
                   </View>
+                  {h.memo && (
+                    <View style={[styles.typeBadge, h.avgCost < 0 && { backgroundColor: '#FFF0EB' }]}>
+                      <Text style={[styles.typeText, h.avgCost < 0 && { color: NEGATIVE_COLOR }]}>
+                        {h.memo.split(' · ')[0]}
+                      </Text>
+                    </View>
+                  )}
                   <Text style={styles.currencyBadge}>{h.currency}</Text>
                 </View>
-                {h.memo && <Text style={styles.cardMemo}>{h.memo}</Text>}
               </View>
               <View style={styles.cardRight}>
-                <Text style={styles.cardAmount}>
+                <Text style={[styles.cardAmount, h.avgCost < 0 && { color: NEGATIVE_COLOR }]}>
                   {h.currency === 'KRW' ? formatKRW(h.avgCost * h.shares) : formatUSD(h.avgCost * h.shares)}
                 </Text>
                 {h.currency === 'USD' && market.exchangeRate > 0 && (
@@ -163,7 +177,14 @@ export default function Assets() {
               onSelect={(v) => setFormOwner(v as Owner)}
             />
 
-            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>자산명</Text>
+            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>유형</Text>
+            <FilterTabs
+              options={[...ASSET_TYPES]}
+              selected={formType}
+              onSelect={(v) => setFormType(v as CashAssetType)}
+            />
+
+            <Text style={[styles.fieldLabel, { marginTop: 12 }]}>자산명</Text>
             <TextInput
               style={styles.input}
               value={formName}
@@ -251,6 +272,8 @@ const styles = StyleSheet.create({
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   ownerBadge: { backgroundColor: COLORS.muted, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
   ownerText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: COLORS.textTertiary },
+  typeBadge: { backgroundColor: '#E8F5E9', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  typeText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: POSITIVE_COLOR },
   currencyBadge: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 10, color: COLORS.textMuted },
   cardMemo: { fontFamily: 'Inter_400Regular', fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
   cardRight: { alignItems: 'flex-end' },
