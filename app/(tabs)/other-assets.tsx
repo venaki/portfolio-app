@@ -7,12 +7,12 @@ import { FilterTabs } from '../../src/components/FilterTabs';
 import { formatKRW, formatUSD } from '../../src/utils/format';
 import { Owner, Currency } from '../../src/types';
 
-const OWNER_OPTIONS = ['전체', '본석', '연지', '나은'];
 const ASSET_TYPES = ['예금', '채권', '대출', '기타'] as const;
 type CashAssetType = typeof ASSET_TYPES[number];
 
 export default function Assets() {
-  const { holdings, transactions, settings, market, addTransaction, deleteTransaction, updateTransaction } = useApp();
+  const { holdings, transactions, settings, market, addTransaction, deleteTransaction, updateTransaction, accounts } = useApp();
+  const OWNER_OPTIONS = ['전체', ...accounts];
   const { isMobile } = useResponsive();
 
   const [selectedOwner, setSelectedOwner] = useState('전체');
@@ -20,7 +20,7 @@ export default function Assets() {
   const [editTarget, setEditTarget] = useState<{ owner: string; ticker: string } | null>(null);
 
   // Form state
-  const [formOwner, setFormOwner] = useState<Owner>('본석');
+  const [formOwner, setFormOwner] = useState<Owner>(accounts[0] ?? '');
   const [formType, setFormType] = useState<CashAssetType>('예금');
   const [formName, setFormName] = useState('');
   const [formAmount, setFormAmount] = useState('');
@@ -84,7 +84,7 @@ export default function Assets() {
     : null;
 
   const [editName, setEditName] = useState('');
-  const [editOwner, setEditOwner] = useState<Owner>('본석');
+  const [editOwner, setEditOwner] = useState<Owner>(accounts[0] ?? '');
   const [editType, setEditType] = useState<CashAssetType>('예금');
   const [editAmount, setEditAmount] = useState('');
   const [editCurrency, setEditCurrency] = useState<Currency>('KRW');
@@ -223,7 +223,7 @@ export default function Assets() {
 
             <Text style={styles.fieldLabel}>명의</Text>
             <FilterTabs
-              options={['본석', '연지', '나은']}
+              options={accounts}
               selected={formOwner}
               onSelect={(v) => setFormOwner(v as Owner)}
             />
@@ -305,7 +305,7 @@ export default function Assets() {
 
                 <View>
                   <Text style={styles.fieldLabel}>명의</Text>
-                  <FilterTabs options={['본석', '연지', '나은']} selected={editOwner} onSelect={(v) => setEditOwner(v as Owner)} />
+                  <FilterTabs options={accounts} selected={editOwner} onSelect={(v) => setEditOwner(v as Owner)} />
                 </View>
 
                 <View>

@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, OWNER_COLORS, POSITIVE_COLOR, NEGATIVE_COLOR } from '../constants';
+import { COLORS, POSITIVE_COLOR, NEGATIVE_COLOR } from '../constants';
 import { formatKRW, formatUSD, formatPercent } from '../utils/format';
 import { useResponsive } from '../hooks/useResponsive';
 
@@ -15,6 +15,7 @@ interface Props {
   profitKRW: number;
   profitPctKRW: number;
   accentColor: string;
+  dotColor?: string;
   breakdown?: AssetBreakdown[];
 }
 
@@ -25,10 +26,11 @@ export function AccountCard({
   profitKRW,
   profitPctKRW,
   accentColor,
+  dotColor,
   breakdown,
 }: Props) {
   const { isPC } = useResponsive();
-  const dotColor = OWNER_COLORS[owner] ?? accentColor;
+  const resolvedDotColor = dotColor ?? accentColor;
   const isPositive = profitKRW >= 0;
   const profitColor = isPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
 
@@ -37,7 +39,7 @@ export function AccountCard({
       {/* Top row: dot + owner name | profit percent */}
       <View style={styles.topRow}>
         <View style={styles.ownerRow}>
-          <View style={[styles.dot, { backgroundColor: dotColor }]} />
+          <View style={[styles.dot, { backgroundColor: resolvedDotColor }]} />
           <Text style={styles.ownerName}>{owner}</Text>
         </View>
         <Text style={[styles.profitPct, { color: profitColor }]}>

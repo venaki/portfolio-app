@@ -22,7 +22,6 @@ interface Props {
   onClose: () => void;
 }
 
-const OWNERS: Owner[] = ['본석', '연지', '나은'];
 const TX_TYPES: { label: string; value: TransactionType }[] = [
   { label: '매수', value: 'buy' },
   { label: '매도', value: 'sell' },
@@ -38,9 +37,9 @@ const CURRENCY_OPTIONS = ['KRW', 'USD'];
 const today = new Date().toISOString().slice(0, 10);
 
 export function AddTransactionModal({ visible, onClose }: Props) {
-  const { addTransaction } = useApp();
+  const { addTransaction, accounts } = useApp();
 
-  const [owner, setOwner] = useState<Owner>('본석');
+  const [owner, setOwner] = useState<Owner>(accounts[0] ?? '');
   const [assetClassLabel, setAssetClassLabel] = useState('미국');
   const [ticker, setTicker] = useState('');
   const [txType, setTxType] = useState<TransactionType>('buy');
@@ -61,7 +60,7 @@ export function AddTransactionModal({ visible, onClose }: Props) {
   const selectedTxLabel = TX_TYPES.find((t) => t.value === txType)?.label ?? '매수';
 
   function reset() {
-    setOwner('본석');
+    setOwner(accounts[0] ?? '');
     setAssetClassLabel('미국');
     setTicker('');
     setTxType('buy');
@@ -165,7 +164,7 @@ export function AddTransactionModal({ visible, onClose }: Props) {
             {/* 명의 */}
             <Text style={styles.label}>명의</Text>
             <FilterTabs
-              options={OWNERS}
+              options={accounts}
               selected={owner}
               onSelect={(v) => setOwner(v as Owner)}
             />

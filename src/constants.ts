@@ -15,6 +15,12 @@ export const OWNER_COLORS: Record<string, string> = {
   '나은': '#5B7FD6',
 };
 
+export const ACCOUNT_COLORS = ['#0D6E6E', '#E07B54', '#5B7FD6', '#9333EA', '#DC2626', '#CA8A04'];
+
+export function getAccountColor(index: number): string {
+  return ACCOUNT_COLORS[index % ACCOUNT_COLORS.length];
+}
+
 export const NEGATIVE_COLOR = '#E07B54';
 
 export const COLORS = {

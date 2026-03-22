@@ -1,4 +1,4 @@
-export type Owner = '본석' | '연지' | '나은';
+export type Owner = string;
 
 export type TransactionType = 'buy' | 'sell' | 'opening_balance' | 'adjustment';
 
@@ -37,6 +37,7 @@ export interface Settings {
 export interface AppData {
   schemaVersion: number;
   transactions: Transaction[];
+  accounts: string[];
   settings: Settings;
 }
 

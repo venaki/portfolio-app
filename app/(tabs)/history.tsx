@@ -11,8 +11,6 @@ import { AddTransactionModal } from '../../src/components/AddTransactionModal';
 import { replayTransactions } from '../../src/engine/holdings';
 import { Transaction, Owner, Holding } from '../../src/types';
 
-const OWNER_OPTIONS = ['전체', '본석', '연지', '나은'];
-
 const TYPE_CHIP_OPTIONS = [
   { label: '전체', value: '전체' },
   { label: '매수', value: '매수' },
@@ -63,7 +61,8 @@ const ASSET_LABELS: Record<string, string> = {
 };
 
 export default function History() {
-  const { transactions, settings, market, deleteTransaction, updateTransaction } = useApp();
+  const { transactions, settings, market, deleteTransaction, updateTransaction, accounts } = useApp();
+  const OWNER_OPTIONS = ['전체', ...accounts];
   const { isMobile } = useResponsive();
 
   const [selectedType, setSelectedType] = useState<TypeFilter>('전체');
@@ -75,7 +74,7 @@ export default function History() {
   // Edit form state
   const [editTicker, setEditTicker] = useState('');
   const [editType, setEditType] = useState('buy');
-  const [editOwner, setEditOwner] = useState('본석');
+  const [editOwner, setEditOwner] = useState('');
   const [editShares, setEditShares] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editRate, setEditRate] = useState('');
@@ -301,7 +300,7 @@ export default function History() {
                   <View>
                     <Text style={styles.fieldLabel}>명의</Text>
                     <FilterTabs
-                      options={['본석', '연지', '나은']}
+                      options={accounts}
                       selected={editOwner}
                       onSelect={setEditOwner}
                     />

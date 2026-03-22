@@ -3,14 +3,12 @@ import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { calcTotalValueKRW, calcCostKRW, calcDailyChangeKRW } from '../../src/engine/calculations';
 import { formatKRW, formatUSD, formatRelativeTime } from '../../src/utils/format';
-import { COLORS } from '../../src/constants';
+import { COLORS, getAccountColor } from '../../src/constants';
 import { TotalAssetCard } from '../../src/components/TotalAssetCard';
 import { AccountCard } from '../../src/components/AccountCard';
 
-const OWNERS = ['본석', '연지', '나은'];
-
 export default function Dashboard() {
-  const { holdings, settings, market, isLoading } = useApp();
+  const { holdings, settings, market, isLoading, accounts } = useApp();
   const { isMobile, isPC } = useResponsive();
 
   // Aggregate totals
@@ -51,7 +49,7 @@ export default function Dashboard() {
   const dailyChangePct = totalPrevValueKRW > 0 ? (totalDailyChangeKRW / totalPrevValueKRW) * 100 : 0;
 
   // Aggregate per owner with asset class breakdown
-  const ownerData = OWNERS.map(owner => {
+  const ownerData = accounts.map(owner => {
     const ownerHoldings = holdings.filter(h => h.owner === owner);
     let valueKRW = 0;
     let costKRW = 0;
@@ -183,6 +181,7 @@ export default function Dashboard() {
               profitKRW={data.profitKRW}
               profitPctKRW={data.profitPctKRW}
               accentColor={settings.accentColor}
+              dotColor={getAccountColor(idx)}
               breakdown={data.breakdown}
             />
           </View>

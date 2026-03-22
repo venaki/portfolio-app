@@ -8,6 +8,7 @@ function createDefault(): AppData {
   return {
     schemaVersion: SCHEMA_VERSION,
     transactions: [],
+    accounts: [],
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -65,6 +66,13 @@ export async function loadAppData(): Promise<AppData> {
         migrated = true;
       }
     }
+    // Migration: extract unique owners as accounts if not present
+    if (!data.accounts) {
+      const owners = [...new Set(data.transactions.map(t => t.owner))];
+      data.accounts = owners.length > 0 ? owners : [];
+      migrated = true;
+    }
+
     if (migrated) {
       await saveAppData(data);
     }

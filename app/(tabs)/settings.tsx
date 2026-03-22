@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -32,8 +32,9 @@ function nextInterval(current: number): number {
 }
 
 export default function Settings() {
-  const { settings, updateSettings, resetData, getAppDataJson, importData, market } = useApp();
+  const { settings, updateSettings, resetData, getAppDataJson, importData, market, accounts, addAccount, removeAccount } = useApp();
   const { isMobile, isPC } = useResponsive();
+  const [newAccountName, setNewAccountName] = useState('');
 
   const handleAccentColor = useCallback(
     async (color: string) => {
@@ -141,6 +142,28 @@ export default function Settings() {
     );
   }, [resetData]);
 
+  const handleAddAccount = useCallback(async () => {
+    const name = newAccountName.trim();
+    if (!name) return;
+    if (accounts.includes(name)) {
+      Alert.alert('알림', '이미 존재하는 명의입니다.');
+      return;
+    }
+    await addAccount(name);
+    setNewAccountName('');
+  }, [newAccountName, accounts, addAccount]);
+
+  const handleRemoveAccount = useCallback((name: string) => {
+    Alert.alert('명의 삭제', `"${name}" 명의를 삭제하시겠습니까?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => removeAccount(name),
+      },
+    ]);
+  }, [removeAccount]);
+
   const accentColor = settings.accentColor;
 
   return (
@@ -155,6 +178,41 @@ export default function Settings() {
     >
       {/* Title */}
       <Text style={[styles.title, isPC && styles.titlePC]}>설정</Text>
+
+      {/* ── SECTION 0: ACCOUNTS ── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>ACCOUNTS</Text>
+        <View style={styles.card}>
+          {accounts.map((account, idx) => (
+            <View key={account}>
+              {idx > 0 && <View style={styles.divider} />}
+              <View style={styles.accountRow}>
+                <Text style={styles.fieldLabel}>{account}</Text>
+                <Pressable onPress={() => handleRemoveAccount(account)} hitSlop={8}>
+                  <Text style={styles.accountRemoveBtn}>✕</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+          {accounts.length > 0 && <View style={styles.divider} />}
+          <View style={styles.accountAddRow}>
+            <TextInput
+              style={styles.accountInput}
+              value={newAccountName}
+              onChangeText={setNewAccountName}
+              placeholder="새 명의 입력"
+              placeholderTextColor={COLORS.textMuted}
+              onSubmitEditing={handleAddAccount}
+            />
+            <Pressable
+              style={[styles.accountAddBtn, { backgroundColor: accentColor }]}
+              onPress={handleAddAccount}
+            >
+              <Text style={styles.accountAddBtnText}>추가</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
 
       {/* ── SECTION 1: APPEARANCE ── */}
       <View style={styles.section}>
@@ -341,5 +399,43 @@ const styles = StyleSheet.create({
   },
   resetText: {
     color: '#E07B54',
+  },
+  accountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  accountRemoveBtn: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+    color: COLORS.textTertiary,
+    paddingHorizontal: 4,
+  },
+  accountAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  accountInput: {
+    flex: 1,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+  accountAddBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  accountAddBtnText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: '#FFFFFF',
   },
 });

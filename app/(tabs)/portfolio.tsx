@@ -8,10 +8,9 @@ import { HoldingCard } from '../../src/components/HoldingCard';
 import { HoldingRow } from '../../src/components/HoldingRow';
 import { Owner } from '../../src/types';
 
-const OWNER_OPTIONS = ['전체', '본석', '연지', '나은'];
-
 export default function Portfolio() {
-  const { holdings, settings, market } = useApp();
+  const { holdings, settings, market, accounts } = useApp();
+  const OWNER_OPTIONS = ['전체', ...accounts];
   const { isMobile, isPC } = useResponsive();
 
   const [selectedAssetClass, setSelectedAssetClass] = useState<string>('전체');
