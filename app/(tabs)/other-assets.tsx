@@ -172,9 +172,9 @@ export default function Assets() {
       </ScrollView>
 
       {/* Add Modal */}
-      <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, !isMobile && styles.modalContentPC]}>
+      <Modal visible={showAddModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
+          <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>기타 자산 추가</Text>
 
             <Text style={styles.fieldLabel}>명의</Text>
@@ -237,14 +237,14 @@ export default function Assets() {
                 <Text style={styles.submitBtnText}>추가</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Edit Modal */}
-      <Modal visible={!!editTarget} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, !isMobile && styles.modalContentPC]}>
+      <Modal visible={!!editTarget} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setEditTarget(null)}>
+          <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>자산 정보</Text>
 
             {editHolding && (
@@ -289,8 +289,8 @@ export default function Assets() {
                 <Text style={styles.cancelBtnText}>닫기</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -339,12 +339,12 @@ const styles = StyleSheet.create({
   cardAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 16, color: COLORS.textPrimary },
   cardAmountSub: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
-    backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, maxHeight: '80%',
+    backgroundColor: COLORS.card, borderRadius: 20,
+    padding: 24, maxHeight: '80%', width: '90%', maxWidth: 480,
   },
-  modalContentPC: { alignSelf: 'center', width: 480, borderRadius: 20, marginBottom: 40 },
+  modalContentPC: { width: 480 },
   modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
   fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: COLORS.textPrimary, marginBottom: 6 },
   input: {

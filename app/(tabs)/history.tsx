@@ -214,9 +214,9 @@ export default function History() {
       <AddTransactionModal visible={showModal} onClose={() => setShowModal(false)} />
 
       {/* Edit/Detail Modal */}
-      <Modal visible={!!editTx} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, !isMobile && styles.modalContentPC]}>
+      <Modal visible={!!editTx} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setEditTx(null)}>
+          <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>거래 상세</Text>
 
             {editTx && (
@@ -274,8 +274,8 @@ export default function History() {
                 <Text style={styles.closeBtnText}>닫기</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -351,12 +351,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textTertiary,
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
-    backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, maxHeight: '80%',
+    backgroundColor: COLORS.card, borderRadius: 20,
+    padding: 24, maxHeight: '80%', width: '90%', maxWidth: 480,
   },
-  modalContentPC: { alignSelf: 'center', width: 480, borderRadius: 20, marginBottom: 40 },
+  modalContentPC: { width: 480 },
   modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailLabel: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 12, color: COLORS.textTertiary },

@@ -5,6 +5,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
@@ -139,13 +140,13 @@ export function AddTransactionModal({ visible, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.backdrop} />
-        <View style={styles.sheet}>
+        <Pressable style={styles.backdrop} onPress={handleClose} />
+        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>종목 추가</Text>
@@ -281,7 +282,7 @@ export function AddTransactionModal({ visible, onClose }: Props) {
 
             <View style={{ height: 32 }} />
           </ScrollView>
-        </View>
+        </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -290,18 +291,20 @@ export function AddTransactionModal({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 20,
     padding: 24,
     maxHeight: '90%',
+    width: '90%',
+    maxWidth: 480,
   },
   header: {
     flexDirection: 'row',
