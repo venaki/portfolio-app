@@ -24,9 +24,9 @@ function getBadge(type: Transaction['type'], accentColor: string): BadgeConfig {
     case 'sell':
       return { bg: '#FFF0EB', color: '#E07B54', label: '매도' };
     case 'opening_balance':
-      return { bg: '#F0F0F0', color: '#888888', label: '초기' };
+      return { bg: '#F0F0F0', color: '#888888', label: '최초잔고' };
     case 'adjustment':
-      return { bg: '#F0F0F0', color: '#888888', label: '보정' };
+      return { bg: '#F0F0F0', color: '#888888', label: '최초잔고' };
   }
 }
 
