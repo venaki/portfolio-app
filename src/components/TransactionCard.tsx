@@ -3,7 +3,7 @@ import { Transaction } from '../types';
 import { Holding } from '../types';
 import { calcRealizedPL } from '../engine/calculations';
 import { formatKRW, formatUSD, formatDate } from '../utils/format';
-import { COLORS } from '../constants';
+import { COLORS, POSITIVE_COLOR } from '../constants';
 
 interface TransactionCardProps {
   transaction: Transaction;
@@ -17,10 +17,10 @@ type BadgeConfig = {
   label: string;
 };
 
-function getBadge(type: Transaction['type'], accentColor: string): BadgeConfig {
+function getBadge(type: Transaction['type']): BadgeConfig {
   switch (type) {
     case 'buy':
-      return { bg: '#E8F5E9', color: accentColor, label: '매수' };
+      return { bg: '#E8F5E9', color: POSITIVE_COLOR, label: '매수' };
     case 'sell':
       return { bg: '#FFF0EB', color: '#E07B54', label: '매도' };
     case 'opening_balance':
@@ -31,7 +31,7 @@ function getBadge(type: Transaction['type'], accentColor: string): BadgeConfig {
 }
 
 export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSell }: TransactionCardProps) {
-  const badge = getBadge(tx.type, accentColor);
+  const badge = getBadge(tx.type);
   const isKRW = tx.currency === 'KRW';
   const isCash = tx.assetClass === 'cash';
   const formatPrice = isKRW ? formatKRW : formatUSD;
@@ -51,7 +51,7 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
   }
 
   const plIsPositive = realizedPL ? realizedPL.usd >= 0 : true;
-  const plColor = plIsPositive ? accentColor : '#E07B54';
+  const plColor = plIsPositive ? POSITIVE_COLOR : '#E07B54';
   const plSign = plIsPositive ? '+' : '';
 
   // Detail line differs by asset type

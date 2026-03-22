@@ -166,13 +166,20 @@ export default function History() {
 
   const handleDeleteTx = () => {
     if (!editTx) return;
-    Alert.alert('삭제 확인', '이 거래를 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제', style: 'destructive',
-        onPress: () => { deleteTransaction(editTx.id); setEditTx(null); },
-      },
-    ]);
+    if (typeof window !== 'undefined' && window.confirm) {
+      if (window.confirm('이 거래를 삭제하시겠습니까?')) {
+        deleteTransaction(editTx.id);
+        setEditTx(null);
+      }
+    } else {
+      Alert.alert('삭제 확인', '이 거래를 삭제하시겠습니까?', [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제', style: 'destructive',
+          onPress: () => { deleteTransaction(editTx.id); setEditTx(null); },
+        },
+      ]);
+    }
   };
 
   return (
