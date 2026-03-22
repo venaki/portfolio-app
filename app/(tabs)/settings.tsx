@@ -33,7 +33,7 @@ function nextInterval(current: number): number {
 }
 
 export default function Settings() {
-  const { settings, updateSettings, resetData, getAppDataJson, importData } = useApp();
+  const { settings, updateSettings, resetData, getAppDataJson, importData, market } = useApp();
   const { isMobile, isPC } = useResponsive();
 
   const [apiKey, setApiKeyState] = useState('');
@@ -50,7 +50,9 @@ export default function Settings() {
     await setApiKey(apiKey.trim());
     setApiKeySaved(true);
     setTimeout(() => setApiKeySaved(false), 2000);
-  }, [apiKey]);
+    // API Key 저장 후 즉시 시세 갱신
+    market.refresh();
+  }, [apiKey, market]);
 
   const handleAccentColor = useCallback(
     async (color: string) => {

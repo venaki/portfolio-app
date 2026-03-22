@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { COLORS, NEGATIVE_COLOR } from '../constants';
 import { formatKRW, formatUSD, formatPercent } from '../utils/format';
 import { useResponsive } from '../hooks/useResponsive';
@@ -9,6 +10,8 @@ interface Props {
   totalCostKRW: number;
   totalProfitKRW: number;
   totalProfitPctKRW: number;
+  dailyChangeKRW: number;
+  dailyChangePct: number;
   accentColor: string;
 }
 
@@ -18,51 +21,106 @@ export function TotalAssetCard({
   totalCostKRW,
   totalProfitKRW,
   totalProfitPctKRW,
+  dailyChangeKRW,
+  dailyChangePct,
   accentColor,
 }: Props) {
   const { isPC } = useResponsive();
-  const isPositive = totalProfitKRW >= 0;
-  const profitColor = isPositive ? accentColor : NEGATIVE_COLOR;
-  const badgeBg = isPositive ? '#E8F5E9' : '#FFF0EB';
-  const profitSign = isPositive ? '+' : '';
+  const [expanded, setExpanded] = useState(false);
+
+  // Daily change colors
+  const dailyPositive = dailyChangeKRW >= 0;
+  const dailyColor = dailyPositive ? accentColor : NEGATIVE_COLOR;
+  const dailyBg = dailyPositive ? '#E8F5E9' : '#FFF0EB';
+  const dailySign = dailyPositive ? '+' : '';
+
+  // Total profit colors (for expanded section)
+  const profitPositive = totalProfitKRW >= 0;
+  const profitColor = profitPositive ? accentColor : NEGATIVE_COLOR;
+
+  // Today's date
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
   return (
     <View style={[styles.card, isPC && styles.cardPC]}>
-      <View style={styles.row}>
-        {/* Left */}
+      {/* Date */}
+      <Text style={styles.dateText}>{dateStr}</Text>
+
+      <View style={styles.mainRow}>
         <View style={styles.left}>
           <Text style={styles.label}>TOTAL ASSETS</Text>
           <Text style={[styles.totalValue, isPC && styles.totalValuePC]}>
             {formatKRW(totalValueKRW)}
           </Text>
+
+          {/* Daily change (always visible) */}
           <View style={styles.badgeRow}>
-            <View style={[styles.badge, { backgroundColor: badgeBg }]}>
-              <Text style={[styles.badgeText, { color: profitColor }]}>
-                {profitSign}{formatKRW(totalProfitKRW)}
+            <View style={[styles.badge, { backgroundColor: dailyBg }]}>
+              <Text style={[styles.badgeText, { color: dailyColor }]}>
+                {dailySign}{formatKRW(dailyChangeKRW)}
               </Text>
             </View>
-            <View style={[styles.badge, { backgroundColor: badgeBg, marginLeft: 6 }]}>
-              <Text style={[styles.badgeText, { color: profitColor }]}>
-                {formatPercent(totalProfitPctKRW)}
+            <View style={[styles.badge, { backgroundColor: dailyBg, marginLeft: 6 }]}>
+              <Text style={[styles.badgeText, { color: dailyColor }]}>
+                {formatPercent(dailyChangePct)}
               </Text>
             </View>
+            <Text style={styles.dailyLabel}>오늘</Text>
           </View>
         </View>
 
-        {/* PC: Right side shows USD + 원금 */}
+        {/* PC: USD always visible on right */}
         {isPC && (
           <View style={styles.right}>
-            <View style={styles.rightItem}>
-              <Text style={styles.rightLabel}>USD</Text>
-              <Text style={styles.rightValue}>{formatUSD(totalValueUSD)}</Text>
-            </View>
-            <View style={[styles.rightItem, { marginTop: 12 }]}>
-              <Text style={styles.rightLabel}>원금</Text>
-              <Text style={styles.rightValue}>{formatKRW(totalCostKRW)}</Text>
-            </View>
+            <Text style={styles.rightLabel}>USD</Text>
+            <Text style={styles.rightValue}>{formatUSD(totalValueUSD)}</Text>
           </View>
         )}
       </View>
+
+      {/* Expanded section */}
+      {expanded && (
+        <View style={styles.expandedSection}>
+          <View style={styles.expandedRow}>
+            {/* 왼쪽: 수익금/수익률 배지 */}
+            <View style={styles.badgeRow}>
+              <View style={[styles.badge, { backgroundColor: profitPositive ? '#E8F5E9' : '#FFF0EB' }]}>
+                <Text style={[styles.badgeText, { color: profitColor }]}>
+                  {profitPositive ? '+' : ''}{formatKRW(totalProfitKRW)}
+                </Text>
+              </View>
+              <View style={[styles.badge, { backgroundColor: profitPositive ? '#E8F5E9' : '#FFF0EB', marginLeft: 6 }]}>
+                <Text style={[styles.badgeText, { color: profitColor }]}>
+                  {formatPercent(totalProfitPctKRW)}
+                </Text>
+              </View>
+              <Text style={styles.dailyLabel}>원금 대비</Text>
+            </View>
+
+            {/* 오른쪽: 원금 + USD */}
+            <View style={styles.expandedRight}>
+              <View style={styles.rightItem}>
+                <Text style={styles.rightLabel}>원금</Text>
+                <Text style={styles.rightValue}>{formatKRW(totalCostKRW)}</Text>
+              </View>
+              {!isPC && (
+                <View style={[styles.rightItem, { marginTop: 8 }]}>
+                  <Text style={styles.rightLabel}>USD</Text>
+                  <Text style={styles.rightValue}>{formatUSD(totalValueUSD)}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* More/Less toggle */}
+      <Pressable onPress={() => setExpanded(!expanded)} style={styles.toggleButton}>
+        <Text style={[styles.toggleText, { color: accentColor }]}>
+          {expanded ? '접기' : '더보기'}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -80,7 +138,13 @@ const styles = StyleSheet.create({
   cardPC: {
     marginHorizontal: 0,
   },
-  row: {
+  dateText: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginBottom: 12,
+  },
+  mainRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -117,12 +181,15 @@ const styles = StyleSheet.create({
     fontFamily: 'JetBrainsMono_600SemiBold',
     fontSize: 13,
   },
+  dailyLabel: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginLeft: 8,
+  },
   right: {
     alignItems: 'flex-end',
     paddingLeft: 16,
-  },
-  rightItem: {
-    alignItems: 'flex-end',
   },
   rightLabel: {
     fontFamily: 'JetBrainsMono_600SemiBold',
@@ -130,10 +197,34 @@ const styles = StyleSheet.create({
     color: COLORS.textTertiary,
     letterSpacing: 1.5,
     marginBottom: 2,
+    textAlign: 'right',
   },
   rightValue: {
     fontFamily: 'JetBrainsMono_500Medium',
     fontSize: 15,
     color: COLORS.textSecondary,
+  },
+  expandedSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+  },
+  expandedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  expandedRight: {
+    alignItems: 'flex-end',
+  },
+  toggleButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  toggleText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
   },
 });

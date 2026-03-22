@@ -1,8 +1,8 @@
-import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 import { AppData } from '../types';
 import { DEFAULT_SETTINGS, SCHEMA_VERSION } from '../constants';
 
-const DATA_FILE = `${FileSystem.documentDirectory}portfolio-data.json`;
+const STORAGE_KEY = 'portfolio-data';
 
 function createDefault(): AppData {
   return {
@@ -12,11 +12,31 @@ function createDefault(): AppData {
   };
 }
 
+async function readRaw(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return localStorage.getItem(STORAGE_KEY);
+  }
+  const FileSystem = await import('expo-file-system/legacy');
+  const path = `${FileSystem.documentDirectory}${STORAGE_KEY}.json`;
+  const info = await FileSystem.getInfoAsync(path);
+  if (!info.exists) return null;
+  return FileSystem.readAsStringAsync(path);
+}
+
+async function writeRaw(json: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    localStorage.setItem(STORAGE_KEY, json);
+    return;
+  }
+  const FileSystem = await import('expo-file-system/legacy');
+  const path = `${FileSystem.documentDirectory}${STORAGE_KEY}.json`;
+  await FileSystem.writeAsStringAsync(path, json);
+}
+
 export async function loadAppData(): Promise<AppData> {
   try {
-    const info = await FileSystem.getInfoAsync(DATA_FILE);
-    if (!info.exists) return createDefault();
-    const raw = await FileSystem.readAsStringAsync(DATA_FILE);
+    const raw = await readRaw();
+    if (!raw) return createDefault();
     const data: AppData = JSON.parse(raw);
     if (!data.schemaVersion) data.schemaVersion = SCHEMA_VERSION;
     if (!data.settings) data.settings = { ...DEFAULT_SETTINGS };
@@ -29,7 +49,7 @@ export async function loadAppData(): Promise<AppData> {
 }
 
 export async function saveAppData(data: AppData): Promise<void> {
-  await FileSystem.writeAsStringAsync(DATA_FILE, JSON.stringify(data, null, 2));
+  await writeRaw(JSON.stringify(data, null, 2));
 }
 
 export async function exportAppData(): Promise<string> {

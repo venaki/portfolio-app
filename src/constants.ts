@@ -37,4 +37,4 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const SCHEMA_VERSION = 1;
 
-export const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
+// FMP_BASE_URL은 src/api/fmp.ts 내부에서 직접 관리

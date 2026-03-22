@@ -17,6 +17,8 @@ export default function Dashboard() {
   let totalValueKRW = 0;
   let totalCostKRW = 0;
   let totalValueUSD = 0;
+  let totalDailyChangeKRW = 0;
+  let totalPrevValueKRW = 0;
 
   holdings.forEach(h => {
     const quote = market.quotes[h.ticker];
@@ -24,10 +26,13 @@ export default function Dashboard() {
     totalValueKRW += calcTotalValueKRW(h, quote.price, market.exchangeRate);
     totalCostKRW += calcCostKRW(h);
     totalValueUSD += quote.price * h.shares;
+    totalDailyChangeKRW += calcDailyChangeKRW(h, quote.price, quote.previousClose, market.exchangeRate);
+    totalPrevValueKRW += calcTotalValueKRW(h, quote.previousClose, market.exchangeRate);
   });
 
   const totalProfitKRW = totalValueKRW - totalCostKRW;
   const totalProfitPctKRW = totalCostKRW > 0 ? (totalProfitKRW / totalCostKRW) * 100 : 0;
+  const dailyChangePct = totalPrevValueKRW > 0 ? (totalDailyChangeKRW / totalPrevValueKRW) * 100 : 0;
 
   // Aggregate per owner
   const ownerData = OWNERS.map(owner => {
@@ -99,6 +104,8 @@ export default function Dashboard() {
         totalCostKRW={totalCostKRW}
         totalProfitKRW={totalProfitKRW}
         totalProfitPctKRW={totalProfitPctKRW}
+        dailyChangeKRW={totalDailyChangeKRW}
+        dailyChangePct={dailyChangePct}
         accentColor={settings.accentColor}
       />
 

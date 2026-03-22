@@ -15,9 +15,10 @@ export function useMarketData(holdings: Holding[], refreshInterval: number) {
   });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const tickerKey = holdings.map(h => h.ticker).sort().join(',');
   const tickers = useMemo(
     () => [...new Set(holdings.map(h => h.ticker))],
-    [holdings.map(h => h.ticker).sort().join(',')]
+    [tickerKey]
   );
 
   const refresh = useCallback(async () => {
