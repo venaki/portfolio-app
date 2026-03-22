@@ -30,6 +30,9 @@
       "output": "single",
       "favicon": "./assets/favicon.png"
     },
+    "experiments": {
+      "baseUrl": "/portfolio-app"
+    },
     "plugins": ["expo-router", "expo-secure-store"]
   }
 }
