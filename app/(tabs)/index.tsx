@@ -50,20 +50,25 @@ export default function Dashboard() {
   const totalProfitPctKRW = totalCostKRW > 0 ? (totalProfitKRW / totalCostKRW) * 100 : 0;
   const dailyChangePct = totalPrevValueKRW > 0 ? (totalDailyChangeKRW / totalPrevValueKRW) * 100 : 0;
 
-  // Aggregate per owner
+  // Aggregate per owner with asset class breakdown
   const ownerData = OWNERS.map(owner => {
     const ownerHoldings = holdings.filter(h => h.owner === owner);
     let valueKRW = 0;
     let costKRW = 0;
     let valueUSD = 0;
+    let usValueKRW = 0;
+    let krValueKRW = 0;
+    let cashValueKRW = 0;
 
     ownerHoldings.forEach(h => {
       const isCash = h.assetClass === 'cash';
       const quote = market.quotes[h.ticker];
 
       if (isCash) {
-        valueKRW += calcTotalValueKRW(h, 0, market.exchangeRate);
+        const v = calcTotalValueKRW(h, 0, market.exchangeRate);
+        valueKRW += v;
         costKRW += calcCostKRW(h);
+        cashValueKRW += v;
         if (h.currency === 'USD') {
           valueUSD += h.avgCost * h.shares;
         }
@@ -71,17 +76,27 @@ export default function Dashboard() {
       }
 
       if (!quote) return;
-      valueKRW += calcTotalValueKRW(h, quote.price, market.exchangeRate);
+      const v = calcTotalValueKRW(h, quote.price, market.exchangeRate);
+      valueKRW += v;
       costKRW += calcCostKRW(h);
-      if (h.currency === 'USD') {
+      if (h.assetClass === 'us_stock') {
+        usValueKRW += v;
         valueUSD += quote.price * h.shares;
+      } else if (h.assetClass === 'kr_stock') {
+        krValueKRW += v;
       }
     });
 
     const profitKRW = valueKRW - costKRW;
     const profitPctKRW = costKRW > 0 ? (profitKRW / costKRW) * 100 : 0;
 
-    return { owner, valueKRW, valueUSD, profitKRW, profitPctKRW };
+    const breakdown = [
+      { label: '미국', valueKRW: usValueKRW },
+      { label: '한국', valueKRW: krValueKRW },
+      { label: '기타', valueKRW: cashValueKRW },
+    ].filter(b => b.valueKRW > 0);
+
+    return { owner, valueKRW, valueUSD, profitKRW, profitPctKRW, breakdown };
   });
 
   const exchangeRateText = market.exchangeRate > 0
@@ -168,6 +183,7 @@ export default function Dashboard() {
               profitKRW={data.profitKRW}
               profitPctKRW={data.profitPctKRW}
               accentColor={settings.accentColor}
+              breakdown={data.breakdown}
             />
           </View>
         ))}

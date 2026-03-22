@@ -1,7 +1,12 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, OWNER_COLORS, NEGATIVE_COLOR } from '../constants';
+import { COLORS, OWNER_COLORS, POSITIVE_COLOR, NEGATIVE_COLOR } from '../constants';
 import { formatKRW, formatUSD, formatPercent } from '../utils/format';
 import { useResponsive } from '../hooks/useResponsive';
+
+interface AssetBreakdown {
+  label: string;
+  valueKRW: number;
+}
 
 interface Props {
   owner: string;
@@ -10,6 +15,7 @@ interface Props {
   profitKRW: number;
   profitPctKRW: number;
   accentColor: string;
+  breakdown?: AssetBreakdown[];
 }
 
 export function AccountCard({
@@ -19,11 +25,12 @@ export function AccountCard({
   profitKRW,
   profitPctKRW,
   accentColor,
+  breakdown,
 }: Props) {
   const { isPC } = useResponsive();
   const dotColor = OWNER_COLORS[owner] ?? accentColor;
   const isPositive = profitKRW >= 0;
-  const profitColor = isPositive ? accentColor : NEGATIVE_COLOR;
+  const profitColor = isPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
 
   return (
     <View style={[styles.card, isPC && styles.cardPC]}>
@@ -38,13 +45,25 @@ export function AccountCard({
         </Text>
       </View>
 
-      {/* Bottom row: KRW value | USD value */}
+      {/* Value row: KRW | USD */}
       <View style={styles.bottomRow}>
         <Text style={[styles.krwValue, isPC && styles.krwValuePC]}>
           {formatKRW(valueKRW)}
         </Text>
         <Text style={styles.usdValue}>{formatUSD(valueUSD)}</Text>
       </View>
+
+      {/* Breakdown: 미국/한국/기타 */}
+      {breakdown && breakdown.length > 0 && (
+        <View style={styles.breakdown}>
+          {breakdown.map(item => (
+            <View key={item.label} style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>{item.label}</Text>
+              <Text style={styles.breakdownValue}>{formatKRW(item.valueKRW)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -102,6 +121,28 @@ const styles = StyleSheet.create({
   usdValue: {
     fontFamily: 'JetBrainsMono_500Medium',
     fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  breakdown: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    gap: 6,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLabel: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  breakdownValue: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 11,
     color: COLORS.textSecondary,
   },
 });
