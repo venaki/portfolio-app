@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
-import { getApiKey, setApiKey } from '../../src/storage/secureStore';
 import { ACCENT_PRESETS, COLORS } from '../../src/constants';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { ColorPicker } from '../../src/components/ColorPicker';
@@ -35,24 +34,6 @@ function nextInterval(current: number): number {
 export default function Settings() {
   const { settings, updateSettings, resetData, getAppDataJson, importData, market } = useApp();
   const { isMobile, isPC } = useResponsive();
-
-  const [apiKey, setApiKeyState] = useState('');
-  const [apiKeySaved, setApiKeySaved] = useState(false);
-
-  // Load saved API key on mount
-  useEffect(() => {
-    getApiKey().then((key) => {
-      if (key) setApiKeyState(key);
-    });
-  }, []);
-
-  const handleSaveApiKey = useCallback(async () => {
-    await setApiKey(apiKey.trim());
-    setApiKeySaved(true);
-    setTimeout(() => setApiKeySaved(false), 2000);
-    // API Key 저장 후 즉시 시세 갱신
-    market.refresh();
-  }, [apiKey, market]);
 
   const handleAccentColor = useCallback(
     async (color: string) => {
@@ -128,34 +109,7 @@ export default function Settings() {
         </View>
       </View>
 
-      {/* ── SECTION 2: API CONFIGURATION ── */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>API CONFIGURATION</Text>
-        <View style={styles.card}>
-          <View style={styles.apiKeyRow}>
-            <Text style={styles.fieldLabel}>FMP API Key</Text>
-            {apiKeySaved && (
-              <Text style={[styles.savedBadge, { color: accentColor }]}>저장됨</Text>
-            )}
-          </View>
-          <TextInput
-            style={styles.textInput}
-            value={apiKey}
-            onChangeText={setApiKeyState}
-            onBlur={handleSaveApiKey}
-            placeholder="API Key를 입력하세요"
-            placeholderTextColor={COLORS.textMuted}
-            autoCorrect={false}
-            autoCapitalize="none"
-            secureTextEntry={false}
-          />
-          <Text style={styles.fieldDesc}>
-            financialmodelingprep.com에서 무료 API Key를 발급받으세요.
-          </Text>
-        </View>
-      </View>
-
-      {/* ── SECTION 3: DATA REFRESH ── */}
+      {/* ── SECTION 2: DATA REFRESH ── */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>DATA REFRESH</Text>
         <View style={styles.card}>
@@ -167,12 +121,6 @@ export default function Settings() {
                 {getIntervalLabel(settings.refreshInterval)}
               </Text>
             </Pressable>
-          </View>
-          <View style={styles.divider} />
-          {/* API usage row */}
-          <View style={styles.row}>
-            <Text style={styles.fieldLabel}>오늘 API 사용량</Text>
-            <Text style={styles.usageText}>– / 250</Text>
           </View>
         </View>
       </View>
