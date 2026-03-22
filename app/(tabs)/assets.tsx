@@ -16,7 +16,8 @@ export default function Assets() {
   const { isMobile } = useResponsive();
 
   const [selectedOwner, setSelectedOwner] = useState('전체');
-  const [showModal, setShowModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editTarget, setEditTarget] = useState<{ owner: string; ticker: string } | null>(null);
 
   // Form state
   const [formOwner, setFormOwner] = useState<Owner>('본석');
@@ -71,28 +72,32 @@ export default function Assets() {
     setFormAmount('');
     setFormMemo('');
     setFormType('예금');
-    setShowModal(false);
+    setShowAddModal(false);
   };
 
-  const handleDelete = (ticker: string, owner: string) => {
-    Alert.alert(
-      '삭제 확인',
-      `"${ticker}" 자산을 삭제하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: () => {
-            // Delete all transactions for this cash asset
-            const toDelete = transactions.filter(
-              t => t.assetClass === 'cash' && t.ticker === ticker && t.owner === owner
-            );
-            toDelete.forEach(t => deleteTransaction(t.id));
-          },
+  // Edit modal: load data from target holding + memo from transaction
+  const editHolding = editTarget
+    ? cashHoldings.find(h => h.owner === editTarget.owner && h.ticker === editTarget.ticker)
+    : null;
+  const editMemo = editTarget
+    ? transactions.find(t => t.assetClass === 'cash' && t.ticker === editTarget.ticker && t.owner === editTarget.owner)?.memo
+    : undefined;
+
+  const handleDeleteOne = () => {
+    if (!editTarget) return;
+    Alert.alert('삭제 확인', `"${editTarget.ticker}" 자산을 삭제하시겠습니까?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제', style: 'destructive',
+        onPress: () => {
+          const toDelete = transactions.filter(
+            t => t.assetClass === 'cash' && t.ticker === editTarget.ticker && t.owner === editTarget.owner
+          );
+          toDelete.forEach(t => deleteTransaction(t.id));
+          setEditTarget(null);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -101,7 +106,7 @@ export default function Assets() {
         <Text style={styles.headerTitle}>기타 자산</Text>
         <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: settings.accentColor }]}
-          onPress={() => setShowModal(true)}
+          onPress={() => setShowAddModal(true)}
         >
           <Text style={styles.addBtnText}>추가</Text>
         </TouchableOpacity>
@@ -127,11 +132,13 @@ export default function Assets() {
             <Text style={styles.emptySubText}>현금, 예금, 채권 등을 추가해보세요</Text>
           </View>
         ) : (
-          cashHoldings.map(h => (
+          cashHoldings.map(h => {
+            const memo = transactions.find(t => t.assetClass === 'cash' && t.ticker === h.ticker && t.owner === h.owner)?.memo;
+            return (
             <Pressable
               key={`${h.owner}-${h.ticker}`}
               style={[styles.card, !isMobile && styles.cardPC]}
-              onLongPress={() => handleDelete(h.ticker, h.owner)}
+              onPress={() => setEditTarget({ owner: h.owner, ticker: h.ticker })}
             >
               <View style={styles.cardLeft}>
                 <Text style={styles.cardName}>{h.ticker}</Text>
@@ -139,10 +146,10 @@ export default function Assets() {
                   <View style={styles.ownerBadge}>
                     <Text style={styles.ownerText}>{h.owner}</Text>
                   </View>
-                  {h.memo && (
+                  {memo && (
                     <View style={[styles.typeBadge, h.avgCost < 0 && { backgroundColor: '#FFF0EB' }]}>
                       <Text style={[styles.typeText, h.avgCost < 0 && { color: NEGATIVE_COLOR }]}>
-                        {h.memo.split(' · ')[0]}
+                        {memo.split(' · ')[0]}
                       </Text>
                     </View>
                   )}
@@ -160,12 +167,12 @@ export default function Assets() {
                 )}
               </View>
             </Pressable>
-          ))
+          );})
         )}
       </ScrollView>
 
       {/* Add Modal */}
-      <Modal visible={showModal} transparent animationType="slide">
+      <Modal visible={showAddModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, !isMobile && styles.modalContentPC]}>
             <Text style={styles.modalTitle}>기타 자산 추가</Text>
@@ -220,7 +227,7 @@ export default function Assets() {
             />
 
             <View style={styles.modalButtons}>
-              <Pressable style={styles.cancelBtn} onPress={() => setShowModal(false)}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAddModal(false)}>
                 <Text style={styles.cancelBtnText}>취소</Text>
               </Pressable>
               <Pressable
@@ -228,6 +235,58 @@ export default function Assets() {
                 onPress={handleAdd}
               >
                 <Text style={styles.submitBtnText}>추가</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal visible={!!editTarget} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, !isMobile && styles.modalContentPC]}>
+            <Text style={styles.modalTitle}>자산 정보</Text>
+
+            {editHolding && (
+              <View style={{ gap: 16 }}>
+                <View style={styles.editRow}>
+                  <Text style={styles.editLabel}>자산명</Text>
+                  <Text style={styles.editValue}>{editHolding.ticker}</Text>
+                </View>
+                <View style={styles.editRow}>
+                  <Text style={styles.editLabel}>명의</Text>
+                  <Text style={styles.editValue}>{editHolding.owner}</Text>
+                </View>
+                <View style={styles.editRow}>
+                  <Text style={styles.editLabel}>통화</Text>
+                  <Text style={styles.editValue}>{editHolding.currency}</Text>
+                </View>
+                <View style={styles.editRow}>
+                  <Text style={styles.editLabel}>금액</Text>
+                  <Text style={[styles.editValue, editHolding.avgCost < 0 && { color: NEGATIVE_COLOR }]}>
+                    {editHolding.currency === 'KRW'
+                      ? formatKRW(editHolding.avgCost * editHolding.shares)
+                      : formatUSD(editHolding.avgCost * editHolding.shares)}
+                  </Text>
+                </View>
+                {editMemo && (
+                  <View style={styles.editRow}>
+                    <Text style={styles.editLabel}>유형</Text>
+                    <Text style={styles.editValue}>{editMemo}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <View style={[styles.modalButtons, { marginTop: 24 }]}>
+              <Pressable
+                style={[styles.submitBtn, { backgroundColor: NEGATIVE_COLOR }]}
+                onPress={handleDeleteOne}
+              >
+                <Text style={styles.submitBtnText}>삭제</Text>
+              </Pressable>
+              <Pressable style={styles.cancelBtn} onPress={() => setEditTarget(null)}>
+                <Text style={styles.cancelBtnText}>닫기</Text>
               </Pressable>
             </View>
           </View>
@@ -300,4 +359,7 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: COLORS.textSecondary },
   submitBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   submitBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#FFF' },
+  editRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  editLabel: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 12, color: COLORS.textTertiary },
+  editValue: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: COLORS.textPrimary },
 });
