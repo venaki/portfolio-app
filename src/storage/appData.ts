@@ -58,6 +58,13 @@ export async function loadAppData(): Promise<AppData> {
         migrated = true;
       }
     }
+    // Migration: fix KR stock owner 본석 → 연지
+    for (const tx of data.transactions) {
+      if (KR_TICKERS.includes(tx.ticker) && tx.owner === '본석') {
+        (tx as any).owner = '연지';
+        migrated = true;
+      }
+    }
     if (migrated) {
       await saveAppData(data);
     }
