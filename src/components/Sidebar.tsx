@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { label: '대시보드', path: '/' },
   { label: '포트폴리오', path: '/portfolio' },
   { label: '거래내역', path: '/history' },
-  { label: '기타 자산', path: '/assets' },
+  { label: '기타 자산', path: '/other-assets' },
   { label: '설정', path: '/settings' },
 ];
 

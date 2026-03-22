@@ -21,7 +21,7 @@ export default function TabsLayout() {
             <Tabs.Screen name="index" />
             <Tabs.Screen name="portfolio" />
             <Tabs.Screen name="history" />
-            <Tabs.Screen name="assets" />
+            <Tabs.Screen name="other-assets" />
             <Tabs.Screen name="settings" />
           </Tabs>
         </View>
@@ -65,7 +65,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
       <Tabs.Screen name="portfolio" options={{ title: 'Portfolio' }} />
       <Tabs.Screen name="history" options={{ title: 'History' }} />
-      <Tabs.Screen name="assets" options={{ title: 'Assets' }} />
+      <Tabs.Screen name="other-assets" options={{ title: 'Assets' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>
   );
