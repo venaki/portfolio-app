@@ -53,10 +53,29 @@ export default function Settings() {
       const json = await getAppDataJson();
       if (Platform.OS === 'web') {
         const blob = new Blob([json], { type: 'application/json' });
+        const fileName = `portfolio-backup-${new Date().toISOString().slice(0, 10)}.json`;
+
+        // Try File System Access API (shows save dialog)
+        if ('showSaveFilePicker' in window) {
+          try {
+            const handle = await (window as any).showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return;
+          } catch (e: any) {
+            if (e.name === 'AbortError') return; // User cancelled
+          }
+        }
+
+        // Fallback: direct download
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `portfolio-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
