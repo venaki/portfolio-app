@@ -56,7 +56,7 @@ function groupByMonth(transactions: Transaction[]): MonthGroup[] {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  buy: '매수', sell: '매도', opening_balance: '최초잔고',
+  buy: '매수', sell: '매도', opening_balance: '매수', adjustment: '매수',
 };
 const ASSET_LABELS: Record<string, string> = {
   us_stock: '미국', kr_stock: '한국', cash: '기타',
@@ -288,10 +288,10 @@ export default function History() {
                   <View>
                     <Text style={styles.fieldLabel}>거래유형</Text>
                     <FilterTabs
-                      options={['매수', '매도', '최초잔고']}
+                      options={['매수', '매도']}
                       selected={TYPE_LABELS[editType] ?? editType}
                       onSelect={(v) => {
-                        const reverse: Record<string, string> = { '매수': 'buy', '매도': 'sell', '최초잔고': 'opening_balance' };
+                        const reverse: Record<string, string> = { '매수': 'buy', '매도': 'sell' };
                         setEditType(reverse[v] ?? v);
                       }}
                     />

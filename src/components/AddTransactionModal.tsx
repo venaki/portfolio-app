@@ -26,7 +26,6 @@ const OWNERS: Owner[] = ['본석', '연지', '나은'];
 const TX_TYPES: { label: string; value: TransactionType }[] = [
   { label: '매수', value: 'buy' },
   { label: '매도', value: 'sell' },
-  { label: '최초잔고', value: 'opening_balance' },
 ];
 
 const ASSET_CLASS_TABS = ['미국주식', '한국주식', '기타'];

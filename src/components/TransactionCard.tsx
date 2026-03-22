@@ -20,18 +20,23 @@ type BadgeConfig = {
 function getBadge(type: Transaction['type']): BadgeConfig {
   switch (type) {
     case 'buy':
+    case 'opening_balance':
+    case 'adjustment':
       return { bg: '#E8F5E9', color: POSITIVE_COLOR, label: '매수' };
     case 'sell':
       return { bg: '#FFF0EB', color: '#E07B54', label: '매도' };
-    case 'opening_balance':
-      return { bg: '#F0F0F0', color: '#888888', label: '최초잔고' };
-    case 'adjustment':
-      return { bg: '#F0F0F0', color: '#888888', label: '최초잔고' };
   }
 }
 
 export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSell }: TransactionCardProps) {
-  const badge = getBadge(tx.type);
+  const isCashAsset = tx.assetClass === 'cash';
+  const cashType = isCashAsset && tx.memo ? tx.memo.split(' · ')[0] : '';
+  const isLoan = cashType === '대출';
+
+  // For cash assets, show asset type badge instead of buy/sell
+  const badge = isCashAsset
+    ? { bg: isLoan ? '#FFF0EB' : '#F0F0F0', color: isLoan ? '#E07B54' : '#888888', label: cashType || '기타' }
+    : getBadge(tx.type);
   const isKRW = tx.currency === 'KRW';
   const isCash = tx.assetClass === 'cash';
   const formatPrice = isKRW ? formatKRW : formatUSD;
