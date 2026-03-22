@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   TextInput,
   Pressable,
   Alert,
-  Share,
+  Platform,
   StyleSheet,
 } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
@@ -46,22 +46,64 @@ export default function Settings() {
     await updateSettings({ refreshInterval: nextInterval(settings.refreshInterval) });
   }, [settings.refreshInterval, updateSettings]);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const handleBackup = useCallback(async () => {
     try {
       const json = await getAppDataJson();
-      await Share.share({ message: json, title: 'portfolio-backup.json' });
+      if (Platform.OS === 'web') {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `portfolio-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        const { Share } = require('react-native');
+        await Share.share({ message: json, title: 'portfolio-backup.json' });
+      }
     } catch {
       Alert.alert('오류', '데이터를 내보내는 중 오류가 발생했습니다.');
     }
   }, [getAppDataJson]);
 
   const handleRestore = useCallback(() => {
-    Alert.alert(
-      '데이터 복원',
-      'JSON 가져오기는 expo-document-picker 설치 후 지원됩니다.\n현재 버전에서는 사용할 수 없습니다.',
-      [{ text: '확인' }],
-    );
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+    } else {
+      Alert.alert('알림', '모바일에서는 expo-document-picker 설치 후 지원됩니다.');
+    }
   }, []);
+
+  const handleFileSelected = useCallback(async (event: any) => {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.transactions || !data.settings) {
+        Alert.alert('오류', '올바른 백업 파일이 아닙니다.');
+        return;
+      }
+      Alert.alert('데이터 복원', '현재 데이터를 백업 파일로 교체하시겠습니까?', [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '복원',
+          onPress: async () => {
+            await importData(text);
+            Alert.alert('완료', '데이터가 복원되었습니다.');
+          },
+        },
+      ]);
+    } catch {
+      Alert.alert('오류', 'JSON 파일을 읽는 중 오류가 발생했습니다.');
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [importData]);
 
   const handleReset = useCallback(() => {
     Alert.alert(
@@ -83,6 +125,7 @@ export default function Settings() {
   const accentColor = settings.accentColor;
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       contentContainerStyle={[
@@ -149,6 +192,16 @@ export default function Settings() {
         </View>
       </View>
     </ScrollView>
+    {Platform.OS === 'web' && (
+      <input
+        ref={fileInputRef as any}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={handleFileSelected}
+      />
+    )}
+    </>
   );
 }
 
