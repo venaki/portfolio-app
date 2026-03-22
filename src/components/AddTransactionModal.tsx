@@ -28,11 +28,10 @@ const TX_TYPES: { label: string; value: TransactionType }[] = [
   { label: '매도', value: 'sell' },
 ];
 
-const ASSET_CLASS_TABS = ['미국주식', '한국주식', '기타'];
+const ASSET_CLASS_TABS = ['미국', '한국'];
 const ASSET_CLASS_MAP: Record<string, AssetClass> = {
-  '미국주식': 'us_stock',
-  '한국주식': 'kr_stock',
-  '기타': 'cash',
+  '미국': 'us_stock',
+  '한국': 'kr_stock',
 };
 const CURRENCY_OPTIONS = ['KRW', 'USD'];
 
@@ -42,7 +41,7 @@ export function AddTransactionModal({ visible, onClose }: Props) {
   const { addTransaction } = useApp();
 
   const [owner, setOwner] = useState<Owner>('본석');
-  const [assetClassLabel, setAssetClassLabel] = useState('미국주식');
+  const [assetClassLabel, setAssetClassLabel] = useState('미국');
   const [ticker, setTicker] = useState('');
   const [txType, setTxType] = useState<TransactionType>('buy');
   const [shares, setShares] = useState('');
@@ -63,7 +62,7 @@ export function AddTransactionModal({ visible, onClose }: Props) {
 
   function reset() {
     setOwner('본석');
-    setAssetClassLabel('미국주식');
+    setAssetClassLabel('미국');
     setTicker('');
     setTxType('buy');
     setShares('');

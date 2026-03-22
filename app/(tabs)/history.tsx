@@ -188,11 +188,11 @@ export default function History() {
       <View style={[styles.header, isMobile ? styles.headerMobile : styles.headerPC]}>
         <Text style={styles.title}>거래내역</Text>
         <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: '#16A34A' }]}
+          style={[styles.addBtn, { backgroundColor: settings.accentColor }]}
           onPress={() => setShowModal(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.addBtnText}>기록</Text>
+          <Text style={styles.addBtnText}>추가</Text>
         </TouchableOpacity>
       </View>
 
