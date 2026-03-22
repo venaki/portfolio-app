@@ -140,7 +140,7 @@ export function AddTransactionModal({ visible, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

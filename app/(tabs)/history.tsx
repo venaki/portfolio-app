@@ -260,10 +260,15 @@ export default function History() {
       <AddTransactionModal visible={showModal} onClose={() => setShowModal(false)} />
 
       {/* Edit/Detail Modal */}
-      <Modal visible={!!editTx} transparent animationType="fade">
+      <Modal visible={!!editTx} transparent animationType="none">
         <Pressable style={styles.modalOverlay} onPress={() => setEditTx(null)}>
           <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>거래 편집</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>거래 편집</Text>
+              <Pressable onPress={() => setEditTx(null)} hitSlop={8}>
+                <Text style={styles.closeX}>✕</Text>
+              </Pressable>
+            </View>
 
             {editTx && (
               <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
@@ -276,9 +281,12 @@ export default function History() {
                   <View>
                     <Text style={styles.fieldLabel}>거래유형</Text>
                     <FilterTabs
-                      options={['buy', 'sell', 'opening_balance', 'adjustment']}
-                      selected={editType}
-                      onSelect={setEditType}
+                      options={['매수', '매도', '초기', '보정']}
+                      selected={TYPE_LABELS[editType] ?? editType}
+                      onSelect={(v) => {
+                        const reverse: Record<string, string> = { '매수': 'buy', '매도': 'sell', '초기': 'opening_balance', '보정': 'adjustment' };
+                        setEditType(reverse[v] ?? v);
+                      }}
                     />
                   </View>
 
@@ -412,7 +420,9 @@ const styles = StyleSheet.create({
     padding: 24, maxHeight: '80%', width: '90%', maxWidth: 480,
   },
   modalContentPC: { width: 480 },
-  modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary },
+  closeX: { fontFamily: 'Inter_500Medium', fontSize: 20, color: COLORS.textMuted, padding: 4 },
   fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: COLORS.textTertiary, marginBottom: 4 },
   input: {
     backgroundColor: '#F8F8F8', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10,

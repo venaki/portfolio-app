@@ -172,7 +172,7 @@ export default function Assets() {
       </ScrollView>
 
       {/* Add Modal */}
-      <Modal visible={showAddModal} transparent animationType="fade">
+      <Modal visible={showAddModal} transparent animationType="none">
         <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
           <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>기타 자산 추가</Text>
@@ -242,7 +242,7 @@ export default function Assets() {
       </Modal>
 
       {/* Edit Modal */}
-      <Modal visible={!!editTarget} transparent animationType="fade">
+      <Modal visible={!!editTarget} transparent animationType="none">
         <Pressable style={styles.modalOverlay} onPress={() => setEditTarget(null)}>
           <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>자산 정보</Text>
