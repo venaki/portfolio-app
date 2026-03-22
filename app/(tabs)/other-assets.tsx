@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card, borderRadius: 20,
     padding: 24, maxHeight: '80%', width: '90%', maxWidth: 480,
   },
-  modalContentPC: { width: 480 },
+  modalContentPC: { width: 560, maxWidth: 560 },
   modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
   fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: COLORS.textPrimary, marginBottom: 6 },
   input: {

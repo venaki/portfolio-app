@@ -302,9 +302,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 24,
-    maxHeight: '90%',
+    maxHeight: '85%',
     width: '90%',
-    maxWidth: 480,
+    maxWidth: 560,
   },
   header: {
     flexDirection: 'row',

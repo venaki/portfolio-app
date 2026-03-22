@@ -271,7 +271,7 @@ export default function History() {
             </View>
 
             {editTx && (
-              <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={true}>
                 <View style={{ gap: 12 }}>
                   <View>
                     <Text style={styles.fieldLabel}>종목코드</Text>
@@ -417,9 +417,9 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
     backgroundColor: COLORS.card, borderRadius: 20,
-    padding: 24, maxHeight: '80%', width: '90%', maxWidth: 480,
+    padding: 24, maxHeight: '85%', width: '90%', maxWidth: 480,
   },
-  modalContentPC: { width: 480 },
+  modalContentPC: { width: 560, maxWidth: 560 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary },
   closeX: { fontFamily: 'Inter_500Medium', fontSize: 20, color: COLORS.textMuted, padding: 4 },
