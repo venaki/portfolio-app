@@ -271,7 +271,7 @@ export default function History() {
             </View>
 
             {editTx && (
-              <ScrollView style={{ maxHeight: 600 }} showsVerticalScrollIndicator={true}>
+              <ScrollView style={isMobile ? { maxHeight: 400 } : undefined} showsVerticalScrollIndicator={true} scrollEnabled={isMobile}>
                 <View style={{ gap: 12 }}>
                   <View>
                     <Text style={styles.fieldLabel}>종목코드</Text>
