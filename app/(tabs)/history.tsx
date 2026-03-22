@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
-import { COLORS } from '../../src/constants';
+import { COLORS, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS } from '../../src/constants';
 import { FilterTabs } from '../../src/components/FilterTabs';
 import { FilterChips } from '../../src/components/FilterChips';
 import { TransactionCard } from '../../src/components/TransactionCard';
@@ -60,6 +60,7 @@ export default function History() {
 
   const [selectedType, setSelectedType] = useState<TypeFilter>('전체');
   const [selectedOwner, setSelectedOwner] = useState<string>('전체');
+  const [selectedAssetClass, setSelectedAssetClass] = useState<string>('전체');
   const [showModal, setShowModal] = useState(false);
 
   // Sort all transactions newest-first (used as reference for replay)
@@ -99,9 +100,12 @@ export default function History() {
     return sortedDesc.filter((tx) => {
       if (!matchesTypeFilter(tx, selectedType)) return false;
       if (selectedOwner !== '전체' && tx.owner !== (selectedOwner as Owner)) return false;
+      // Asset class filter
+      const acFilter = ASSET_CLASS_LABELS[selectedAssetClass];
+      if (acFilter !== 'all' && tx.assetClass !== acFilter) return false;
       return true;
     });
-  }, [sortedDesc, selectedType, selectedOwner]);
+  }, [sortedDesc, selectedType, selectedOwner, selectedAssetClass]);
 
   const groups = useMemo(() => groupByMonth(filtered), [filtered]);
 
@@ -117,6 +121,15 @@ export default function History() {
         >
           <Text style={styles.addBtnText}>기록</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Asset class filter */}
+      <View style={styles.filterTabsWrapper}>
+        <FilterTabs
+          options={ASSET_CLASS_OPTIONS}
+          selected={selectedAssetClass}
+          onSelect={setSelectedAssetClass}
+        />
       </View>
 
       {/* Owner filter */}
@@ -219,7 +232,7 @@ const styles = StyleSheet.create({
   },
   filterTabsWrapper: {
     paddingHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   filterChipsWrapper: {
     marginBottom: 12,

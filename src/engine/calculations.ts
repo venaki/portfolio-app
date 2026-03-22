@@ -9,11 +9,35 @@ export function calcProfitPercentUSD(holding: Holding, currentPrice: number): nu
   return ((currentPrice - holding.avgCost) / holding.avgCost) * 100;
 }
 
+/**
+ * Currency-aware total value in KRW.
+ * - KRW holdings: currentPrice is already KRW, no conversion needed.
+ * - USD holdings: currentPrice * shares * currentRate.
+ * - Cash holdings: shares * avgCost (value is the deposit amount).
+ */
 export function calcTotalValueKRW(holding: Holding, currentPrice: number, currentRate: number): number {
+  if (holding.assetClass === 'cash') {
+    // Cash: value = shares * avgCost in the holding's currency
+    if (holding.currency === 'KRW') {
+      return holding.avgCost * holding.shares;
+    }
+    return holding.avgCost * holding.shares * currentRate;
+  }
+  if (holding.currency === 'KRW') {
+    return currentPrice * holding.shares;
+  }
   return currentPrice * holding.shares * currentRate;
 }
 
+/**
+ * Currency-aware cost in KRW.
+ * - KRW holdings: avgCost * shares (already KRW).
+ * - USD holdings: avgCost * shares * avgExchangeRate.
+ */
 export function calcCostKRW(holding: Holding): number {
+  if (holding.currency === 'KRW') {
+    return holding.avgCost * holding.shares;
+  }
   return holding.avgCost * holding.shares * holding.avgExchangeRate;
 }
 
@@ -33,6 +57,10 @@ export function calcDailyChangeKRW(
   previousClose: number,
   currentRate: number,
 ): number {
+  if (holding.assetClass === 'cash') return 0;
+  if (holding.currency === 'KRW') {
+    return (currentPrice - previousClose) * holding.shares;
+  }
   return (currentPrice - previousClose) * holding.shares * currentRate;
 }
 

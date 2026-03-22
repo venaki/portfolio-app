@@ -12,16 +12,28 @@ interface Props {
 }
 
 export function HoldingCard({ holding, quote, exchangeRate, accentColor }: Props) {
+  const isCash = holding.assetClass === 'cash';
+  const isKR = holding.assetClass === 'kr_stock';
+  const isKRW = holding.currency === 'KRW';
+
   const price = quote?.price ?? 0;
   const dailyChangePct = quote?.changesPercentage ?? 0;
-  const profitPctUSD = quote ? calcProfitPercentUSD(holding, price) : 0;
-  const profitKRW = quote ? calcProfitKRW(holding, price, exchangeRate) : 0;
-  const totalValueKRW = quote ? calcTotalValueKRW(holding, price, exchangeRate) : 0;
+
+  // For cash: no market quote needed
+  const profitKRW = isCash ? 0 : (quote ? calcProfitKRW(holding, price, exchangeRate) : 0);
+  const totalValueKRW = isCash
+    ? (isKRW ? holding.avgCost * holding.shares : holding.avgCost * holding.shares * exchangeRate)
+    : (quote ? calcTotalValueKRW(holding, price, exchangeRate) : 0);
+
+  const profitPct = isCash ? 0 : (quote ? calcProfitPercentUSD(holding, price) : 0);
 
   const dailyPositive = dailyChangePct >= 0;
   const dailyColor = dailyPositive ? accentColor : NEGATIVE_COLOR;
-  const profitPositive = profitPctUSD >= 0;
+  const profitPositive = profitPct >= 0;
   const profitColor = profitPositive ? accentColor : NEGATIVE_COLOR;
+
+  const formatPrice = isKRW ? formatKRW : formatUSD;
+  const formatAvgCost = isKRW ? formatKRW : formatUSD;
 
   return (
     <View style={styles.card}>
@@ -34,45 +46,59 @@ export function HoldingCard({ holding, quote, exchangeRate, accentColor }: Props
           </View>
         </View>
         <View style={styles.priceArea}>
-          <Text style={styles.price}>{quote ? formatUSD(price) : '-'}</Text>
-          <Text style={[styles.dailyChange, { color: dailyColor }]}>
-            {quote ? formatPercent(dailyChangePct) : '-'}
-          </Text>
+          {isCash ? (
+            <Text style={styles.price}>{formatPrice(holding.avgCost * holding.shares)}</Text>
+          ) : (
+            <>
+              <Text style={styles.price}>{quote ? formatPrice(price) : '-'}</Text>
+              <Text style={[styles.dailyChange, { color: dailyColor }]}>
+                {quote ? formatPercent(dailyChangePct) : '-'}
+              </Text>
+            </>
+          )}
         </View>
       </View>
 
       {/* Name */}
-      {quote?.name && (
+      {!isCash && quote?.name && (
         <Text style={styles.name} numberOfLines={1}>{quote.name}</Text>
       )}
 
-      {/* Bottom: 2x3 grid */}
+      {/* Bottom: grid */}
       <View style={styles.grid}>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridLabel}>수익</Text>
-          <Text style={[styles.gridValue, { color: profitColor }]}>
-            {quote ? `${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}` : '-'}
-          </Text>
-          <Text style={[styles.gridSub, { color: profitColor }]}>
-            {quote ? formatPercent(profitPctUSD) : '-'}
-          </Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridLabel}>평단가</Text>
-          <Text style={styles.gridValue}>{formatUSD(holding.avgCost)}</Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridLabel}>수량</Text>
-          <Text style={styles.gridValue}>{formatShares(holding.shares)}주</Text>
-        </View>
+        {!isCash && (
+          <>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>수익</Text>
+              <Text style={[styles.gridValue, { color: profitColor }]}>
+                {quote ? `${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}` : '-'}
+              </Text>
+              <Text style={[styles.gridSub, { color: profitColor }]}>
+                {quote ? formatPercent(profitPct) : '-'}
+              </Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>평단가</Text>
+              <Text style={styles.gridValue}>{formatAvgCost(holding.avgCost)}</Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>수량</Text>
+              <Text style={styles.gridValue}>{formatShares(holding.shares)}주</Text>
+            </View>
+          </>
+        )}
         <View style={styles.gridItem}>
           <Text style={styles.gridLabel}>평가금액</Text>
-          <Text style={styles.gridValue}>{quote ? formatKRW(totalValueKRW) : '-'}</Text>
+          <Text style={styles.gridValue}>
+            {isCash ? formatKRW(totalValueKRW) : (quote ? formatKRW(totalValueKRW) : '-')}
+          </Text>
         </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridLabel}>매입환율</Text>
-          <Text style={styles.gridValue}>{formatKRW(holding.avgExchangeRate)}</Text>
-        </View>
+        {!isCash && !isKR && (
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>매입환율</Text>
+            <Text style={styles.gridValue}>{formatKRW(holding.avgExchangeRate)}</Text>
+          </View>
+        )}
       </View>
     </View>
   );

@@ -4,6 +4,8 @@ import { Transaction, Holding } from '../../src/types';
 function tx(overrides: Partial<Transaction> & Pick<Transaction, 'owner' | 'ticker' | 'type' | 'shares' | 'price' | 'exchangeRate'>): Transaction {
   return {
     id: Math.random().toString(),
+    assetClass: 'us_stock',
+    currency: 'USD',
     executedAt: '2026-01-01T00:00:00Z',
     ...overrides,
   };
@@ -21,6 +23,8 @@ describe('replayTransactions', () => {
     expect(holdings[0]).toEqual({
       owner: '본석',
       ticker: 'TSLA',
+      assetClass: 'us_stock',
+      currency: 'USD',
       shares: 500,
       avgCost: 318.01,
       avgExchangeRate: 1450.51,

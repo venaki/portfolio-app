@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Holding, StockQuote } from '../types';
 import { COLORS, NEGATIVE_COLOR } from '../constants';
-import { calcProfitPercentUSD, calcProfitUSD, calcTotalValueKRW, calcProfitKRW, calcProfitPercentKRW } from '../engine/calculations';
+import { calcProfitPercentUSD, calcTotalValueKRW, calcProfitKRW } from '../engine/calculations';
 import { formatUSD, formatKRW, formatPercent, formatShares } from '../utils/format';
 
 interface Props {
@@ -12,16 +12,26 @@ interface Props {
 }
 
 export function HoldingRow({ holding, quote, exchangeRate, accentColor }: Props) {
+  const isCash = holding.assetClass === 'cash';
+  const isKR = holding.assetClass === 'kr_stock';
+  const isKRW = holding.currency === 'KRW';
+
   const price = quote?.price ?? 0;
   const dailyChangePct = quote?.changesPercentage ?? 0;
-  const profitPctUSD = quote ? calcProfitPercentUSD(holding, price) : 0;
-  const profitKRW = quote ? calcProfitKRW(holding, price, exchangeRate) : 0;
-  const totalValueKRW = quote ? calcTotalValueKRW(holding, price, exchangeRate) : 0;
+
+  const profitKRW = isCash ? 0 : (quote ? calcProfitKRW(holding, price, exchangeRate) : 0);
+  const totalValueKRW = isCash
+    ? (isKRW ? holding.avgCost * holding.shares : holding.avgCost * holding.shares * exchangeRate)
+    : (quote ? calcTotalValueKRW(holding, price, exchangeRate) : 0);
+
+  const profitPct = isCash ? 0 : (quote ? calcProfitPercentUSD(holding, price) : 0);
 
   const dailyPositive = dailyChangePct >= 0;
   const dailyColor = dailyPositive ? accentColor : NEGATIVE_COLOR;
-  const profitPositive = profitPctUSD >= 0;
+  const profitPositive = profitPct >= 0;
   const profitColor = profitPositive ? accentColor : NEGATIVE_COLOR;
+
+  const formatPrice = isKRW ? formatKRW : formatUSD;
 
   return (
     <View style={styles.row}>
@@ -33,50 +43,70 @@ export function HoldingRow({ holding, quote, exchangeRate, accentColor }: Props)
             <Text style={styles.ownerText}>{holding.owner}</Text>
           </View>
         </View>
-        {quote?.name && (
+        {!isCash && quote?.name && (
           <Text style={styles.tickerName} numberOfLines={1}>{quote.name}</Text>
         )}
       </View>
 
       {/* 현재가 + 변동% */}
       <View style={styles.colFill}>
-        <Text style={styles.price}>{quote ? formatUSD(price) : '-'}</Text>
-        <Text style={[styles.subText, { color: dailyColor }]}>
-          {quote ? formatPercent(dailyChangePct) : '-'}
-        </Text>
+        {isCash ? (
+          <Text style={styles.valueText}>-</Text>
+        ) : (
+          <>
+            <Text style={styles.price}>{quote ? formatPrice(price) : '-'}</Text>
+            <Text style={[styles.subText, { color: dailyColor }]}>
+              {quote ? formatPercent(dailyChangePct) : '-'}
+            </Text>
+          </>
+        )}
       </View>
 
       {/* 수익금 + 수익률 */}
       <View style={styles.colFill}>
-        <Text style={[styles.price, { color: profitColor }]}>
-          {quote ? `${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}` : '-'}
-        </Text>
-        <Text style={[styles.subText, { color: profitColor }]}>
-          {quote ? formatPercent(profitPctUSD) : '-'}
-        </Text>
+        {isCash ? (
+          <Text style={styles.valueText}>-</Text>
+        ) : (
+          <>
+            <Text style={[styles.price, { color: profitColor }]}>
+              {quote ? `${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}` : '-'}
+            </Text>
+            <Text style={[styles.subText, { color: profitColor }]}>
+              {quote ? formatPercent(profitPct) : '-'}
+            </Text>
+          </>
+        )}
       </View>
 
       {/* 평단가 */}
       <View style={styles.colFill}>
-        <Text style={styles.valueText}>{formatUSD(holding.avgCost)}</Text>
+        <Text style={styles.valueText}>
+          {isCash ? '-' : formatPrice(holding.avgCost)}
+        </Text>
       </View>
 
       {/* 수량 */}
       <View style={styles.colFill}>
-        <Text style={styles.valueText}>{formatShares(holding.shares)}</Text>
+        <Text style={styles.valueText}>
+          {isCash ? '-' : formatShares(holding.shares)}
+        </Text>
       </View>
 
       {/* 평가금액 */}
       <View style={styles.colFill}>
-        <Text style={styles.valueText}>{quote ? formatKRW(totalValueKRW) : '-'}</Text>
-        {quote && (
+        <Text style={styles.valueText}>
+          {isCash ? formatKRW(totalValueKRW) : (quote ? formatKRW(totalValueKRW) : '-')}
+        </Text>
+        {!isCash && !isKR && quote && (
           <Text style={styles.subText}>{formatUSD(price * holding.shares)}</Text>
         )}
       </View>
 
       {/* 매입환율 */}
       <View style={styles.colFill}>
-        <Text style={styles.valueText}>{formatKRW(holding.avgExchangeRate)}</Text>
+        <Text style={styles.valueText}>
+          {isKRW ? '-' : formatKRW(holding.avgExchangeRate)}
+        </Text>
       </View>
     </View>
   );

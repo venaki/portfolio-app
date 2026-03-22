@@ -1,14 +1,24 @@
-import { Transaction, Owner } from './types';
+import { Transaction, Owner, AssetClass, Currency } from './types';
 import { v4 as uuid } from 'uuid';
 
 const SEED_DATE = '2026-03-22T00:00:00.000Z';
 
-function opening(owner: Owner, ticker: string, shares: number, price: number, exchangeRate: number): Transaction {
+function opening(
+  owner: Owner,
+  ticker: string,
+  shares: number,
+  price: number,
+  exchangeRate: number,
+  assetClass: AssetClass = 'us_stock',
+  currency: Currency = 'USD',
+): Transaction {
   return {
     id: uuid(),
     owner,
     ticker,
     type: 'opening_balance',
+    assetClass,
+    currency,
     shares,
     price,
     exchangeRate,
@@ -18,6 +28,7 @@ function opening(owner: Owner, ticker: string, shares: number, price: number, ex
 }
 
 export const SEED_TRANSACTIONS: Transaction[] = [
+  // US stocks
   opening('본석', 'TSLA', 500, 318.01, 1450.51),
   opening('본석', 'TSLL', 2089, 16.86, 1430.00),
   opening('본석', 'TQQQ', 1200, 25.85, 1391.50),
@@ -31,4 +42,7 @@ export const SEED_TRANSACTIONS: Transaction[] = [
   opening('연지', 'NFLX', 5, 88.74, 1473.60),
   opening('연지', 'MP', 4, 69.79, 1473.60),
   opening('나은', 'TQQQ', 1037, 38.10, 1467.16),
+  // Korean stocks
+  opening('본석', '035420', 40, 276600, 1, 'kr_stock', 'KRW'),  // 네이버
+  opening('본석', '096530', 200, 32950, 1, 'kr_stock', 'KRW'),  // 씨젠
 ];

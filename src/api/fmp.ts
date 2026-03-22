@@ -1,4 +1,4 @@
-import { StockQuote } from '../types';
+import { StockQuote, AssetClass } from '../types';
 
 // Yahoo Finance via public CORS proxy
 const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
@@ -6,6 +6,16 @@ const CORS_PROXIES = [
   'https://corsproxy.io/?',
   'https://api.allorigins.win/raw?url=',
 ];
+
+// Known KOSDAQ tickers (add more as needed)
+const KOSDAQ_TICKERS = ['096530'];
+
+export function getYahooSymbol(ticker: string, assetClass: AssetClass): string {
+  if (assetClass === 'kr_stock') {
+    return KOSDAQ_TICKERS.includes(ticker) ? `${ticker}.KQ` : `${ticker}.KS`;
+  }
+  return ticker; // US stocks use ticker as-is
+}
 
 async function fetchWithProxy(url: string): Promise<any> {
   // Web: use CORS proxy. Native (iOS): try direct first.
@@ -27,14 +37,22 @@ async function fetchWithProxy(url: string): Promise<any> {
   throw new Error('ALL_PROXIES_FAILED');
 }
 
-export async function fetchQuotes(tickers: string[], _apiKey: string): Promise<StockQuote[]> {
+/**
+ * Fetch quotes for a list of tickers.
+ * tickerSymbolMap: maps original ticker → Yahoo symbol (e.g., '035420' → '035420.KS')
+ */
+export async function fetchQuotes(
+  tickers: string[],
+  _apiKey: string,
+  tickerSymbolMap?: Record<string, string>,
+): Promise<StockQuote[]> {
   console.log('[Yahoo] Fetching quotes for', tickers.length, 'tickers');
   const results: StockQuote[] = [];
 
-  // Fetch each ticker individually via Yahoo Finance chart API
   const promises = tickers.map(async (ticker) => {
     try {
-      const url = `${YAHOO_BASE}/${ticker}?range=1d&interval=1d`;
+      const yahooSymbol = tickerSymbolMap?.[ticker] ?? ticker;
+      const url = `${YAHOO_BASE}/${yahooSymbol}?range=1d&interval=1d`;
       const data = await fetchWithProxy(url);
 
       const result = data?.chart?.result?.[0];
@@ -45,7 +63,7 @@ export async function fetchQuotes(tickers: string[], _apiKey: string): Promise<S
       const previousClose = meta.chartPreviousClose ?? meta.previousClose;
 
       return {
-        symbol: ticker,
+        symbol: ticker, // Return keyed by original ticker, not Yahoo symbol
         name: meta.shortName ?? meta.longName ?? ticker,
         price,
         change: price - previousClose,

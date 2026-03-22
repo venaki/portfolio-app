@@ -21,11 +21,27 @@ export default function Dashboard() {
   let totalPrevValueKRW = 0;
 
   holdings.forEach(h => {
+    const isCash = h.assetClass === 'cash';
     const quote = market.quotes[h.ticker];
+
+    if (isCash) {
+      // Cash: value = avgCost * shares, convert to KRW if USD
+      const valueKRW = calcTotalValueKRW(h, 0, market.exchangeRate);
+      totalValueKRW += valueKRW;
+      totalCostKRW += calcCostKRW(h);
+      totalPrevValueKRW += valueKRW; // No daily change for cash
+      if (h.currency === 'USD') {
+        totalValueUSD += h.avgCost * h.shares;
+      }
+      return;
+    }
+
     if (!quote) return;
     totalValueKRW += calcTotalValueKRW(h, quote.price, market.exchangeRate);
     totalCostKRW += calcCostKRW(h);
-    totalValueUSD += quote.price * h.shares;
+    if (h.currency === 'USD') {
+      totalValueUSD += quote.price * h.shares;
+    }
     totalDailyChangeKRW += calcDailyChangeKRW(h, quote.price, quote.previousClose, market.exchangeRate);
     totalPrevValueKRW += calcTotalValueKRW(h, quote.previousClose, market.exchangeRate);
   });
@@ -42,11 +58,24 @@ export default function Dashboard() {
     let valueUSD = 0;
 
     ownerHoldings.forEach(h => {
+      const isCash = h.assetClass === 'cash';
       const quote = market.quotes[h.ticker];
+
+      if (isCash) {
+        valueKRW += calcTotalValueKRW(h, 0, market.exchangeRate);
+        costKRW += calcCostKRW(h);
+        if (h.currency === 'USD') {
+          valueUSD += h.avgCost * h.shares;
+        }
+        return;
+      }
+
       if (!quote) return;
       valueKRW += calcTotalValueKRW(h, quote.price, market.exchangeRate);
       costKRW += calcCostKRW(h);
-      valueUSD += quote.price * h.shares;
+      if (h.currency === 'USD') {
+        valueUSD += quote.price * h.shares;
+      }
     });
 
     const profitKRW = valueKRW - costKRW;

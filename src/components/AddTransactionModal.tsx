@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Owner, TransactionType } from '../types';
+import { Owner, TransactionType, AssetClass, Currency } from '../types';
 import { COLORS } from '../constants';
 import { useApp } from '../context/AppContext';
 import { FilterTabs } from './FilterTabs';
@@ -28,12 +28,21 @@ const TX_TYPES: { label: string; value: TransactionType }[] = [
   { label: '최초잔고', value: 'opening_balance' },
 ];
 
+const ASSET_CLASS_TABS = ['미국주식', '한국주식', '기타'];
+const ASSET_CLASS_MAP: Record<string, AssetClass> = {
+  '미국주식': 'us_stock',
+  '한국주식': 'kr_stock',
+  '기타': 'cash',
+};
+const CURRENCY_OPTIONS = ['KRW', 'USD'];
+
 const today = new Date().toISOString().slice(0, 10);
 
 export function AddTransactionModal({ visible, onClose }: Props) {
   const { addTransaction } = useApp();
 
   const [owner, setOwner] = useState<Owner>('본석');
+  const [assetClassLabel, setAssetClassLabel] = useState('미국주식');
   const [ticker, setTicker] = useState('');
   const [txType, setTxType] = useState<TransactionType>('buy');
   const [shares, setShares] = useState('');
@@ -41,13 +50,20 @@ export function AddTransactionModal({ visible, onClose }: Props) {
   const [exchangeRate, setExchangeRate] = useState('');
   const [executedAt, setExecutedAt] = useState(today);
   const [memo, setMemo] = useState('');
+  const [cashCurrency, setCashCurrency] = useState<Currency>('KRW');
   const [submitting, setSubmitting] = useState(false);
+
+  const assetClass = ASSET_CLASS_MAP[assetClassLabel];
+  const isKR = assetClass === 'kr_stock';
+  const isCash = assetClass === 'cash';
+  const isUS = assetClass === 'us_stock';
 
   const txTypeLabels = TX_TYPES.map((t) => t.label);
   const selectedTxLabel = TX_TYPES.find((t) => t.value === txType)?.label ?? '매수';
 
   function reset() {
     setOwner('본석');
+    setAssetClassLabel('미국주식');
     setTicker('');
     setTxType('buy');
     setShares('');
@@ -55,18 +71,44 @@ export function AddTransactionModal({ visible, onClose }: Props) {
     setExchangeRate('');
     setExecutedAt(today);
     setMemo('');
+    setCashCurrency('KRW');
   }
 
   async function handleSubmit() {
-    const tickerTrimmed = ticker.trim().toUpperCase();
-    const sharesNum = parseFloat(shares);
+    const tickerTrimmed = isCash ? ticker.trim() : ticker.trim().toUpperCase();
     const priceNum = parseFloat(price);
-    const rateNum = parseFloat(exchangeRate);
 
-    if (!tickerTrimmed) return Alert.alert('오류', '종목코드를 입력해주세요.');
-    if (isNaN(sharesNum) || sharesNum <= 0) return Alert.alert('오류', '수량을 올바르게 입력해주세요.');
-    if (isNaN(priceNum) || priceNum <= 0) return Alert.alert('오류', '체결가를 올바르게 입력해주세요.');
-    if (isNaN(rateNum) || rateNum <= 0) return Alert.alert('오류', '환율을 올바르게 입력해주세요.');
+    if (!tickerTrimmed) {
+      return Alert.alert('오류', isCash ? '자산명을 입력해주세요.' : '종목코드를 입력해주세요.');
+    }
+    if (isNaN(priceNum) || priceNum <= 0) {
+      return Alert.alert('오류', isCash ? '금액을 올바르게 입력해주세요.' : '체결가를 올바르게 입력해주세요.');
+    }
+
+    let sharesNum: number;
+    let rateNum: number;
+    let currency: Currency;
+
+    if (isCash) {
+      sharesNum = 1;
+      currency = cashCurrency;
+      rateNum = currency === 'KRW' ? 1 : parseFloat(exchangeRate);
+      if (currency === 'USD' && (isNaN(rateNum) || rateNum <= 0)) {
+        return Alert.alert('오류', '환율을 올바르게 입력해주세요.');
+      }
+    } else if (isKR) {
+      sharesNum = parseFloat(shares);
+      if (isNaN(sharesNum) || sharesNum <= 0) return Alert.alert('오류', '수량을 올바르게 입력해주세요.');
+      rateNum = 1;
+      currency = 'KRW';
+    } else {
+      // US stock
+      sharesNum = parseFloat(shares);
+      rateNum = parseFloat(exchangeRate);
+      if (isNaN(sharesNum) || sharesNum <= 0) return Alert.alert('오류', '수량을 올바르게 입력해주세요.');
+      if (isNaN(rateNum) || rateNum <= 0) return Alert.alert('오류', '환율을 올바르게 입력해주세요.');
+      currency = 'USD';
+    }
 
     setSubmitting(true);
     try {
@@ -74,6 +116,8 @@ export function AddTransactionModal({ visible, onClose }: Props) {
         owner,
         ticker: tickerTrimmed,
         type: txType,
+        assetClass,
+        currency,
         shares: sharesNum,
         price: priceNum,
         exchangeRate: rateNum,
@@ -111,6 +155,14 @@ export function AddTransactionModal({ visible, onClose }: Props) {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* 자산유형 */}
+            <Text style={styles.label}>자산유형</Text>
+            <FilterTabs
+              options={ASSET_CLASS_TABS}
+              selected={assetClassLabel}
+              onSelect={setAssetClassLabel}
+            />
+
             {/* 명의 */}
             <Text style={styles.label}>명의</Text>
             <FilterTabs
@@ -119,15 +171,15 @@ export function AddTransactionModal({ visible, onClose }: Props) {
               onSelect={(v) => setOwner(v as Owner)}
             />
 
-            {/* 종목코드 */}
-            <Text style={styles.label}>종목코드</Text>
+            {/* 종목코드 / 자산명 */}
+            <Text style={styles.label}>{isCash ? '자산명' : '종목코드'}</Text>
             <TextInput
               style={styles.input}
               value={ticker}
               onChangeText={setTicker}
-              placeholder="예: TSLA"
+              placeholder={isCash ? '예: 신한은행 예금' : isKR ? '예: 035420' : '예: TSLA'}
               placeholderTextColor={COLORS.textDisabled}
-              autoCapitalize="characters"
+              autoCapitalize={isCash ? 'none' : 'characters'}
             />
 
             {/* 거래유형 */}
@@ -141,38 +193,60 @@ export function AddTransactionModal({ visible, onClose }: Props) {
               }}
             />
 
-            {/* 수량 */}
-            <Text style={styles.label}>수량</Text>
-            <TextInput
-              style={styles.input}
-              value={shares}
-              onChangeText={setShares}
-              placeholder="0"
-              placeholderTextColor={COLORS.textDisabled}
-              keyboardType="decimal-pad"
-            />
+            {/* 수량 (hidden for cash) */}
+            {!isCash && (
+              <>
+                <Text style={styles.label}>수량</Text>
+                <TextInput
+                  style={styles.input}
+                  value={shares}
+                  onChangeText={setShares}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textDisabled}
+                  keyboardType="decimal-pad"
+                />
+              </>
+            )}
 
-            {/* 체결가 */}
-            <Text style={styles.label}>체결가 (USD)</Text>
+            {/* 체결가 / 금액 */}
+            <Text style={styles.label}>
+              {isCash ? `금액 (${cashCurrency})` : isKR ? '체결가 (KRW)' : '체결가 (USD)'}
+            </Text>
             <TextInput
               style={styles.input}
               value={price}
               onChangeText={setPrice}
-              placeholder="0.00"
+              placeholder={isKR || isCash ? '0' : '0.00'}
               placeholderTextColor={COLORS.textDisabled}
               keyboardType="decimal-pad"
             />
 
-            {/* 환율 */}
-            <Text style={styles.label}>환율 (KRW/USD)</Text>
-            <TextInput
-              style={styles.input}
-              value={exchangeRate}
-              onChangeText={setExchangeRate}
-              placeholder="1350"
-              placeholderTextColor={COLORS.textDisabled}
-              keyboardType="decimal-pad"
-            />
+            {/* Cash: currency selector */}
+            {isCash && (
+              <>
+                <Text style={styles.label}>통화</Text>
+                <FilterTabs
+                  options={CURRENCY_OPTIONS}
+                  selected={cashCurrency}
+                  onSelect={(v) => setCashCurrency(v as Currency)}
+                />
+              </>
+            )}
+
+            {/* 환율 (US stocks always, cash USD only) */}
+            {(isUS || (isCash && cashCurrency === 'USD')) && (
+              <>
+                <Text style={styles.label}>환율 (KRW/USD)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={exchangeRate}
+                  onChangeText={setExchangeRate}
+                  placeholder="1350"
+                  placeholderTextColor={COLORS.textDisabled}
+                  keyboardType="decimal-pad"
+                />
+              </>
+            )}
 
             {/* 날짜 */}
             <Text style={styles.label}>날짜</Text>

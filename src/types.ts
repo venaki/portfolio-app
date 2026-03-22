@@ -2,11 +2,16 @@ export type Owner = '본석' | '연지' | '나은';
 
 export type TransactionType = 'buy' | 'sell' | 'opening_balance' | 'adjustment';
 
+export type AssetClass = 'us_stock' | 'kr_stock' | 'cash';
+export type Currency = 'USD' | 'KRW';
+
 export interface Transaction {
   id: string;
   owner: Owner;
   ticker: string;
   type: TransactionType;
+  assetClass: AssetClass;
+  currency: Currency;
   shares: number;
   price: number;
   exchangeRate: number;
@@ -17,6 +22,8 @@ export interface Transaction {
 export interface Holding {
   owner: Owner;
   ticker: string;
+  assetClass: AssetClass;
+  currency: Currency;
   shares: number;
   avgCost: number;
   avgExchangeRate: number;

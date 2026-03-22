@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AppState } from 'react-native';
 import { MarketData, Holding, StockQuote } from '../types';
-import { fetchQuotes, fetchForexRate } from '../api/fmp';
+import { fetchQuotes, fetchForexRate, getYahooSymbol } from '../api/fmp';
 import { getApiKey } from '../storage/secureStore';
 
 export function useMarketData(holdings: Holding[], refreshInterval: number) {
@@ -15,11 +15,27 @@ export function useMarketData(holdings: Holding[], refreshInterval: number) {
   });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const tickerKey = holdings.map(h => h.ticker).sort().join(',');
-  const tickers = useMemo(
-    () => [...new Set(holdings.map(h => h.ticker))],
-    [tickerKey]
+  // Filter out cash holdings — they don't need price fetches
+  const quotableHoldings = useMemo(
+    () => holdings.filter(h => h.assetClass !== 'cash'),
+    [holdings]
   );
+
+  const tickerKey = quotableHoldings.map(h => h.ticker).sort().join(',');
+
+  // Build unique tickers list and ticker→yahooSymbol map
+  const { tickers, tickerSymbolMap } = useMemo(() => {
+    const seen = new Map<string, string>(); // ticker → yahooSymbol
+    for (const h of quotableHoldings) {
+      if (!seen.has(h.ticker)) {
+        seen.set(h.ticker, getYahooSymbol(h.ticker, h.assetClass));
+      }
+    }
+    return {
+      tickers: [...seen.keys()],
+      tickerSymbolMap: Object.fromEntries(seen),
+    };
+  }, [tickerKey]);
 
   const refresh = useCallback(async () => {
     const apiKey = await getApiKey();
@@ -29,7 +45,7 @@ export function useMarketData(holdings: Holding[], refreshInterval: number) {
 
     try {
       const [quotes, rate] = await Promise.all([
-        fetchQuotes(tickers, apiKey),
+        fetchQuotes(tickers, apiKey, tickerSymbolMap),
         fetchForexRate(apiKey),
       ]);
 
@@ -52,7 +68,7 @@ export function useMarketData(holdings: Holding[], refreshInterval: number) {
         error: err.message,
       }));
     }
-  }, [tickers]);
+  }, [tickers, tickerSymbolMap]);
 
   // Auto-refresh
   useEffect(() => {

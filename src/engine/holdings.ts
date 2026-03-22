@@ -26,6 +26,8 @@ export function replayTransactions(transactions: Transaction[]): Holding[] {
           map.set(key, {
             owner: tx.owner,
             ticker: tx.ticker,
+            assetClass: tx.assetClass,
+            currency: tx.currency,
             shares: tx.shares,
             avgCost: tx.price,
             avgExchangeRate: tx.exchangeRate,

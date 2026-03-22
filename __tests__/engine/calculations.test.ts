@@ -12,6 +12,8 @@ import { Holding } from '../../src/types';
 const holding: Holding = {
   owner: '본석',
   ticker: 'TSLA',
+  assetClass: 'us_stock',
+  currency: 'USD',
   shares: 500,
   avgCost: 318.01,
   avgExchangeRate: 1450.51,

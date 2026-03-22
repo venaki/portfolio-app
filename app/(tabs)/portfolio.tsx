@@ -2,25 +2,31 @@ import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
-import { COLORS } from '../../src/constants';
+import { COLORS, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS } from '../../src/constants';
 import { FilterTabs } from '../../src/components/FilterTabs';
 import { HoldingCard } from '../../src/components/HoldingCard';
 import { HoldingRow } from '../../src/components/HoldingRow';
 import { AddTransactionModal } from '../../src/components/AddTransactionModal';
 import { Owner } from '../../src/types';
 
-const FILTER_OPTIONS = ['전체', '본석', '연지', '나은'];
+const OWNER_OPTIONS = ['전체', '본석', '연지', '나은'];
 
 export default function Portfolio() {
   const { holdings, settings, market } = useApp();
   const { isMobile, isPC } = useResponsive();
 
+  const [selectedAssetClass, setSelectedAssetClass] = useState<string>('전체');
   const [selectedOwner, setSelectedOwner] = useState<string>('전체');
   const [showModal, setShowModal] = useState(false);
 
-  const filteredHoldings = selectedOwner === '전체'
-    ? holdings
-    : holdings.filter((h) => h.owner === (selectedOwner as Owner));
+  const filteredHoldings = holdings.filter((h) => {
+    // Asset class filter
+    const acFilter = ASSET_CLASS_LABELS[selectedAssetClass];
+    if (acFilter !== 'all' && h.assetClass !== acFilter) return false;
+    // Owner filter
+    if (selectedOwner !== '전체' && h.owner !== (selectedOwner as Owner)) return false;
+    return true;
+  });
 
   return (
     <View style={styles.container}>
@@ -40,7 +46,14 @@ export default function Portfolio() {
 
           <View style={styles.filterWrapperMobile}>
             <FilterTabs
-              options={FILTER_OPTIONS}
+              options={ASSET_CLASS_OPTIONS}
+              selected={selectedAssetClass}
+              onSelect={setSelectedAssetClass}
+            />
+          </View>
+          <View style={styles.filterWrapperMobile}>
+            <FilterTabs
+              options={OWNER_OPTIONS}
               selected={selectedOwner}
               onSelect={setSelectedOwner}
             />
@@ -85,7 +98,13 @@ export default function Portfolio() {
             <Text style={styles.headerTitle}>포트폴리오</Text>
             <View style={styles.headerActions}>
               <FilterTabs
-                options={FILTER_OPTIONS}
+                options={ASSET_CLASS_OPTIONS}
+                selected={selectedAssetClass}
+                onSelect={setSelectedAssetClass}
+              />
+              <View style={{ width: 8 }} />
+              <FilterTabs
+                options={OWNER_OPTIONS}
                 selected={selectedOwner}
                 onSelect={setSelectedOwner}
               />
@@ -183,7 +202,7 @@ const styles = StyleSheet.create({
   },
   filterWrapperMobile: {
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   scrollView: {
     flex: 1,

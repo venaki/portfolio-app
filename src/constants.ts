@@ -1,4 +1,4 @@
-import { Settings } from './types';
+import { Settings, AssetClass } from './types';
 
 export const ACCENT_PRESETS = [
   { name: 'Teal', color: '#0D6E6E' },
@@ -36,5 +36,14 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export const SCHEMA_VERSION = 1;
+
+export const ASSET_CLASS_LABELS: Record<string, AssetClass | 'all'> = {
+  '전체': 'all',
+  '미국주식': 'us_stock',
+  '한국주식': 'kr_stock',
+  '기타': 'cash',
+};
+
+export const ASSET_CLASS_OPTIONS = ['전체', '미국주식', '한국주식', '기타'];
 
 // FMP_BASE_URL은 src/api/fmp.ts 내부에서 직접 관리

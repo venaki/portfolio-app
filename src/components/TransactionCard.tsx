@@ -32,8 +32,12 @@ function getBadge(type: Transaction['type'], accentColor: string): BadgeConfig {
 
 export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSell }: TransactionCardProps) {
   const badge = getBadge(tx.type, accentColor);
-  const totalUSD = tx.shares * tx.price;
-  const totalKRW = totalUSD * tx.exchangeRate;
+  const isKRW = tx.currency === 'KRW';
+  const isCash = tx.assetClass === 'cash';
+  const formatPrice = isKRW ? formatKRW : formatUSD;
+
+  const totalNative = tx.shares * tx.price;
+  const totalKRW = isKRW ? totalNative : totalNative * tx.exchangeRate;
 
   let realizedPL: { usd: number; krw: number } | null = null;
   if (tx.type === 'sell' && holdingBeforeSell) {
@@ -49,6 +53,16 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
   const plIsPositive = realizedPL ? realizedPL.usd >= 0 : true;
   const plColor = plIsPositive ? accentColor : '#E07B54';
   const plSign = plIsPositive ? '+' : '';
+
+  // Detail line differs by asset type
+  let detailText: string;
+  if (isCash) {
+    detailText = `${formatPrice(tx.price)}`;
+  } else if (isKRW) {
+    detailText = `${tx.shares.toLocaleString('ko-KR')}주 × ${formatKRW(tx.price)}`;
+  } else {
+    detailText = `${tx.shares.toLocaleString('ko-KR')}주 × ${formatUSD(tx.price)} · ₩${Math.round(tx.exchangeRate).toLocaleString('ko-KR')}`;
+  }
 
   return (
     <View style={styles.card}>
@@ -66,9 +80,7 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
         </View>
 
         {/* Detail row */}
-        <Text style={styles.detail}>
-          {tx.shares.toLocaleString('ko-KR')}주 × {formatUSD(tx.price)} · ₩{Math.round(tx.exchangeRate).toLocaleString('ko-KR')}
-        </Text>
+        <Text style={styles.detail}>{detailText}</Text>
 
         {/* Realized P&L for sells */}
         {realizedPL !== null && (
@@ -83,8 +95,14 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
 
       {/* Right side */}
       <View style={styles.right}>
-        <Text style={styles.amountUSD}>{formatUSD(totalUSD)}</Text>
-        <Text style={styles.amountKRW}>{formatKRW(totalKRW)}</Text>
+        {isKRW ? (
+          <Text style={styles.amountUSD}>{formatKRW(totalKRW)}</Text>
+        ) : (
+          <>
+            <Text style={styles.amountUSD}>{formatUSD(totalNative)}</Text>
+            <Text style={styles.amountKRW}>{formatKRW(totalKRW)}</Text>
+          </>
+        )}
       </View>
     </View>
   );
