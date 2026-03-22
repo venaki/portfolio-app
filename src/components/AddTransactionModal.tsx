@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 24,
-    maxHeight: '85%',
+    maxHeight: '90%',
     width: '90%',
     maxWidth: 560,
   },
