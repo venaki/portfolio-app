@@ -42,6 +42,26 @@ export async function loadAppData(): Promise<AppData> {
     if (!data.settings) data.settings = { ...DEFAULT_SETTINGS };
     if (!data.settings.accentColor) data.settings.accentColor = DEFAULT_SETTINGS.accentColor;
     if (!data.settings.refreshInterval) data.settings.refreshInterval = DEFAULT_SETTINGS.refreshInterval;
+
+    // Migration: add assetClass/currency to old transactions
+    let migrated = false;
+    const KR_TICKERS = ['005930', '034020', '035420', '096530'];
+    for (const tx of data.transactions) {
+      if (!(tx as any).assetClass) {
+        if (KR_TICKERS.includes(tx.ticker)) {
+          (tx as any).assetClass = 'kr_stock';
+          (tx as any).currency = 'KRW';
+        } else {
+          (tx as any).assetClass = 'us_stock';
+          (tx as any).currency = 'USD';
+        }
+        migrated = true;
+      }
+    }
+    if (migrated) {
+      await saveAppData(data);
+    }
+
     return data;
   } catch {
     return createDefault();
