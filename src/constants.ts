@@ -34,6 +34,8 @@ export const COLORS = {
   textTertiary: '#888888',
   textMuted: '#AAAAAA',
   textDisabled: '#BBBBBB',
+  inputBg: '#F8F8F8',
+  white: '#FFFFFF',
 } as const;
 
 export const DEFAULT_SETTINGS: Settings = {

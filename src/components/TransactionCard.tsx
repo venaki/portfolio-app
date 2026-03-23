@@ -3,7 +3,7 @@ import { Transaction } from '../types';
 import { Holding } from '../types';
 import { calcRealizedPL } from '../engine/calculations';
 import { formatKRW, formatUSD, formatDate } from '../utils/format';
-import { COLORS, POSITIVE_COLOR } from '../constants';
+import { COLORS, POSITIVE_COLOR, NEGATIVE_COLOR } from '../constants';
 
 interface TransactionCardProps {
   transaction: Transaction;
@@ -25,7 +25,7 @@ function getBadge(type: Transaction['type']): BadgeConfig {
     case 'adjustment':
       return { bg: '#E8F5E9', color: POSITIVE_COLOR, label: '매수' };
     case 'sell':
-      return { bg: '#FFF0EB', color: '#E07B54', label: '매도' };
+      return { bg: '#FFF0EB', color: NEGATIVE_COLOR, label: '매도' };
   }
 }
 
@@ -36,7 +36,7 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
 
   // For cash assets, show asset type badge instead of buy/sell
   const badge = isCashAsset
-    ? { bg: isLoan ? '#FFF0EB' : '#F0F0F0', color: isLoan ? '#E07B54' : '#888888', label: cashType || '기타' }
+    ? { bg: isLoan ? '#FFF0EB' : COLORS.muted, color: isLoan ? NEGATIVE_COLOR : COLORS.textTertiary, label: cashType || '기타' }
     : getBadge(tx.type);
   const isKRW = tx.currency === 'KRW';
   const isCash = tx.assetClass === 'cash';
@@ -57,7 +57,7 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
   }
 
   const plIsPositive = realizedPL ? realizedPL.usd >= 0 : true;
-  const plColor = plIsPositive ? POSITIVE_COLOR : '#E07B54';
+  const plColor = plIsPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
   const plSign = plIsPositive ? '+' : '';
 
   // Detail line differs by asset type
@@ -116,10 +116,10 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: COLORS.border,
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   ownerBadge: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: COLORS.muted,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -158,12 +158,12 @@ const styles = StyleSheet.create({
   ownerText: {
     fontFamily: 'Inter_500Medium',
     fontSize: 11,
-    color: '#888888',
+    color: COLORS.textTertiary,
   },
   detail: {
     fontFamily: 'JetBrainsMono_500Medium',
     fontSize: 11,
-    color: '#888888',
+    color: COLORS.textTertiary,
   },
   realizedPL: {
     fontFamily: 'JetBrainsMono_500Medium',
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   date: {
     fontFamily: 'JetBrainsMono_500Medium',
     fontSize: 10,
-    color: '#AAAAAA',
+    color: COLORS.textMuted,
   },
   right: {
     alignItems: 'flex-end',
@@ -187,6 +187,6 @@ const styles = StyleSheet.create({
   amountKRW: {
     fontFamily: 'JetBrainsMono_500Medium',
     fontSize: 11,
-    color: '#888888',
+    color: COLORS.textTertiary,
   },
 });

@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Holding, StockQuote } from '../types';
-import { COLORS, NEGATIVE_COLOR, POSITIVE_COLOR } from '../constants';
-import { calcProfitPercentUSD, calcTotalValueKRW, calcProfitKRW } from '../engine/calculations';
+import { COLORS } from '../constants';
 import { formatUSD, formatKRW, formatPercent, formatShares } from '../utils/format';
+import { useHoldingCalc } from '../hooks/useHoldingCalc';
 
 interface Props {
   holding: Holding;
@@ -12,25 +12,7 @@ interface Props {
 }
 
 export function HoldingCard({ holding, quote, exchangeRate, accentColor }: Props) {
-  const isCash = holding.assetClass === 'cash';
-  const isKR = holding.assetClass === 'kr_stock';
-  const isKRW = holding.currency === 'KRW';
-
-  const price = quote?.price ?? 0;
-  const dailyChangePct = quote?.changesPercentage ?? 0;
-
-  // For cash: no market quote needed
-  const profitKRW = isCash ? 0 : (quote ? calcProfitKRW(holding, price, exchangeRate) : 0);
-  const totalValueKRW = isCash
-    ? (isKRW ? holding.avgCost * holding.shares : holding.avgCost * holding.shares * exchangeRate)
-    : (quote ? calcTotalValueKRW(holding, price, exchangeRate) : 0);
-
-  const profitPct = isCash ? 0 : (quote ? calcProfitPercentUSD(holding, price) : 0);
-
-  const dailyPositive = dailyChangePct >= 0;
-  const dailyColor = dailyPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
-  const profitPositive = profitPct >= 0;
-  const profitColor = profitPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
+  const { isCash, isKR, isKRW, price, dailyChangePct, profitKRW, totalValueKRW, profitPct, dailyColor, profitColor } = useHoldingCalc(holding, quote, exchangeRate);
 
   const formatPrice = isKRW ? formatKRW : formatUSD;
   const formatAvgCost = isKRW ? formatKRW : formatUSD;

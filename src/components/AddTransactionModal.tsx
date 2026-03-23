@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 24,
     maxHeight: '90%',
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -352,6 +352,6 @@ const styles = StyleSheet.create({
   submitText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: COLORS.white,
   },
 });

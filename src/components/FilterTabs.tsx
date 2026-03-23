@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { COLORS } from '../constants';
 
 interface FilterTabsProps {
   options: string[];
@@ -31,7 +32,7 @@ export function FilterTabs({ options, selected, onSelect }: FilterTabsProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: COLORS.muted,
     borderRadius: 8,
     padding: 4,
   },
@@ -44,7 +45,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -56,10 +57,10 @@ const styles = StyleSheet.create({
   },
   labelSelected: {
     fontFamily: 'Inter_600SemiBold',
-    color: '#1A1A1A',
+    color: COLORS.textPrimary,
   },
   labelUnselected: {
     fontFamily: 'Inter_500Medium',
-    color: '#888888',
+    color: COLORS.textTertiary,
   },
 });

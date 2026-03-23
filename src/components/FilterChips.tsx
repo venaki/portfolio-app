@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { COLORS } from '../constants';
 
 interface FilterChipsProps {
   options: { label: string; value: string }[];
@@ -57,17 +58,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipUnselected: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: COLORS.muted,
   },
   label: {
     fontSize: 13,
   },
   labelSelected: {
     fontFamily: 'Inter_600SemiBold',
-    color: '#FFFFFF',
+    color: COLORS.white,
   },
   labelUnselected: {
     fontFamily: 'Inter_500Medium',
-    color: '#888888',
+    color: COLORS.textTertiary,
   },
 });

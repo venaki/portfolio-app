@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { usePathname, router } from 'expo-router';
 import { useApp } from '../context/AppContext';
@@ -56,5 +55,5 @@ const styles = StyleSheet.create({
   nav: { gap: 4 },
   navItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, gap: 10 },
   navLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: COLORS.textSecondary },
-  navLabelActive: { fontFamily: 'Inter_600SemiBold', color: '#FFFFFF' },
+  navLabelActive: { fontFamily: 'Inter_600SemiBold', color: COLORS.white },
 });

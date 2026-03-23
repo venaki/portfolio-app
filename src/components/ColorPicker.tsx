@@ -1,5 +1,5 @@
-import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { COLORS } from '../constants';
 
 interface ColorOption {
   name: string;
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   check: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     lineHeight: 16,

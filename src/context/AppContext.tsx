@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { AppData, Transaction, Holding, Settings, MarketData, StockQuote } from '../types';
 import { loadAppData, saveAppData, resetAppData as resetStorage } from '../storage/appData';
 import { replayTransactions } from '../engine/holdings';

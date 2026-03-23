@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
+import { House, ChartBar, Clock3, Settings } from 'lucide-react-native';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { useApp } from '../../src/context/AppContext';
 import { Sidebar } from '../../src/components/Sidebar';
@@ -42,6 +43,8 @@ export default function TabsLayout() {
         marginHorizontal: 21,
         marginBottom: 21,
         height: 62,
+        paddingTop: 0,
+        paddingBottom: 0,
         elevation: 8,
         shadowColor: '#000',
         shadowOpacity: 0.08,
@@ -53,6 +56,7 @@ export default function TabsLayout() {
       tabBarItemStyle: {
         borderRadius: 26,
         margin: 4,
+        overflow: 'hidden',
       },
       tabBarActiveBackgroundColor: settings.accentColor,
       tabBarLabelStyle: {
@@ -61,12 +65,29 @@ export default function TabsLayout() {
         textTransform: 'uppercase',
         letterSpacing: 0.5,
       },
+      tabBarIconStyle: {
+        marginBottom: -2,
+      },
     }}>
-      <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="portfolio" options={{ title: 'Portfolio' }} />
-      <Tabs.Screen name="history" options={{ title: 'History' }} />
-      <Tabs.Screen name="other-assets" options={{ title: 'Assets' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen name="index" options={{
+        title: 'Home',
+        tabBarIcon: ({ color }) => <House size={18} color={color} />,
+      }} />
+      <Tabs.Screen name="portfolio" options={{
+        title: 'Portfolio',
+        tabBarIcon: ({ color }) => <ChartBar size={18} color={color} />,
+      }} />
+      <Tabs.Screen name="history" options={{
+        title: 'History',
+        tabBarIcon: ({ color }) => <Clock3 size={18} color={color} />,
+      }} />
+      <Tabs.Screen name="other-assets" options={{
+        href: null,
+      }} />
+      <Tabs.Screen name="settings" options={{
+        title: 'Settings',
+        tabBarIcon: ({ color }) => <Settings size={18} color={color} />,
+      }} />
     </Tabs>
   );
 }
