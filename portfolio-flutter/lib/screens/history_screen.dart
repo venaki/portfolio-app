@@ -52,7 +52,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       children: [
         // Header
         Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 24),
+          padding: const EdgeInsets.only(top: 16, bottom: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
