@@ -4,7 +4,6 @@ import '../providers/portfolio_provider.dart';
 import '../models/transaction.dart';
 import '../widgets/holding_card.dart';
 import '../widgets/segmented_filter.dart';
-import '../widgets/add_transaction_modal.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
@@ -44,40 +43,12 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           children: [
             // Header
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '포트폴리오',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    showAddTransactionDialog(context);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 7,
-                      horizontal: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D6E6E),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      '+ 추가',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            const Text(
+              '포트폴리오',
+              style: TextStyle(
+                fontSize: 40,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 24),
             // Filter tabs
