@@ -138,10 +138,16 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             if ((showOtherOnly && otherAssets.isEmpty) ||
                 (showStocksOnly && holdings.isEmpty) ||
                 (!showOtherOnly && !showStocksOnly && holdings.isEmpty && otherAssets.isEmpty))
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('보유 자산이 없습니다'),
+              const Padding(
+                padding: EdgeInsets.only(top: 80),
+                child: Center(
+                  child: Text(
+                    '보유 자산이 없습니다',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF888888),
+                    ),
+                  ),
                 ),
               ),
           ],

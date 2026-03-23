@@ -98,32 +98,33 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Total row
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '합계',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A1A1A),
+        // Total row (only if assets exist)
+        if (filtered.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '합계',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A),
+                  ),
                 ),
-              ),
-              Text(
-                formatKRW(total),
-                style: const TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
+                Text(
+                  formatKRW(total),
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
 
         // Empty state
         if (filtered.isEmpty)
@@ -133,8 +134,8 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
               child: Text(
                 '등록된 자산이 없습니다',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFFAAAAAA),
+                  fontSize: 13,
+                  color: Color(0xFF888888),
                 ),
               ),
             ),

@@ -144,8 +144,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               child: Text(
                 '거래내역이 없습니다',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFFAAAAAA),
+                  fontSize: 13,
+                  color: Color(0xFF888888),
                 ),
               ),
             ),
