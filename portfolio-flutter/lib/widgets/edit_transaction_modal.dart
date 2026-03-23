@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/transaction.dart';
 import '../providers/portfolio_provider.dart';
 import 'transaction_delete_modal.dart';
+import 'ticker_search.dart';
 
 /// Shows the edit-transaction dialog.
 Future<void> showEditTransactionDialog(
@@ -35,6 +36,8 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
   late Market _market;
   late String _account;
   late DateTime _date;
+  late String _ticker;
+  late String _tickerName;
   bool _isSaving = false;
 
   Currency get _currency => _market == Market.us ? Currency.usd : Currency.krw;
@@ -46,6 +49,8 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
     _type = tx.type;
     _market = tx.market;
     _account = tx.account;
+    _ticker = tx.ticker;
+    _tickerName = tx.name;
     _date = DateTime.tryParse(tx.date) ?? DateTime.now();
     _sharesController.text = tx.shares.toString();
     _priceController.text = tx.price.toString();
@@ -74,9 +79,9 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
       date: _date.toIso8601String().substring(0, 10),
       account: _account,
       type: _type,
-      ticker: widget.transaction.ticker,
+      ticker: _ticker.toUpperCase(),
       market: _market,
-      name: widget.transaction.name,
+      name: _tickerName,
       shares: double.tryParse(_sharesController.text) ?? 0,
       price: double.tryParse(_priceController.text) ?? 0,
       currency: _currency,
@@ -197,23 +202,27 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                 ),
                 const SizedBox(height: 16),
 
-                // 종목 (readonly)
-                _buildLabel('종목'),
+                // 종목코드
+                _buildLabel('종목코드'),
                 const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7F7F7),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E5E5)),
-                  ),
-                  child: Text(
-                    '${tx.ticker}  ${tx.name}',
-                    style: const TextStyle(
-                        fontSize: 14, color: Color(0xFF1A1A1A)),
-                  ),
+                TickerSearch(
+                  initialValue: tx.ticker,
+                  hint: '예: TSLA',
+                  onSelected: (result) {
+                    setState(() {
+                      _ticker = result.ticker;
+                      _tickerName = result.name;
+                      final ex = result.exchange.toUpperCase();
+                      if (ex.contains('KRX') || ex.contains('KOSDAQ') || ex.contains('KSE') || ex.contains('KOREA')) {
+                        _market = ex.contains('KOSDAQ') ? Market.kosdaq : Market.krx;
+                      }
+                    });
+                  },
+                  onManualInput: (value) {
+                    setState(() {
+                      _ticker = value;
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
 
