@@ -7,6 +7,7 @@ import 'screens/sheet_connect_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/portfolio_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/assets_screen.dart';
 import 'widgets/responsive_shell.dart';
 import 'utils/constants.dart';
 
@@ -98,7 +99,7 @@ class _MainAppState extends ConsumerState<MainApp> {
       const DashboardScreen(),
       const PortfolioScreen(),
       const HistoryScreen(),
-      const Center(child: Text('기타 자산')),  // Placeholder until Task 7
+      const AssetsScreen(),
       const Center(child: Text('설정')),      // Placeholder until Task 8
     ];
 
