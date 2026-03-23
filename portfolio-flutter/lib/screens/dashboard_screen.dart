@@ -41,6 +41,24 @@ class DashboardScreen extends ConsumerWidget {
 
     final totalProfitKRW = totalValueKRW - totalCostKRW;
     final totalProfitPct = totalCostKRW > 0 ? (totalProfitKRW / totalCostKRW) * 100 : 0.0;
+    final totalValueUSD = portfolio.exchangeRate > 0
+        ? totalValueKRW / portfolio.exchangeRate
+        : 0.0;
+
+    // 어제 대비 일간 변동 계산
+    double dailyChangeKRW = 0;
+    double totalYestValueKRW = 0;
+    for (final h in portfolio.holdings) {
+      final quote = portfolio.quotes[h.ticker];
+      final price = quote?.price ?? 0;
+      final closeYest = quote?.closeYest ?? price;
+      dailyChangeKRW += calcDailyChangeKRW(h, price, closeYest, portfolio.exchangeRate);
+      totalYestValueKRW += calcTotalValueKRW(h, closeYest, portfolio.exchangeRate);
+    }
+    // 기타자산은 일간변동 없음 (고정 자산)
+    final dailyChangePct = totalYestValueKRW > 0
+        ? (dailyChangeKRW / totalYestValueKRW) * 100
+        : 0.0;
 
     // 계좌별 집계
     final accountMap = <String, ({double value, double cost})>{};
@@ -105,8 +123,12 @@ class DashboardScreen extends ConsumerWidget {
           // Total Asset Card
           TotalAssetCard(
             totalValueKRW: totalValueKRW,
+            totalValueUSD: totalValueUSD,
+            dailyChangeKRW: dailyChangeKRW,
+            dailyChangePct: dailyChangePct,
+            totalCostKRW: totalCostKRW,
             totalProfitKRW: totalProfitKRW,
-            totalProfitPercentKRW: totalProfitPct,
+            totalProfitPct: totalProfitPct,
           ),
           const SizedBox(height: 12),
 
