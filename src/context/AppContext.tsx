@@ -46,14 +46,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       const data = await loadAppData();
-      if (data.transactions.length === 0) {
-        data.transactions = SEED_TRANSACTIONS;
-        // Seed: extract unique owners for accounts
-        if (!data.accounts || data.accounts.length === 0) {
-          data.accounts = [...new Set(SEED_TRANSACTIONS.map(t => t.owner))];
-        }
-        await saveAppData(data);
-      }
       setTransactions(data.transactions);
       setSettings(data.settings);
       setAccounts(data.accounts ?? []);
@@ -137,18 +129,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [transactions, accounts, settings]);
 
   const importData = useCallback(async (json: string) => {
-    const data: AppData = JSON.parse(json);
-    if (!data.schemaVersion || !data.transactions || !data.settings) {
+    const raw = JSON.parse(json);
+    if (!raw.transactions || !raw.settings) {
       throw new Error('Invalid data format');
     }
-    // Migration: if imported data has no accounts, extract from transactions
-    if (!data.accounts) {
-      data.accounts = [...new Set(data.transactions.map(t => t.owner))];
-    }
-    setTransactions(data.transactions);
-    setAccounts(data.accounts);
-    setSettings(data.settings);
-    await saveAppData(data);
+    // Save raw data, then reload through loadAppData which applies all migrations
+    await saveAppData(raw);
+    const migrated = await loadAppData();
+    setTransactions(migrated.transactions);
+    setAccounts(migrated.accounts ?? []);
+    setSettings(migrated.settings);
   }, []);
 
   return (

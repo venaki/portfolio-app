@@ -6,6 +6,7 @@ import {
   TextInput,
   Pressable,
   Alert,
+  Modal,
   Platform,
   StyleSheet,
 } from 'react-native';
@@ -32,9 +33,10 @@ function nextInterval(current: number): number {
 }
 
 export default function Settings() {
-  const { settings, updateSettings, resetData, getAppDataJson, importData, market, accounts, addAccount, removeAccount } = useApp();
+  const { settings, updateSettings, resetData, getAppDataJson, importData, market, accounts, addAccount, removeAccount, transactions } = useApp();
   const { isMobile, isPC } = useResponsive();
   const [newAccountName, setNewAccountName] = useState('');
+  const [removeModal, setRemoveModal] = useState<{ visible: boolean; name: string; blocked: boolean; count: number }>({ visible: false, name: '', blocked: false, count: 0 });
 
   const handleAccentColor = useCallback(
     async (color: string) => {
@@ -105,41 +107,31 @@ export default function Settings() {
       const text = await file.text();
       const data = JSON.parse(text);
       if (!data.transactions || !data.settings) {
-        Alert.alert('오류', '올바른 백업 파일이 아닙니다.');
+        window.alert('올바른 백업 파일이 아닙니다.');
         return;
       }
-      Alert.alert('데이터 복원', '현재 데이터를 백업 파일로 교체하시겠습니까?', [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '복원',
-          onPress: async () => {
-            await importData(text);
-            Alert.alert('완료', '데이터가 복원되었습니다.');
-          },
-        },
-      ]);
+      if (window.confirm('현재 데이터를 백업 파일로 교체하시겠습니까?')) {
+        await importData(text);
+        window.alert('데이터가 복원되었습니다.');
+      }
     } catch {
-      Alert.alert('오류', 'JSON 파일을 읽는 중 오류가 발생했습니다.');
+      window.alert('JSON 파일을 읽는 중 오류가 발생했습니다.');
     }
     // Reset input so same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [importData]);
 
-  const handleReset = useCallback(() => {
-    Alert.alert(
-      '데이터 초기화',
-      '모든 거래 내역과 설정이 삭제됩니다. 계속하시겠습니까?',
-      [
+  const handleReset = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('모든 거래 내역과 설정이 삭제됩니다. 계속하시겠습니까?')) {
+        await resetData();
+      }
+    } else {
+      Alert.alert('데이터 초기화', '모든 거래 내역과 설정이 삭제됩니다. 계속하시겠습니까?', [
         { text: '취소', style: 'cancel' },
-        {
-          text: '초기화',
-          style: 'destructive',
-          onPress: async () => {
-            await resetData();
-          },
-        },
-      ],
-    );
+        { text: '초기화', style: 'destructive', onPress: () => resetData() },
+      ]);
+    }
   }, [resetData]);
 
   const handleAddAccount = useCallback(async () => {
@@ -154,15 +146,18 @@ export default function Settings() {
   }, [newAccountName, accounts, addAccount]);
 
   const handleRemoveAccount = useCallback((name: string) => {
-    Alert.alert('명의 삭제', `"${name}" 명의를 삭제하시겠습니까?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => removeAccount(name),
-      },
-    ]);
-  }, [removeAccount]);
+    const count = transactions.filter(t => t.owner === name).length;
+    if (count > 0) {
+      setRemoveModal({ visible: true, name, blocked: true, count });
+    } else {
+      setRemoveModal({ visible: true, name, blocked: false, count: 0 });
+    }
+  }, [transactions]);
+
+  const confirmRemoveAccount = useCallback(async () => {
+    await removeAccount(removeModal.name);
+    setRemoveModal({ visible: false, name: '', blocked: false, count: 0 });
+  }, [removeAccount, removeModal.name]);
 
   const accentColor = settings.accentColor;
 
@@ -278,6 +273,47 @@ export default function Settings() {
         onChange={handleFileSelected}
       />
     )}
+    <Modal visible={removeModal.visible} transparent animationType="fade">
+      <Pressable style={styles.modalOverlay} onPress={() => setRemoveModal(prev => ({ ...prev, visible: false }))}>
+        <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+          <Text style={styles.modalTitle}>명의 삭제</Text>
+          {removeModal.blocked ? (
+            <>
+              <Text style={styles.modalMessage}>
+                "{removeModal.name}" 명의에 {removeModal.count}건의 거래내역이 있어 삭제할 수 없습니다.
+              </Text>
+              <Text style={styles.modalHint}>거래내역을 먼저 삭제해주세요.</Text>
+              <Pressable
+                style={[styles.modalBtn, { backgroundColor: accentColor }]}
+                onPress={() => setRemoveModal(prev => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.modalBtnText}>확인</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.modalMessage}>
+                "{removeModal.name}" 명의를 삭제하시겠습니까?
+              </Text>
+              <View style={styles.modalBtnRow}>
+                <Pressable
+                  style={[styles.modalBtn, styles.modalBtnCancel]}
+                  onPress={() => setRemoveModal(prev => ({ ...prev, visible: false }))}
+                >
+                  <Text style={styles.modalBtnCancelText}>취소</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalBtn, styles.modalBtnDestructive]}
+                  onPress={confirmRemoveAccount}
+                >
+                  <Text style={styles.modalBtnText}>삭제</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+      </Pressable>
+    </Modal>
     </>
   );
 }
@@ -436,6 +472,65 @@ const styles = StyleSheet.create({
   accountAddBtnText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 24,
+    width: 320,
+    maxWidth: '90%' as any,
+  },
+  modalTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  modalHint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    marginBottom: 20,
+  },
+  modalBtnRow: {
+    flexDirection: 'row' as const,
+    gap: 8,
+    marginTop: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+  },
+  modalBtnCancel: {
+    backgroundColor: COLORS.muted,
+  },
+  modalBtnCancelText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  modalBtnDestructive: {
+    backgroundColor: '#E07B54',
+  },
+  modalBtnText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
     color: '#FFFFFF',
   },
 });
