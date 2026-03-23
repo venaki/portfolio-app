@@ -174,11 +174,11 @@ class SheetsService {
     );
   }
 
-  Future<void> updateTransaction(Transaction tx, int rowIndex) async {
-    _ensureId();
+  Future<void> updateTransaction(Transaction tx) async {
+    final rowIndex = await findRowById('Transactions', tx.id);
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
-    final range = 'Transactions!A${rowIndex + 2}:L${rowIndex + 2}'; // +2: header + 0-index
+    final range = 'Transactions!A${rowIndex + 2}:L${rowIndex + 2}';
     await http.put(
       Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=RAW'),
       headers: headers,
@@ -186,12 +186,10 @@ class SheetsService {
     );
   }
 
-  Future<void> deleteTransaction(int rowIndex) async {
-    _ensureId();
+  Future<void> deleteTransaction(String id) async {
+    final rowIndex = await findRowById('Transactions', id);
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
-
-    // 시트 ID 가져오기
     final metaRes = await http.get(
       Uri.parse('$_baseUrl/$_spreadsheetId?fields=sheets.properties'),
       headers: headers,
@@ -201,23 +199,76 @@ class SheetsService {
     final txSheetId = (sheets.firstWhere(
       (s) => s['properties']['title'] == 'Transactions',
     ))['properties']['sheetId'];
-
     await http.post(
       Uri.parse('$_baseUrl/$_spreadsheetId:batchUpdate'),
       headers: headers,
       body: jsonEncode({
-        'requests': [
-          {
-            'deleteDimension': {
-              'range': {
-                'sheetId': txSheetId,
-                'dimension': 'ROWS',
-                'startIndex': rowIndex + 1, // +1 for header
-                'endIndex': rowIndex + 2,
-              }
+        'requests': [{
+          'deleteDimension': {
+            'range': {
+              'sheetId': txSheetId,
+              'dimension': 'ROWS',
+              'startIndex': rowIndex + 1,
+              'endIndex': rowIndex + 2,
             }
           }
-        ]
+        }]
+      }),
+    );
+  }
+
+  // ─── OtherAsset CRUD ───
+
+  Future<void> addOtherAsset(OtherAsset asset) async {
+    _ensureId();
+    final headers = await _getAuthHeaders();
+    headers['Content-Type'] = 'application/json';
+    await http.post(
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/OtherAssets!A:H:append?valueInputOption=RAW'),
+      headers: headers,
+      body: jsonEncode({'values': [asset.toSheetRow()]}),
+    );
+  }
+
+  Future<void> updateOtherAsset(OtherAsset asset) async {
+    final rowIndex = await findRowById('OtherAssets', asset.id);
+    final headers = await _getAuthHeaders();
+    headers['Content-Type'] = 'application/json';
+    final range = 'OtherAssets!A${rowIndex + 2}:H${rowIndex + 2}';
+    await http.put(
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=RAW'),
+      headers: headers,
+      body: jsonEncode({'values': [asset.toSheetRow()]}),
+    );
+  }
+
+  Future<void> deleteOtherAsset(String id) async {
+    final rowIndex = await findRowById('OtherAssets', id);
+    final headers = await _getAuthHeaders();
+    headers['Content-Type'] = 'application/json';
+    final metaRes = await http.get(
+      Uri.parse('$_baseUrl/$_spreadsheetId?fields=sheets.properties'),
+      headers: headers,
+    );
+    final meta = jsonDecode(metaRes.body);
+    final sheets = meta['sheets'] as List;
+    final oaSheetId = (sheets.firstWhere(
+      (s) => s['properties']['title'] == 'OtherAssets',
+    ))['properties']['sheetId'];
+    await http.post(
+      Uri.parse('$_baseUrl/$_spreadsheetId:batchUpdate'),
+      headers: headers,
+      body: jsonEncode({
+        'requests': [{
+          'deleteDimension': {
+            'range': {
+              'sheetId': oaSheetId,
+              'dimension': 'ROWS',
+              'startIndex': rowIndex + 1,
+              'endIndex': rowIndex + 2,
+            }
+          }
+        }]
       }),
     );
   }
@@ -250,6 +301,24 @@ class SheetsService {
       headers: headers,
       body: jsonEncode({'values': settings.toSheetRows()}),
     );
+  }
+
+  /// ID로 시트에서 행 번호 찾기 (0-based data index)
+  Future<int> findRowById(String sheetName, String id) async {
+    _ensureId();
+    final headers = await _getAuthHeaders();
+    final range = Uri.encodeComponent('$sheetName!A2:A');
+    final res = await http.get(
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/$range'),
+      headers: headers,
+    );
+    if (res.statusCode != 200) throw Exception('findRowById failed: ${res.body}');
+    final data = jsonDecode(res.body);
+    final rows = (data['values'] as List?)?.cast<List<dynamic>>() ?? [];
+    for (int i = 0; i < rows.length; i++) {
+      if (rows[i].isNotEmpty && rows[i][0].toString() == id) return i;
+    }
+    throw Exception('Row with id "$id" not found in $sheetName');
   }
 
   // ─── Private helpers ───

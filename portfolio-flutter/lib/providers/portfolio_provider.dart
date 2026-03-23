@@ -152,20 +152,45 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
   }
 
   /// update transaction
-  Future<void> updateTransaction(Transaction tx, int index) async {
-    await _sheets.updateTransaction(tx, index);
-    final newTxs = List<Transaction>.from(state.transactions);
-    newTxs[index] = tx;
+  Future<void> updateTransaction(Transaction tx) async {
+    await _sheets.updateTransaction(tx);
+    final newTxs = state.transactions.map((t) => t.id == tx.id ? tx : t).toList();
     final newHoldings = replayTransactions(newTxs);
     state = state.copyWith(transactions: newTxs, holdings: newHoldings);
   }
 
   /// delete transaction
-  Future<void> deleteTransaction(int index) async {
-    await _sheets.deleteTransaction(index);
-    final newTxs = List<Transaction>.from(state.transactions)..removeAt(index);
+  Future<void> deleteTransaction(String id) async {
+    await _sheets.deleteTransaction(id);
+    final newTxs = state.transactions.where((t) => t.id != id).toList();
     final newHoldings = replayTransactions(newTxs);
     state = state.copyWith(transactions: newTxs, holdings: newHoldings);
+  }
+
+  Future<void> addOtherAsset(OtherAsset asset) async {
+    await _sheets.addOtherAsset(asset);
+    state = state.copyWith(otherAssets: [...state.otherAssets, asset]);
+  }
+
+  Future<void> updateOtherAsset(OtherAsset asset) async {
+    await _sheets.updateOtherAsset(asset);
+    final newOa = state.otherAssets.map((a) => a.id == asset.id ? asset : a).toList();
+    state = state.copyWith(otherAssets: newOa);
+  }
+
+  Future<void> deleteOtherAsset(String id) async {
+    await _sheets.deleteOtherAsset(id);
+    final newOa = state.otherAssets.where((a) => a.id != id).toList();
+    state = state.copyWith(otherAssets: newOa);
+  }
+
+  Future<void> updateSettings(AppSettings newSettings) async {
+    final oldInterval = state.settings.refreshInterval;
+    await _sheets.saveSettings(newSettings);
+    state = state.copyWith(settings: newSettings);
+    if (newSettings.refreshInterval != oldInterval) {
+      _startRefreshTimer(newSettings.refreshInterval);
+    }
   }
 
   void _startRefreshTimer(int intervalSeconds) {
