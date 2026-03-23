@@ -165,14 +165,14 @@ class TransactionCard extends StatelessWidget {
       case TransactionType.openingBalance:
       case TransactionType.adjustment:
         return _BadgeConfig(
-          bg: const Color(0xFFE8F5E9),
-          color: positiveColor,
+          bg: const Color(0xFFE3F2FD),
+          color: const Color(0xFF1976D2),
           label: type == TransactionType.buy ? '매수' : type == TransactionType.openingBalance ? '초기' : '조정',
         );
       case TransactionType.sell:
         return _BadgeConfig(
-          bg: const Color(0xFFFFF0EB),
-          color: negativeColor,
+          bg: const Color(0xFFFFEBEE),
+          color: const Color(0xFFD32F2F),
           label: '매도',
         );
     }

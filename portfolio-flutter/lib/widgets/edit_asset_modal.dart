@@ -246,7 +246,7 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
                         child: Container(
                           padding: const EdgeInsets.all(15),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE07B54),
+                            color: const Color(0xFFD32F2F),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,

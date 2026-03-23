@@ -66,7 +66,7 @@ class TransactionDeleteModal extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE07B54),
+                        color: const Color(0xFFD32F2F),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
