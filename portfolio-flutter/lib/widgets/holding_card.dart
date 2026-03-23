@@ -33,15 +33,12 @@ class HoldingCard extends StatelessWidget {
     final dailyColor = changePct >= 0 ? positiveColor : negativeColor;
     final profitColor = profitKRW >= 0 ? positiveColor : negativeColor;
 
-    String formatPrice(double v) => isKRW ? formatKRW(v) : formatUSD(v);
+    String fmtPrice(double v) => isKRW ? formatKRW(v) : formatUSD(v);
 
-    // 한국 주식은 종목명을 티커로, 미국 주식은 티커를 티커로
     final displayTicker = isKR && quote?.name != null && quote!.name.isNotEmpty
         ? quote!.name
         : holding.ticker;
-    final displayName = isKR
-        ? holding.ticker
-        : (quote?.name ?? '');
+    final displayName = isKR ? holding.ticker : (quote?.name ?? '');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -53,115 +50,76 @@ class HoldingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: ticker + badge / price + daily change
+          // Top: ticker + badge + name
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left: ticker + owner badge
-              Row(
-                children: [
-                  Text(
-                    displayTicker,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F0F0),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      holding.account,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF888888),
-                      ),
-                    ),
-                  ),
-                ],
+              Text(
+                displayTicker,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
               ),
-              // Right: price + daily change
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    hasQuote ? formatPrice(price) : '-',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                    ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F0F0),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  holding.account,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF888888),
                   ),
-                  if (hasQuote)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        formatPercent(changePct),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: dailyColor,
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
+              if (displayName.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    displayName,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ],
           ),
 
-          // Sub title (name)
-          if (displayName.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              displayName,
-              style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-
           const SizedBox(height: 12),
 
-          // Grid: 수익 / 평단가 / 수량 / 평가금액 / 매입환율
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          // Grid row: 현재가 / 수익 / 평단가 / 수량 / 평가금액 / 매입환율
+          Row(
             children: [
+              // 현재가
+              _cell(
+                '현재가',
+                hasQuote ? fmtPrice(price) : '-',
+                sub: hasQuote ? formatPercent(changePct) : null,
+                subColor: hasQuote ? dailyColor : null,
+              ),
               // 수익
-              _gridItem(
+              _cell(
                 '수익',
                 hasQuote ? '${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}' : '-',
                 sub: hasQuote ? formatPercent(profitPct) : null,
                 valueColor: hasQuote ? profitColor : null,
+                subColor: hasQuote ? profitColor : null,
               ),
               // 평단가
-              _gridItem(
-                '평단가',
-                formatPrice(holding.avgCost),
-              ),
+              _cell('평단가', fmtPrice(holding.avgCost)),
               // 수량
-              _gridItem(
-                '수량',
-                '${formatShares(holding.shares)}주',
-              ),
+              _cell('수량', '${formatShares(holding.shares)}주'),
               // 평가금액
-              _gridItem(
-                '평가금액',
-                hasQuote ? formatKRW(totalValueKRW) : '-',
-              ),
+              _cell('평가금액', hasQuote ? formatKRW(totalValueKRW) : '-'),
               // 매입환율 (USD only)
               if (!isKRW)
-                _gridItem(
-                  '매입환율',
-                  formatKRW(holding.avgExchangeRate),
-                ),
+                _cell('매입환율', formatKRW(holding.avgExchangeRate)),
             ],
           ),
         ],
@@ -169,9 +127,8 @@ class HoldingCard extends StatelessWidget {
     );
   }
 
-  Widget _gridItem(String label, String value, {String? sub, Color? valueColor}) {
-    return SizedBox(
-      width: 100,
+  Widget _cell(String label, String value, {String? sub, Color? valueColor, Color? subColor}) {
+    return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -183,14 +140,16 @@ class HoldingCard extends StatelessWidget {
               color: Color(0xFFAAAAAA),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             value,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: valueColor ?? const Color(0xFF1A1A1A),
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           if (sub != null)
             Padding(
@@ -200,7 +159,7 @@ class HoldingCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: valueColor ?? const Color(0xFF1A1A1A),
+                  color: subColor ?? const Color(0xFF1A1A1A),
                 ),
               ),
             ),
