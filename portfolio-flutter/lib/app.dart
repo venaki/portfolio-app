@@ -6,7 +6,8 @@ import 'screens/login_screen.dart';
 import 'screens/sheet_connect_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/portfolio_screen.dart';
-import 'widgets/custom_tab_bar.dart';
+import 'widgets/responsive_shell.dart';
+import 'utils/constants.dart';
 
 class PortfolioApp extends ConsumerWidget {
   const PortfolioApp({super.key});
@@ -14,6 +15,8 @@ class PortfolioApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
+    final portfolio = ref.watch(portfolioProvider);
+    final accentColor = hexToColor(portfolio.settings.accentColor);
 
     return MaterialApp(
       title: 'Portfolio',
@@ -22,7 +25,7 @@ class PortfolioApp extends ConsumerWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFFAFAFA),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0D6E6E),
+          seedColor: accentColor,
           surface: const Color(0xFFFFFFFF),
         ),
         cardTheme: CardThemeData(
@@ -93,20 +96,16 @@ class _MainAppState extends ConsumerState<MainApp> {
     final screens = [
       const DashboardScreen(),
       const PortfolioScreen(),
-      const Placeholder(), // History — Phase 2
-      const Placeholder(), // Other Assets — Phase 2
-      const Placeholder(), // Settings — Phase 2
+      const Center(child: Text('거래내역')),   // Placeholder until Task 4
+      const Center(child: Text('기타 자산')),  // Placeholder until Task 7
+      const Center(child: Text('설정')),      // Placeholder until Task 8
     ];
 
     return Scaffold(
-      body: Column(
-        children: [
-          Expanded(child: screens[_currentIndex]),
-          CustomTabBar(
-            currentIndex: _currentIndex,
-            onTap: (i) => setState(() => _currentIndex = i),
-          ),
-        ],
+      body: ResponsiveShell(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+        child: screens[_currentIndex],
       ),
     );
   }
