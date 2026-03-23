@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Pressable, Alert, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { COLORS, POSITIVE_COLOR, NEGATIVE_COLOR } from '../../src/constants';
 import { FilterTabs } from '../../src/components/FilterTabs';
 import { formatKRW, formatUSD } from '../../src/utils/format';
 import { Owner, Currency } from '../../src/types';
+import { BaseModal } from '../../src/components/BaseModal';
 
 const ASSET_TYPES = ['예금', '채권', '대출', '기타'] as const;
 type CashAssetType = typeof ASSET_TYPES[number];
@@ -216,9 +217,7 @@ export default function Assets() {
       </ScrollView>
 
       {/* Add Modal */}
-      <Modal visible={showAddModal} transparent animationType="none">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
-          <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
+      <BaseModal visible={showAddModal} onClose={() => setShowAddModal(false)} cardStyle={!isMobile ? styles.modalContentPC : undefined}>
             <Text style={styles.modalTitle}>기타 자산 추가</Text>
 
             <Text style={styles.fieldLabel}>명의</Text>
@@ -281,14 +280,10 @@ export default function Assets() {
                 <Text style={styles.submitBtnText}>추가</Text>
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      </BaseModal>
 
       {/* Edit Modal */}
-      <Modal visible={!!editTarget} transparent animationType="none">
-        <Pressable style={styles.modalOverlay} onPress={() => setEditTarget(null)}>
-          <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
+      <BaseModal visible={!!editTarget} onClose={() => setEditTarget(null)} cardStyle={!isMobile ? styles.modalContentPC : undefined}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <Text style={styles.modalTitle}>자산 편집</Text>
               <Pressable onPress={() => setEditTarget(null)} hitSlop={8}>
@@ -341,9 +336,7 @@ export default function Assets() {
                 <Text style={styles.submitBtnText}>저장</Text>
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      </BaseModal>
     </View>
   );
 }
@@ -357,7 +350,7 @@ const styles = StyleSheet.create({
   headerPC: { paddingHorizontal: 24, paddingTop: 24 },
   headerTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 22, color: COLORS.textPrimary },
   addBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8 },
-  addBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#FFF' },
+  addBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: COLORS.white },
   filterWrapper: { paddingHorizontal: 16, marginBottom: 8 },
   filterWrapperPC: { paddingHorizontal: 24 },
   totalRow: {
@@ -391,16 +384,11 @@ const styles = StyleSheet.create({
   cardAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 16, color: COLORS.textPrimary },
   cardAmountSub: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: {
-    backgroundColor: COLORS.card, borderRadius: 20,
-    padding: 24, maxHeight: '90%', width: '90%', maxWidth: 480,
-  },
-  modalContentPC: { width: 560, maxWidth: 560, maxHeight: '90%' },
+  modalContentPC: { width: 560, maxWidth: 560 },
   modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
   fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: COLORS.textPrimary, marginBottom: 6 },
   input: {
-    backgroundColor: '#F8F8F8', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: COLORS.inputBg, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
     fontFamily: 'JetBrainsMono_400Regular', fontSize: 13, color: COLORS.textPrimary,
   },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
@@ -410,7 +398,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: COLORS.textSecondary },
   submitBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  submitBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#FFF' },
+  submitBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: COLORS.white },
   editRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   editLabel: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 12, color: COLORS.textTertiary },
   editValue: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: COLORS.textPrimary },

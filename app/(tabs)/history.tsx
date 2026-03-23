@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Pressable, Modal, Alert, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Pressable, Alert, RefreshControl, StyleSheet } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { formatKRW, formatUSD, formatDate } from '../../src/utils/format';
@@ -10,6 +10,7 @@ import { TransactionCard } from '../../src/components/TransactionCard';
 import { AddTransactionModal } from '../../src/components/AddTransactionModal';
 import { replayTransactions } from '../../src/engine/holdings';
 import { Transaction, Owner, Holding } from '../../src/types';
+import { BaseModal } from '../../src/components/BaseModal';
 
 const TYPE_CHIP_OPTIONS = [
   { label: '전체', value: '전체' },
@@ -267,9 +268,7 @@ export default function History() {
       <AddTransactionModal visible={showModal} onClose={() => setShowModal(false)} />
 
       {/* Edit/Detail Modal */}
-      <Modal visible={!!editTx} transparent animationType="none">
-        <Pressable style={styles.modalOverlay} onPress={() => setEditTx(null)}>
-          <Pressable style={[styles.modalContent, !isMobile && styles.modalContentPC]} onPress={(e) => e.stopPropagation()}>
+      <BaseModal visible={!!editTx} onClose={() => setEditTx(null)} cardStyle={!isMobile ? styles.modalContentPC : undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>거래 편집</Text>
               <Pressable onPress={() => setEditTx(null)} hitSlop={8}>
@@ -341,12 +340,10 @@ export default function History() {
                 <Text style={styles.deleteBtnText}>삭제</Text>
               </Pressable>
               <Pressable style={[styles.closeBtn, { backgroundColor: settings.accentColor, borderWidth: 0 }]} onPress={handleSaveTx}>
-                <Text style={[styles.closeBtnText, { color: '#FFF', fontFamily: 'Inter_600SemiBold' }]}>저장</Text>
+                <Text style={[styles.closeBtnText, { color: COLORS.white, fontFamily: 'Inter_600SemiBold' }]}>저장</Text>
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      </BaseModal>
     </View>
   );
 }
@@ -421,18 +418,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textTertiary,
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: {
-    backgroundColor: COLORS.card, borderRadius: 20,
-    padding: 24, maxHeight: '90%', width: '90%', maxWidth: 480,
-  },
-  modalContentPC: { width: 560, maxWidth: 560, maxHeight: '90%' },
+  modalContentPC: { width: 560, maxWidth: 560 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary },
   closeX: { fontFamily: 'Inter_500Medium', fontSize: 20, color: COLORS.textMuted, padding: 4 },
   fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: COLORS.textTertiary, marginBottom: 4 },
   input: {
-    backgroundColor: '#F8F8F8', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: COLORS.inputBg, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10,
     fontFamily: 'JetBrainsMono_400Regular', fontSize: 13, color: COLORS.textPrimary,
   },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
@@ -440,7 +432,7 @@ const styles = StyleSheet.create({
     flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
     backgroundColor: '#E07B54',
   },
-  deleteBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#FFF' },
+  deleteBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: COLORS.white },
   closeBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
     borderWidth: 1, borderColor: COLORS.border,
