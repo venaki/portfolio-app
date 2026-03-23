@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
-import { House, ChartBar, Clock3, Settings } from 'lucide-react-native';
+import { House, ChartBar, Clock3, Wallet, Settings } from 'lucide-react-native';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { useApp } from '../../src/context/AppContext';
 import { Sidebar } from '../../src/components/Sidebar';
@@ -82,7 +82,8 @@ export default function TabsLayout() {
         tabBarIcon: ({ color }) => <Clock3 size={18} color={color} />,
       }} />
       <Tabs.Screen name="other-assets" options={{
-        href: null,
+        title: 'Assets',
+        tabBarIcon: ({ color }) => <Wallet size={18} color={color} />,
       }} />
       <Tabs.Screen name="settings" options={{
         title: 'Settings',
