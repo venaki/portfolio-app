@@ -15,6 +15,7 @@ class PortfolioScreen extends ConsumerStatefulWidget {
 class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
   String _accountFilter = '전체';
   String _marketFilter = '전체';
+  bool _filtersExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -63,12 +64,36 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               onChanged: (v) => setState(() => _accountFilter = v),
             ),
             const SizedBox(height: 8),
-            SegmentedFilter(
-              options: const ['전체', '미국', '한국', '기타'],
-              selected: _marketFilter,
-              onChanged: (v) => setState(() => _marketFilter = v),
+            if (_filtersExpanded) ...[
+              SegmentedFilter(
+                options: const ['전체', '미국', '한국'],
+                selected: _marketFilter,
+                onChanged: (v) => setState(() => _marketFilter = v),
+              ),
+              const SizedBox(height: 8),
+            ],
+            GestureDetector(
+              onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _filtersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: const Color(0xFFAAAAAA),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _filtersExpanded ? '필터 접기' : '필터 더보기',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             // Holdings
             if (holdings.isEmpty)
               const Center(
