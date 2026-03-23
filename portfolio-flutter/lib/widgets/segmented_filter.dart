@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-class FilterTabs extends StatelessWidget {
+class SegmentedFilter extends StatelessWidget {
   final List<String> options;
   final String selected;
   final ValueChanged<String> onChanged;
 
-  const FilterTabs({
+  const SegmentedFilter({
     super.key,
     required this.options,
     required this.selected,

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/portfolio_provider.dart';
 import '../models/transaction.dart';
 import '../widgets/holding_card.dart';
-import '../widgets/filter_tabs.dart';
+import '../widgets/segmented_filter.dart';
 import '../widgets/add_transaction_modal.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
@@ -81,13 +81,13 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             ),
             const SizedBox(height: 24),
             // Filter tabs
-            FilterTabs(
+            SegmentedFilter(
               options: accounts,
               selected: _accountFilter,
               onChanged: (v) => setState(() => _accountFilter = v),
             ),
             const SizedBox(height: 8),
-            FilterTabs(
+            SegmentedFilter(
               options: const ['전체', '미국', '한국', '기타'],
               selected: _marketFilter,
               onChanged: (v) => setState(() => _marketFilter = v),
