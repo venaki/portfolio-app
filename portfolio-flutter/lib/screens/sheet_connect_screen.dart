@@ -167,11 +167,13 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
               // Logo area
               const Column(
                 children: [
@@ -349,7 +351,8 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
                   ],
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

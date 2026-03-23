@@ -28,22 +28,26 @@ class Sidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Logo
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-            child: Row(
-              children: [
-                Icon(Icons.show_chart, size: 20, color: accentColor),
-                const SizedBox(width: 10),
-                const Text(
-                  'Portfolio',
-                  style: TextStyle(
-                    fontFamily: 'Newsreader',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF1A1A1A),
+          GestureDetector(
+            onTap: () => onTap(0),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+              child: Row(
+                children: [
+                  Icon(Icons.show_chart, size: 20, color: accentColor),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Portfolio',
+                    style: TextStyle(
+                      fontFamily: 'Newsreader',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1A1A1A),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           // Nav items

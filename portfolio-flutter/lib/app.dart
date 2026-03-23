@@ -27,8 +27,9 @@ class PortfolioApp extends ConsumerWidget {
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFFAFAFA),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: accentColor,
+        colorScheme: const ColorScheme.light().copyWith(
+          primary: accentColor,
+          onPrimary: Colors.white,
           surface: const Color(0xFFFFFFFF),
         ),
         cardTheme: CardThemeData(
@@ -105,10 +106,16 @@ class _MainAppState extends ConsumerState<MainApp> {
     ];
 
     return Scaffold(
-      body: ResponsiveShell(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        child: screens[_currentIndex],
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1280),
+          child: ResponsiveShell(
+            currentIndex: _currentIndex,
+            onTap: (i) => setState(() => _currentIndex = i),
+            child: screens[_currentIndex],
+          ),
+        ),
       ),
     );
   }
