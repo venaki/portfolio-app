@@ -149,6 +149,9 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
         tx.currency == Currency.krw ? 'KRW' : 'USD',
       );
     }
+
+    // 시세 갱신 (GOOGLEFINANCE 수식 반영 대기)
+    Future.delayed(const Duration(seconds: 2), () => refreshPrices());
   }
 
   /// update transaction
@@ -157,6 +160,7 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
     final newTxs = state.transactions.map((t) => t.id == tx.id ? tx : t).toList();
     final newHoldings = replayTransactions(newTxs);
     state = state.copyWith(transactions: newTxs, holdings: newHoldings);
+    refreshPrices();
   }
 
   /// delete transaction
@@ -165,23 +169,27 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
     final newTxs = state.transactions.where((t) => t.id != id).toList();
     final newHoldings = replayTransactions(newTxs);
     state = state.copyWith(transactions: newTxs, holdings: newHoldings);
+    refreshPrices();
   }
 
   Future<void> addOtherAsset(OtherAsset asset) async {
     await _sheets.addOtherAsset(asset);
     state = state.copyWith(otherAssets: [...state.otherAssets, asset]);
+    refreshPrices();
   }
 
   Future<void> updateOtherAsset(OtherAsset asset) async {
     await _sheets.updateOtherAsset(asset);
     final newOa = state.otherAssets.map((a) => a.id == asset.id ? asset : a).toList();
     state = state.copyWith(otherAssets: newOa);
+    refreshPrices();
   }
 
   Future<void> deleteOtherAsset(String id) async {
     await _sheets.deleteOtherAsset(id);
     final newOa = state.otherAssets.where((a) => a.id != id).toList();
     state = state.copyWith(otherAssets: newOa);
+    refreshPrices();
   }
 
   Future<void> updateSettings(AppSettings newSettings) async {
