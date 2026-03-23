@@ -17,7 +17,6 @@ async function fetchYahooChart(symbol: string): Promise<any> {
   const { Platform } = require('react-native');
 
   if (Platform.OS === 'web') {
-    // Web: use our Cloudflare Worker proxy
     const url = `${PROXY_BASE}/?symbol=${encodeURIComponent(symbol)}&range=1d&interval=1d`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Proxy error: ${res.status}`);
