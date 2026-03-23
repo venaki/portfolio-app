@@ -19,6 +19,7 @@ class TickerSearch extends StatefulWidget {
   final String? initialValue;
   final bool readOnly;
   final ValueChanged<TickerSearchResult>? onSelected;
+  final ValueChanged<String>? onManualInput;
   final String hint;
 
   const TickerSearch({
@@ -26,6 +27,7 @@ class TickerSearch extends StatefulWidget {
     this.initialValue,
     this.readOnly = false,
     this.onSelected,
+    this.onManualInput,
     this.hint = '예: TSLA',
   });
 
@@ -70,6 +72,8 @@ class _TickerSearchState extends State<TickerSearch> {
 
   void _onChanged(String value) {
     _debounce?.cancel();
+    // 수동 입력 시에도 부모에게 값 전달
+    widget.onManualInput?.call(value.trim());
     if (value.trim().length < 2) {
       _removeOverlay();
       return;

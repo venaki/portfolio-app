@@ -191,6 +191,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 TickerSearch(
                   hint: '예: TSLA',
                   onSelected: _onTickerSelected,
+                  onManualInput: (value) {
+                    setState(() {
+                      _ticker = value;
+                      if (_tickerName.isEmpty) _nameController.text = value;
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
 

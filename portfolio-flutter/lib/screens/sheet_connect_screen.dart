@@ -46,6 +46,14 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
     );
 
     try {
+      // Drive 스코프 추가 요청
+      final granted = await ref.read(authServiceProvider).requestDriveScope();
+      if (!granted) {
+        if (mounted) Navigator.pop(context);
+        _showUrlInputDialog();
+        return;
+      }
+
       final headers = await ref.read(authServiceProvider).getAuthHeaders();
       final res = await http.get(
         Uri.parse(
