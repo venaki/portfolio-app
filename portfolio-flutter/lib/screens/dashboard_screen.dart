@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/portfolio_provider.dart';
 import '../models/transaction.dart';
+import '../models/other_asset.dart';
 import '../engine/calculations.dart';
 import '../widgets/total_asset_card.dart';
 import '../widgets/account_card.dart';
@@ -30,11 +31,12 @@ class DashboardScreen extends ConsumerWidget {
       totalCostKRW += calcCostKRW(h);
     }
 
-    // 기타 자산 합산
+    // 기타 자산 합산 (대출은 음수)
     for (final oa in portfolio.otherAssets) {
+      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
       final v = oa.currency == Currency.krw
-          ? oa.value
-          : oa.value * portfolio.exchangeRate;
+          ? raw
+          : raw * portfolio.exchangeRate;
       totalValueKRW += v;
       totalCostKRW += v;
     }
@@ -72,7 +74,8 @@ class DashboardScreen extends ConsumerWidget {
       );
     }
     for (final oa in portfolio.otherAssets) {
-      final v = oa.currency == Currency.krw ? oa.value : oa.value * portfolio.exchangeRate;
+      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
+      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
       final entry = accountMap[oa.account] ?? (value: 0.0, cost: 0.0);
       accountMap[oa.account] = (value: entry.value + v, cost: entry.cost + v);
     }
