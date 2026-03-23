@@ -42,15 +42,17 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           children: [
             // Header
-            const SizedBox(height: 24),
-            const Text(
-              '포트폴리오',
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w500,
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 24),
+              child: const Text(
+                '포트폴리오',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1A1A1A),
+                ),
               ),
             ),
-            const SizedBox(height: 24),
             // Filter tabs
             SegmentedFilter(
               options: accounts,

@@ -18,6 +18,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   String _marketFilter = '전체';
   String _accountFilter = '전체';
   String _typeFilter = '전체';
+  bool _filtersExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +75,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    '+ 추가',
+                    '추가',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -87,15 +88,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
         ),
 
-        // Filter Row 1: Market
-        SegmentedFilter(
-          options: const ['전체', '미국', '한국'],
-          selected: _marketFilter,
-          onChanged: (v) => setState(() => _marketFilter = v),
-        ),
-        const SizedBox(height: 8),
-
-        // Filter Row 2: Account
+        // Filter: Account (always visible)
         SegmentedFilter(
           options: accounts,
           selected: _accountFilter,
@@ -103,13 +96,43 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Filter Row 3: Type
-        SegmentedFilter(
-          options: const ['전체', '매수', '매도'],
-          selected: _typeFilter,
-          onChanged: (v) => setState(() => _typeFilter = v),
+        // Expand/collapse toggle
+        GestureDetector(
+          onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _filtersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                size: 18,
+                color: const Color(0xFFAAAAAA),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _filtersExpanded ? '필터 접기' : '필터 더보기',
+                style: const TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 8),
+
+        // Collapsible filters: Market + Type
+        if (_filtersExpanded) ...[
+          SegmentedFilter(
+            options: const ['전체', '미국', '한국'],
+            selected: _marketFilter,
+            onChanged: (v) => setState(() => _marketFilter = v),
+          ),
+          const SizedBox(height: 8),
+          SegmentedFilter(
+            options: const ['전체', '매수', '매도'],
+            selected: _typeFilter,
+            onChanged: (v) => setState(() => _typeFilter = v),
+          ),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 16),
 
         // Empty state
         if (filtered.isEmpty)

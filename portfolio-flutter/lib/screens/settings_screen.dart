@@ -40,7 +40,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         // Title
         const Padding(
-          padding: EdgeInsets.only(top: 16, bottom: 32),
+          padding: EdgeInsets.only(top: 16, bottom: 24),
           child: Text(
             '설정',
             style: TextStyle(

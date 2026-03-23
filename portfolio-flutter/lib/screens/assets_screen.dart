@@ -75,7 +75,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    '+ 추가',
+                    '추가',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
