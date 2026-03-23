@@ -35,4 +35,11 @@ class AuthService {
     if (user == null) throw Exception('Not signed in');
     return await user.authHeaders;
   }
+
+  /// Drive 스코프를 추가 요청 (시트 선택 시 사용)
+  Future<bool> requestDriveScope() async {
+    return await _googleSignIn.requestScopes([
+      'https://www.googleapis.com/auth/drive.readonly',
+    ]);
+  }
 }
