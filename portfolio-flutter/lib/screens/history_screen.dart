@@ -174,6 +174,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TransactionCard(
                     transaction: tx,
+                    stockName: portfolio.quotes[tx.ticker]?.name,
                     onTap: () => showEditTransactionDialog(context, tx),
                   ),
                 ),
