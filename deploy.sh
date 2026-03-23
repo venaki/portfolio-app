@@ -29,6 +29,7 @@ rm -rf dist/assets/node_modules
 
 echo "📄 GitHub Pages 설정..."
 touch dist/.nojekyll
+cp dist/index.html dist/404.html
 
 echo "🚀 GitHub Pages 배포 중..."
 npx gh-pages -d dist --dotfiles

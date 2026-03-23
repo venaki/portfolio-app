@@ -53,6 +53,3 @@ export const ASSET_CLASS_LABELS: Record<string, AssetClass | 'all'> = {
 export const ASSET_CLASS_OPTIONS = ['전체', '미국', '한국', '기타'];
 
 export const POSITIVE_COLOR = '#16A34A';
-
-
-// FMP_BASE_URL은 src/api/fmp.ts 내부에서 직접 관리

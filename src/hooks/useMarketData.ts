@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AppState } from 'react-native';
 import { MarketData, Holding, StockQuote } from '../types';
-import { fetchQuotes, fetchForexRate, getYahooSymbol } from '../api/fmp';
-import { getApiKey } from '../storage/secureStore';
+import { fetchQuotes, fetchForexRate, getYahooSymbol } from '../api/yahoo';
 
 export function useMarketData(holdings: Holding[], refreshInterval: number) {
   const [data, setData] = useState<MarketData>({
@@ -38,15 +37,14 @@ export function useMarketData(holdings: Holding[], refreshInterval: number) {
   }, [tickerKey]);
 
   const refresh = useCallback(async () => {
-    const apiKey = await getApiKey();
-    if (!apiKey || tickers.length === 0) return;
+    if (tickers.length === 0) return;
 
     setData(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
       const [quotes, rate] = await Promise.all([
-        fetchQuotes(tickers, apiKey, tickerSymbolMap),
-        fetchForexRate(apiKey),
+        fetchQuotes(tickers, tickerSymbolMap),
+        fetchForexRate(),
       ]);
 
       const quotesMap: Record<string, StockQuote> = {};
