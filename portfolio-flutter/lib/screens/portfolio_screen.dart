@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/portfolio_provider.dart';
 import '../models/transaction.dart';
+import '../models/other_asset.dart';
 import '../widgets/holding_card.dart';
+import '../widgets/asset_card.dart';
 import '../widgets/segmented_filter.dart';
+import '../widgets/edit_asset_modal.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
@@ -23,17 +26,20 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     final accounts = ['전체', ...portfolio.settings.accounts];
 
     var holdings = portfolio.holdings;
+    var otherAssets = portfolio.otherAssets;
+    final showOtherOnly = _marketFilter == '기타';
+    final showStocksOnly = _marketFilter == '미국' || _marketFilter == '한국';
 
-    // 필터 적용
+    // 계정 필터
     if (_accountFilter != '전체') {
       holdings = holdings.where((h) => h.account == _accountFilter).toList();
+      otherAssets = otherAssets.where((a) => a.account == _accountFilter).toList();
     }
-    if (_marketFilter != '전체') {
-      final marketMap = {'미국': Market.us, '한국 (KRX)': Market.krx, '한국 (KOSDAQ)': Market.kosdaq};
-      final targetMarkets = _marketFilter == '한국'
-          ? [Market.krx, Market.kosdaq]
-          : [marketMap[_marketFilter] ?? Market.us];
-      holdings = holdings.where((h) => targetMarkets.contains(h.market)).toList();
+    // 시장 필터
+    if (_marketFilter == '미국') {
+      holdings = holdings.where((h) => h.market == Market.us).toList();
+    } else if (_marketFilter == '한국') {
+      holdings = holdings.where((h) => h.market == Market.krx || h.market == Market.kosdaq).toList();
     }
 
     final isWide = MediaQuery.of(context).size.width >= 768;
@@ -66,7 +72,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             const SizedBox(height: 8),
             if (_filtersExpanded) ...[
               SegmentedFilter(
-                options: const ['전체', '미국', '한국'],
+                options: const ['전체', '미국', '한국', '기타'],
                 selected: _marketFilter,
                 onChanged: (v) => setState(() => _marketFilter = v),
               ),
@@ -94,27 +100,50 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Holdings
-            if (holdings.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('보유 종목이 없습니다'),
-                ),
-              )
-            else
-              ...holdings.asMap().entries.map((entry) {
+            // Holdings (주식)
+            if (!showOtherOnly) ...[
+              if (holdings.isNotEmpty)
+                ...holdings.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final h = entry.value;
+                  return Padding(
+                    padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
+                    child: HoldingCard(
+                      holding: h,
+                      quote: portfolio.quotes[h.ticker],
+                      exchangeRate: portfolio.exchangeRate,
+                    ),
+                  );
+                }),
+            ],
+
+            // 기타자산
+            if (!showStocksOnly && otherAssets.isNotEmpty) ...[
+              if (holdings.isNotEmpty && !showOtherOnly)
+                const SizedBox(height: 8),
+              ...otherAssets.asMap().entries.map((entry) {
                 final index = entry.key;
-                final h = entry.value;
+                final a = entry.value;
                 return Padding(
-                  padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
-                  child: HoldingCard(
-                    holding: h,
-                    quote: portfolio.quotes[h.ticker],
-                    exchangeRate: portfolio.exchangeRate,
+                  padding: EdgeInsets.only(top: index == 0 && (showOtherOnly || holdings.isEmpty) ? 0 : 8),
+                  child: AssetCard(
+                    asset: a,
+                    onTap: () => showEditAssetDialog(context, a),
                   ),
                 );
               }),
+            ],
+
+            // 빈 상태
+            if ((showOtherOnly && otherAssets.isEmpty) ||
+                (showStocksOnly && holdings.isEmpty) ||
+                (!showOtherOnly && !showStocksOnly && holdings.isEmpty && otherAssets.isEmpty))
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text('보유 자산이 없습니다'),
+                ),
+              ),
           ],
         ),
       ),
