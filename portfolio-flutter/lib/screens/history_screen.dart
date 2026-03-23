@@ -4,6 +4,8 @@ import '../providers/portfolio_provider.dart';
 import '../models/transaction.dart';
 import '../widgets/segmented_filter.dart';
 import '../widgets/transaction_card.dart';
+import '../widgets/add_transaction_modal.dart';
+import '../widgets/edit_transaction_modal.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -61,10 +63,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {
-                  // TODO: Task 6 — 거래 추가 모달
-                  debugPrint('추가 버튼 탭');
-                },
+                onTap: () => showAddTransactionDialog(context),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 7,
@@ -148,10 +147,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TransactionCard(
                     transaction: tx,
-                    onTap: () {
-                      // TODO: Task 6 — 거래 상세/편집 모달
-                      debugPrint('거래 탭: ${tx.ticker} ${tx.date}');
-                    },
+                    onTap: () => showEditTransactionDialog(context, tx),
                   ),
                 ),
               ),

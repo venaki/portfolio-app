@@ -1,58 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../providers/portfolio_provider.dart';
-import 'ticker_search.dart';
+import 'transaction_delete_modal.dart';
 
-/// Shows the add-transaction dialog (centered on web/desktop).
-Future<void> showAddTransactionDialog(BuildContext context) {
+/// Shows the edit-transaction dialog.
+Future<void> showEditTransactionDialog(
+    BuildContext context, Transaction transaction) {
   return showDialog(
     context: context,
     barrierDismissible: true,
-    builder: (_) => const Center(child: AddTransactionModal()),
+    builder: (_) => Center(child: EditTransactionModal(transaction: transaction)),
   );
 }
 
-class AddTransactionModal extends ConsumerStatefulWidget {
-  const AddTransactionModal({super.key});
+class EditTransactionModal extends ConsumerStatefulWidget {
+  final Transaction transaction;
+  const EditTransactionModal({super.key, required this.transaction});
 
   @override
-  ConsumerState<AddTransactionModal> createState() =>
-      _AddTransactionModalState();
+  ConsumerState<EditTransactionModal> createState() =>
+      _EditTransactionModalState();
 }
 
-class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
+class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _sharesController = TextEditingController();
   final _priceController = TextEditingController();
   final _rateController = TextEditingController();
   final _dateController = TextEditingController();
   final _memoController = TextEditingController();
 
-  TransactionType _type = TransactionType.buy;
-  Market _market = Market.us;
-  String _account = '';
-  DateTime _date = DateTime.now();
+  late TransactionType _type;
+  late Market _market;
+  late String _account;
+  late DateTime _date;
   bool _isSaving = false;
-
-  String _ticker = '';
-  String _tickerName = '';
 
   Currency get _currency => _market == Market.us ? Currency.usd : Currency.krw;
 
   @override
   void initState() {
     super.initState();
-    final accounts = ref.read(portfolioProvider).settings.accounts;
-    if (accounts.isNotEmpty) _account = accounts.first;
-    _dateController.text = _date.toIso8601String().substring(0, 10);
+    final tx = widget.transaction;
+    _type = tx.type;
+    _market = tx.market;
+    _account = tx.account;
+    _date = DateTime.tryParse(tx.date) ?? DateTime.now();
+    _sharesController.text = tx.shares.toString();
+    _priceController.text = tx.price.toString();
+    _rateController.text = tx.exchangeRate.toString();
+    _dateController.text = tx.date;
+    _memoController.text = tx.memo;
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _sharesController.dispose();
     _priceController.dispose();
     _rateController.dispose();
@@ -63,18 +66,17 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_account.isEmpty) return;
 
     setState(() => _isSaving = true);
 
     final tx = Transaction(
-      id: const Uuid().v4(),
+      id: widget.transaction.id,
       date: _date.toIso8601String().substring(0, 10),
       account: _account,
       type: _type,
-      ticker: _ticker.isEmpty ? '' : _ticker.toUpperCase(),
+      ticker: widget.transaction.ticker,
       market: _market,
-      name: _tickerName.isEmpty ? _nameController.text.trim() : _tickerName,
+      name: widget.transaction.name,
       shares: double.tryParse(_sharesController.text) ?? 0,
       price: double.tryParse(_priceController.text) ?? 0,
       currency: _currency,
@@ -83,7 +85,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
     );
 
     try {
-      await ref.read(portfolioProvider.notifier).addTransaction(tx);
+      await ref.read(portfolioProvider.notifier).updateTransaction(tx);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -96,22 +98,32 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
     }
   }
 
-  void _onTickerSelected(TickerSearchResult result) {
-    setState(() {
-      _ticker = result.ticker;
-      _tickerName = result.name;
-      _nameController.text = result.name;
-      // Infer market from exchange
-      final ex = result.exchange.toUpperCase();
-      if (ex.contains('KRX') || ex.contains('KOSDAQ') || ex.contains('KSE') || ex.contains('KOREA')) {
-        _market = ex.contains('KOSDAQ') ? Market.kosdaq : Market.krx;
-      }
-    });
+  void _showDeleteConfirm() {
+    showDialog(
+      context: context,
+      builder: (_) => TransactionDeleteModal(
+        onConfirm: () async {
+          try {
+            await ref
+                .read(portfolioProvider.notifier)
+                .deleteTransaction(widget.transaction.id);
+            if (mounted) Navigator.of(context).pop(); // close edit modal
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('삭제 실패: $e')),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(portfolioProvider).settings.accounts;
+    final tx = widget.transaction;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -135,7 +147,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      '거래 추가',
+                      '거래 수정',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -181,12 +193,23 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 ),
                 const SizedBox(height: 16),
 
-                // 종목코드 (TickerSearch)
-                _buildLabel('종목코드'),
+                // 종목 (readonly)
+                _buildLabel('종목'),
                 const SizedBox(height: 6),
-                TickerSearch(
-                  hint: '예: TSLA',
-                  onSelected: _onTickerSelected,
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F7F7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE5E5E5)),
+                  ),
+                  child: Text(
+                    '${tx.ticker}  ${tx.name}',
+                    style: const TextStyle(
+                        fontSize: 14, color: Color(0xFF1A1A1A)),
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -277,37 +300,63 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 ),
                 const SizedBox(height: 24),
 
-                // Submit
-                SizedBox(
-                  width: double.infinity,
-                  child: GestureDetector(
-                    onTap: _isSaving ? null : _save,
-                    child: Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D6E6E),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              '거래 추가',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
+                // Bottom buttons: 삭제 + 저장
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _showDeleteConfirm,
+                        child: Container(
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE07B54),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            '삭제',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
                             ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: GestureDetector(
+                        onTap: _isSaving ? null : _save,
+                        child: Container(
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0D6E6E),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  '저장',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
