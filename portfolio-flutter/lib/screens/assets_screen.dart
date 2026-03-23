@@ -21,6 +21,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
+    final accentColor = Theme.of(context).colorScheme.primary;
 
     if (portfolio.isLoading && portfolio.otherAssets.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -54,6 +55,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
           padding: const EdgeInsets.only(top: 16, bottom: 24),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Text(
                 '기타 자산',
@@ -71,7 +73,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
                     horizontal: 14,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D6E6E),
+                    color: accentColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(

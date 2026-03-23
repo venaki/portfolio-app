@@ -32,6 +32,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final portfolio = ref.watch(portfolioProvider);
     final authState = ref.watch(authStateProvider);
     final settings = portfolio.settings;
+    final accentColor = Theme.of(context).colorScheme.primary;
     final isWide = MediaQuery.of(context).size.width >= 768;
     final hPadding = isWide ? 40.0 : 24.0;
 
@@ -104,12 +105,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Center(
                 child: GestureDetector(
                   onTap: _signOut,
-                  child: const Text(
+                  child: Text(
                     '로그아웃',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF0D6E6E),
+                      color: accentColor,
                     ),
                   ),
                 ),
@@ -188,8 +189,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF0D6E6E)),
+                          borderSide: BorderSide(color: accentColor),
                         ),
                         isDense: true,
                       ),
@@ -205,7 +205,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D6E6E),
+                        color: accentColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(

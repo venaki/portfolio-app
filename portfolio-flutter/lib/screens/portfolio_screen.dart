@@ -35,11 +35,14 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       holdings = holdings.where((h) => targetMarkets.contains(h.market)).toList();
     }
 
+    final isWide = MediaQuery.of(context).size.width >= 768;
+    final hPadding = isWide ? 40.0 : 24.0;
+
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () => ref.read(portfolioProvider.notifier).refreshPrices(),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 24),
           children: [
             // Header
             Padding(

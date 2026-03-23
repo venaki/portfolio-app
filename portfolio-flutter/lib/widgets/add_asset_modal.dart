@@ -81,6 +81,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(portfolioProvider).settings.accounts;
+    final accentColor = Theme.of(context).colorScheme.primary;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -129,6 +130,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                   children: accounts
                       .map((a) => _buildChip(a,
                           isActive: _account == a,
+                          accentColor: accentColor,
                           onTap: () => setState(() => _account = a)))
                       .toList(),
                 ),
@@ -143,18 +145,22 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                   children: [
                     _buildChip('예금',
                         isActive: _category == AssetCategory.savings,
+                        accentColor: accentColor,
                         onTap: () =>
                             setState(() => _category = AssetCategory.savings)),
                     _buildChip('채권',
                         isActive: _category == AssetCategory.bond,
+                        accentColor: accentColor,
                         onTap: () =>
                             setState(() => _category = AssetCategory.bond)),
                     _buildChip('대출',
                         isActive: _category == AssetCategory.loan,
+                        accentColor: accentColor,
                         onTap: () =>
                             setState(() => _category = AssetCategory.loan)),
                     _buildChip('기타',
                         isActive: _category == AssetCategory.other,
+                        accentColor: accentColor,
                         onTap: () =>
                             setState(() => _category = AssetCategory.other)),
                   ],
@@ -167,6 +173,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                 _buildInput(
                   controller: _nameController,
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
+                  accentColor: accentColor,
                 ),
                 const SizedBox(height: 16),
 
@@ -177,6 +184,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                   controller: _valueController,
                   keyboardType: TextInputType.number,
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
+                  accentColor: accentColor,
                 ),
                 const SizedBox(height: 16),
 
@@ -187,11 +195,13 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                   children: [
                     _buildChip('KRW',
                         isActive: _currency == Currency.krw,
+                        accentColor: accentColor,
                         onTap: () =>
                             setState(() => _currency = Currency.krw)),
                     const SizedBox(width: 8),
                     _buildChip('USD',
                         isActive: _currency == Currency.usd,
+                        accentColor: accentColor,
                         onTap: () =>
                             setState(() => _currency = Currency.usd)),
                   ],
@@ -204,6 +214,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                 _buildInput(
                   controller: _memoController,
                   maxLines: 2,
+                  accentColor: accentColor,
                 ),
                 const SizedBox(height: 24),
 
@@ -215,7 +226,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                     child: Container(
                       padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D6E6E),
+                        color: accentColor,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
@@ -263,6 +274,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
   Widget _buildChip(
     String label, {
     required bool isActive,
+    required Color accentColor,
     VoidCallback? onTap,
   }) {
     return GestureDetector(
@@ -270,10 +282,10 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF0D6E6E) : Colors.white,
+          color: isActive ? accentColor : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isActive ? const Color(0xFF0D6E6E) : const Color(0xFFE5E5E5),
+            color: isActive ? accentColor : const Color(0xFFE5E5E5),
           ),
         ),
         child: Text(
@@ -294,6 +306,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     int maxLines = 1,
+    required Color accentColor,
   }) {
     return TextFormField(
       controller: controller,
@@ -316,7 +329,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF0D6E6E)),
+          borderSide: BorderSide(color: accentColor),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),

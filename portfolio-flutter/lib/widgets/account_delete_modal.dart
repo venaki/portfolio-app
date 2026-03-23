@@ -16,6 +16,7 @@ class AccountDeleteModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = Theme.of(context).colorScheme.primary;
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -60,7 +61,7 @@ class AccountDeleteModal extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D6E6E),
+                      color: accentColor,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     alignment: Alignment.center,
