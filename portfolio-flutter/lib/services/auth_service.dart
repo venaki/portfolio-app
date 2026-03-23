@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 class AuthService {
   static const _scopes = [
     'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive.readonly',
   ];
 
   final _googleSignIn = GoogleSignIn(

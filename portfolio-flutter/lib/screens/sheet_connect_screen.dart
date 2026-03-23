@@ -1,5 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+
+import '../providers/auth_provider.dart';
 import '../providers/portfolio_provider.dart';
 
 class SheetConnectScreen extends ConsumerStatefulWidget {
@@ -31,7 +37,64 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
     }
   }
 
-  Future<void> _showConnectDialog() async {
+  Future<void> _showSheetPicker() async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final headers = await ref.read(authServiceProvider).getAuthHeaders();
+      final res = await http.get(
+        Uri.parse(
+          "https://www.googleapis.com/drive/v3/files"
+          "?q=mimeType%3D'application%2Fvnd.google-apps.spreadsheet'"
+          "&orderBy=modifiedTime+desc"
+          "&pageSize=30"
+          "&fields=files(id%2Cname%2CmodifiedTime)",
+        ),
+        headers: headers,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+
+      if (res.statusCode != 200) {
+        _showUrlInputDialog();
+        return;
+      }
+
+      final data = jsonDecode(res.body);
+      final files = (data['files'] as List?) ?? [];
+
+      if (files.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google Drive에 스프레드시트가 없습니다')),
+        );
+        return;
+      }
+
+      final selected = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => _SheetPickerDialog(
+          files: files.cast<Map<String, dynamic>>(),
+        ),
+      );
+
+      if (selected != null) {
+        await _connectById(selected['id'] as String);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // dismiss loading if still showing
+        _showUrlInputDialog(); // fallback
+      }
+    }
+  }
+
+  Future<void> _showUrlInputDialog() async {
     final urlController = TextEditingController();
     final result = await showDialog<String>(
       context: context,
@@ -72,7 +135,10 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
       }
       return;
     }
+    await _connectById(id);
+  }
 
+  Future<void> _connectById(String id) async {
     try {
       await saveSpreadsheetId(id);
       await ref.read(portfolioProvider.notifier).connect(id);
@@ -89,7 +155,8 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
   }
 
   String? _extractSpreadsheetId(String input) {
-    final match = RegExp(r'/spreadsheets/d/([a-zA-Z0-9_-]+)').firstMatch(input);
+    final match =
+        RegExp(r'/spreadsheets/d/([a-zA-Z0-9_-]+)').firstMatch(input);
     if (match != null) return match.group(1);
     if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(input)) return input;
     return null;
@@ -220,9 +287,9 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
                       color: const Color(0xFFF0F0F0),
                     ),
 
-                    // Option 2: Connect existing
+                    // Option 2: Connect existing (now opens sheet picker)
                     GestureDetector(
-                      onTap: _showConnectDialog,
+                      onTap: _showSheetPicker,
                       behavior: HitTestBehavior.opaque,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -240,7 +307,7 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
                               ),
                               child: const Center(
                                 child: Icon(
-                                  Icons.link,
+                                  Icons.folder_open,
                                   size: 20,
                                   color: Color(0xFF666666),
                                 ),
@@ -284,6 +351,181 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetPickerDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> files;
+
+  const _SheetPickerDialog({required this.files});
+
+  @override
+  State<_SheetPickerDialog> createState() => _SheetPickerDialogState();
+}
+
+class _SheetPickerDialogState extends State<_SheetPickerDialog> {
+  String _query = '';
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_query.isEmpty) return widget.files;
+    final q = _query.toLowerCase();
+    return widget.files
+        .where((f) => (f['name'] as String).toLowerCase().contains(q))
+        .toList();
+  }
+
+  String _formatDate(String? iso) {
+    if (iso == null) return '';
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return DateFormat('yyyy.MM.dd HH:mm').format(dt);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 520),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.description,
+                      size: 20, color: Color(0xFF0D6E6E)),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '스프레드시트 선택',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, size: 20),
+                    splashRadius: 18,
+                  ),
+                ],
+              ),
+            ),
+
+            // Search field
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v),
+                decoration: InputDecoration(
+                  hintText: '검색...',
+                  hintStyle: const TextStyle(
+                      fontSize: 13, color: Color(0xFFAAAAAA)),
+                  prefixIcon: const Icon(Icons.search,
+                      size: 18, color: Color(0xFFAAAAAA)),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F5F5),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+
+            // List
+            Flexible(
+              child: filtered.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          '일치하는 시트가 없습니다',
+                          style:
+                              TextStyle(fontSize: 13, color: Color(0xFF888888)),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: Color(0xFFF0F0F0),
+                      ),
+                      itemBuilder: (context, i) {
+                        final file = filtered[i];
+                        final name = file['name'] as String? ?? '';
+                        final date = _formatDate(file['modifiedTime'] as String?);
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => Navigator.pop(context, file),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.table_chart,
+                                    size: 20, color: Color(0xFF0D6E6E)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (date.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          date,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF888888),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+
+            const SizedBox(height: 12),
+          ],
         ),
       ),
     );
