@@ -96,11 +96,11 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
           selected: _accountFilter,
           onChanged: (v) => setState(() => _accountFilter = v),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
         // Total row
         Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
