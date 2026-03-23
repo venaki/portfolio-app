@@ -6,7 +6,6 @@ import '../models/other_asset.dart';
 import '../widgets/holding_card.dart';
 import '../widgets/asset_card.dart';
 import '../widgets/segmented_filter.dart';
-import '../widgets/edit_asset_modal.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
@@ -128,7 +127,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   padding: EdgeInsets.only(top: index == 0 && (showOtherOnly || holdings.isEmpty) ? 0 : 8),
                   child: AssetCard(
                     asset: a,
-                    onTap: () => showEditAssetDialog(context, a),
                   ),
                 );
               }),
