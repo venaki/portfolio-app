@@ -72,8 +72,16 @@ class _TickerSearchState extends State<TickerSearch> {
 
   void _onChanged(String value) {
     _debounce?.cancel();
-    // 수동 입력 시에도 부모에게 값 전달
-    widget.onManualInput?.call(value.trim());
+    // 수동 입력 시 대문자 변환 + 부모에게 값 전달
+    final upper = value.trim().toUpperCase();
+    if (_controller.text != upper) {
+      final offset = _controller.selection.baseOffset;
+      _controller.text = upper;
+      _controller.selection = TextSelection.collapsed(
+        offset: offset.clamp(0, upper.length),
+      );
+    }
+    widget.onManualInput?.call(upper);
     if (value.trim().length < 2) {
       _removeOverlay();
       return;
@@ -199,7 +207,7 @@ class _TickerSearchState extends State<TickerSearch> {
   }
 
   void _selectResult(TickerSearchResult result) {
-    _controller.text = result.ticker;
+    _controller.text = result.ticker.toUpperCase();
     _removeOverlay();
     _focusNode.unfocus();
     widget.onSelected?.call(result);
