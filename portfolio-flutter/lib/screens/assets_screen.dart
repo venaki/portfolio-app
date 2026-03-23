@@ -96,7 +96,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
           selected: _accountFilter,
           onChanged: (v) => setState(() => _accountFilter = v),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Total row (only if assets exist)
         if (filtered.isNotEmpty)

@@ -98,27 +98,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Expand/collapse toggle
-        GestureDetector(
-          onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                _filtersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                size: 18,
-                color: const Color(0xFFAAAAAA),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _filtersExpanded ? '필터 접기' : '필터 더보기',
-                style: const TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-
         // Collapsible filters: Market + Type
         if (_filtersExpanded) ...[
           SegmentedFilter(
@@ -134,6 +113,29 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
           const SizedBox(height: 8),
         ],
+
+        // Expand/collapse toggle
+        GestureDetector(
+          onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _filtersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: const Color(0xFFAAAAAA),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _filtersExpanded ? '필터 접기' : '필터 더보기',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
 
         // Empty state
