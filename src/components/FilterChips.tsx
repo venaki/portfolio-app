@@ -64,11 +64,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   labelSelected: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     color: COLORS.white,
   },
   labelUnselected: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     color: COLORS.textTertiary,
   },
 });

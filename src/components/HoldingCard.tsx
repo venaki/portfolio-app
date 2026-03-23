@@ -107,9 +107,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ticker: {
-    fontFamily: 'JetBrainsMono_700Bold',
+    fontWeight: '700',
     fontSize: 16,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   ownerBadge: {
     backgroundColor: COLORS.muted,
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   ownerText: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 10,
     color: COLORS.textTertiary,
   },
@@ -126,17 +127,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   price: {
-    fontFamily: 'JetBrainsMono_700Bold',
+    fontWeight: '700',
     fontSize: 16,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   dailyChange: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   name: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 11,
     color: COLORS.textMuted,
     marginBottom: 12,
@@ -152,18 +154,21 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   gridLabel: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 10,
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   gridValue: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 13,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   gridSub: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 10,
     marginTop: 1,
+    fontVariant: ['tabular-nums'],
   },
 });

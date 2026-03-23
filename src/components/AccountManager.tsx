@@ -114,7 +114,7 @@ export function AccountManager({ accentColor }: Props) {
 const styles = StyleSheet.create({
   section: { marginBottom: 32 },
   sectionLabel: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 11,
     color: COLORS.textTertiary,
     letterSpacing: 2,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   fieldLabel: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 13,
     color: COLORS.textPrimary,
   },
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   removeBtn: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 14,
     color: COLORS.textTertiary,
     paddingHorizontal: 4,
@@ -161,7 +161,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: COLORS.textPrimary,
   },
@@ -171,25 +170,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addBtnText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 13,
     color: COLORS.white,
   },
   modalTitle: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 16,
     color: COLORS.textPrimary,
     marginBottom: 12,
   },
   modalMessage: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: COLORS.textSecondary,
     lineHeight: 20,
     marginBottom: 8,
   },
   modalHint: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: COLORS.textTertiary,
     marginBottom: 20,
@@ -209,7 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.muted,
   },
   modalBtnCancelText: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 14,
     color: COLORS.textSecondary,
   },
@@ -217,7 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E07B54',
   },
   modalBtnText: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 14,
     color: COLORS.white,
   },

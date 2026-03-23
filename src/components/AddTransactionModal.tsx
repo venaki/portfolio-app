@@ -310,17 +310,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontFamily: 'Newsreader_500Medium',
+    fontWeight: '500',
     fontSize: 20,
     color: COLORS.textPrimary,
   },
   closeBtn: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 16,
     color: COLORS.textTertiary,
   },
   label: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 13,
     color: COLORS.textSecondary,
     marginTop: 16,
@@ -331,8 +331,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 14,
+    fontVariant: ['tabular-nums'],
     color: COLORS.textPrimary,
   },
   memoInput: {
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 15,
     color: COLORS.white,
   },

@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: {
-    fontFamily: 'Newsreader_500Medium',
+    fontWeight: '500',
     fontSize: 22,
     color: COLORS.textPrimary,
   },
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   addBtnText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 13,
     color: '#FFFFFF',
   },
@@ -201,7 +201,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: COLORS.textTertiary,
   },
@@ -236,13 +235,13 @@ const styles = StyleSheet.create({
   },
   colHeaderTicker: {
     width: 160,
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 12,
     color: COLORS.textSecondary,
   },
   colHeaderFill: {
     flex: 1,
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 12,
     color: COLORS.textSecondary,
     textAlign: 'right',

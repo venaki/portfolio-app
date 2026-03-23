@@ -99,13 +99,14 @@ const styles = StyleSheet.create({
     marginRight: 7,
   },
   ownerName: {
-    fontFamily: 'Newsreader_500Medium',
+    fontWeight: '500',
     fontSize: 18,
     color: COLORS.textPrimary,
   },
   profitPct: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 13,
+    fontVariant: ['tabular-nums'],
   },
   bottomRow: {
     flexDirection: 'row',
@@ -113,17 +114,19 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   krwValue: {
-    fontFamily: 'JetBrainsMono_700Bold',
+    fontWeight: '700',
     fontSize: 18,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   krwValuePC: {
     fontSize: 22,
   },
   usdValue: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 13,
     color: COLORS.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   breakdown: {
     marginTop: 12,
@@ -138,13 +141,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   breakdownLabel: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   breakdownValue: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
     color: COLORS.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
 });

@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   headerTitle: {
-    fontFamily: 'Newsreader_500Medium',
+    fontWeight: '500',
     fontSize: 22,
     color: COLORS.textPrimary,
   },
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   refreshIcon: {
     fontSize: 22,
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
   },
   metaRow: {
     flexDirection: 'row',
@@ -244,16 +244,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   metaText: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
     fontSize: 12,
     color: COLORS.textMuted,
   },
   metaStale: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 11,
   },
   sectionLabel: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 11,
     color: COLORS.textTertiary,
     letterSpacing: 2,

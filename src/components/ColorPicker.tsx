@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   check: {
     color: COLORS.white,
     fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     lineHeight: 16,
   },
 });

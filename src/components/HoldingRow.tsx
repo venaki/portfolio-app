@@ -119,9 +119,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   ticker: {
-    fontFamily: 'JetBrainsMono_700Bold',
+    fontWeight: '700',
     fontSize: 13,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   ownerBadge: {
     backgroundColor: COLORS.muted,
@@ -130,30 +131,31 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   ownerText: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 9,
     color: COLORS.textTertiary,
   },
   tickerName: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 11,
     color: COLORS.textTertiary,
     marginTop: 2,
   },
   price: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 13,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   valueText: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 13,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   subText: {
-    fontFamily: 'JetBrainsMono_400Regular',
     fontSize: 10,
     color: COLORS.textTertiary,
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
 });

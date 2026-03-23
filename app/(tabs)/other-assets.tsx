@@ -287,7 +287,7 @@ export default function Assets() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <Text style={styles.modalTitle}>자산 편집</Text>
               <Pressable onPress={() => setEditTarget(null)} hitSlop={8}>
-                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 20, color: COLORS.textMuted, padding: 4 }}>✕</Text>
+                <Text style={{ fontWeight: '500', fontSize: 20, color: COLORS.textMuted, padding: 4 }}>✕</Text>
               </Pressable>
             </View>
 
@@ -348,9 +348,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8,
   },
   headerPC: { paddingHorizontal: 24, paddingTop: 24 },
-  headerTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 22, color: COLORS.textPrimary },
+  headerTitle: { fontWeight: '500', fontSize: 22, color: COLORS.textPrimary },
   addBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8 },
-  addBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: COLORS.white },
+  addBtnText: { fontWeight: '600', fontSize: 13, color: COLORS.white },
   filterWrapper: { paddingHorizontal: 16, marginBottom: 8 },
   filterWrapperPC: { paddingHorizontal: 24 },
   totalRow: {
@@ -359,47 +359,47 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: COLORS.divider,
   },
   totalRowPC: { paddingHorizontal: 24 },
-  totalLabel: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 12, color: COLORS.textTertiary, letterSpacing: 1 },
-  totalValue: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 16, color: COLORS.textPrimary },
+  totalLabel: { fontWeight: '600', fontSize: 12, color: COLORS.textTertiary, letterSpacing: 1 },
+  totalValue: { fontWeight: '700', fontSize: 16, color: COLORS.textPrimary, fontVariant: ['tabular-nums'] },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 8, gap: 8 },
   empty: { paddingVertical: 48, alignItems: 'center' },
-  emptyText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: COLORS.textTertiary },
-  emptySubText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: COLORS.textMuted, marginTop: 4 },
+  emptyText: { fontWeight: '500', fontSize: 14, color: COLORS.textTertiary },
+  emptySubText: { fontSize: 12, color: COLORS.textMuted, marginTop: 4 },
   card: {
     backgroundColor: COLORS.card, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
     padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   cardPC: { marginHorizontal: 8 },
   cardLeft: { flex: 1, marginRight: 12 },
-  cardName: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: COLORS.textPrimary, marginBottom: 4 },
+  cardName: { fontWeight: '600', fontSize: 14, color: COLORS.textPrimary, marginBottom: 4 },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   ownerBadge: { backgroundColor: COLORS.muted, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
-  ownerText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: COLORS.textTertiary },
+  ownerText: { fontWeight: '500', fontSize: 10, color: COLORS.textTertiary },
   typeBadge: { backgroundColor: '#E8F5E9', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
-  typeText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: POSITIVE_COLOR },
-  currencyBadge: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 10, color: COLORS.textMuted },
-  cardMemo: { fontFamily: 'Inter_400Regular', fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  typeText: { fontWeight: '500', fontSize: 10, color: POSITIVE_COLOR },
+  currencyBadge: { fontWeight: '500', fontSize: 10, color: COLORS.textMuted, fontVariant: ['tabular-nums'] },
+  cardMemo: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
   cardRight: { alignItems: 'flex-end' },
-  cardAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 16, color: COLORS.textPrimary },
-  cardAmountSub: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
+  cardAmount: { fontWeight: '700', fontSize: 16, color: COLORS.textPrimary, fontVariant: ['tabular-nums'] },
+  cardAmountSub: { fontWeight: '500', fontSize: 11, color: COLORS.textTertiary, marginTop: 2, fontVariant: ['tabular-nums'] },
   // Modal
   modalContentPC: { width: 560, maxWidth: 560 },
-  modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
-  fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: COLORS.textPrimary, marginBottom: 6 },
+  modalTitle: { fontWeight: '500', fontSize: 20, color: COLORS.textPrimary, marginBottom: 20 },
+  fieldLabel: { fontWeight: '500', fontSize: 13, color: COLORS.textPrimary, marginBottom: 6 },
   input: {
     backgroundColor: COLORS.inputBg, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
-    fontFamily: 'JetBrainsMono_400Regular', fontSize: 13, color: COLORS.textPrimary,
+    fontSize: 13, color: COLORS.textPrimary, fontVariant: ['tabular-nums'],
   },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
   cancelBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
     borderWidth: 1, borderColor: COLORS.border,
   },
-  cancelBtnText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: COLORS.textSecondary },
+  cancelBtnText: { fontWeight: '500', fontSize: 14, color: COLORS.textSecondary },
   submitBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  submitBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: COLORS.white },
+  submitBtnText: { fontWeight: '600', fontSize: 14, color: COLORS.white },
   editRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  editLabel: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 12, color: COLORS.textTertiary },
-  editValue: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: COLORS.textPrimary },
+  editLabel: { fontWeight: '500', fontSize: 12, color: COLORS.textTertiary, fontVariant: ['tabular-nums'] },
+  editValue: { fontWeight: '600', fontSize: 14, color: COLORS.textPrimary, fontVariant: ['tabular-nums'] },
 });

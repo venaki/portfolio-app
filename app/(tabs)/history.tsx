@@ -340,7 +340,7 @@ export default function History() {
                 <Text style={styles.deleteBtnText}>삭제</Text>
               </Pressable>
               <Pressable style={[styles.closeBtn, { backgroundColor: settings.accentColor, borderWidth: 0 }]} onPress={handleSaveTx}>
-                <Text style={[styles.closeBtnText, { color: COLORS.white, fontFamily: 'Inter_600SemiBold' }]}>저장</Text>
+                <Text style={[styles.closeBtnText, { color: COLORS.white, fontWeight: '600' }]}>저장</Text>
               </Pressable>
             </View>
       </BaseModal>
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: {
-    fontFamily: 'Newsreader_500Medium',
+    fontWeight: '500',
     fontSize: 22,
     color: COLORS.textPrimary,
   },
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addBtnText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     fontSize: 13,
     color: '#FFFFFF',
   },
@@ -401,7 +401,8 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   monthLabel: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
     fontSize: 11,
     color: '#888888',
     marginBottom: 8,
@@ -414,28 +415,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: COLORS.textTertiary,
   },
   modalContentPC: { width: 560, maxWidth: 560 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontFamily: 'Newsreader_500Medium', fontSize: 20, color: COLORS.textPrimary },
-  closeX: { fontFamily: 'Inter_500Medium', fontSize: 20, color: COLORS.textMuted, padding: 4 },
-  fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: COLORS.textTertiary, marginBottom: 4 },
+  modalTitle: { fontWeight: '500', fontSize: 20, color: COLORS.textPrimary },
+  closeX: { fontWeight: '500', fontSize: 20, color: COLORS.textMuted, padding: 4 },
+  fieldLabel: { fontWeight: '500', fontSize: 12, color: COLORS.textTertiary, marginBottom: 4 },
   input: {
     backgroundColor: COLORS.inputBg, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10,
-    fontFamily: 'JetBrainsMono_400Regular', fontSize: 13, color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'], fontSize: 13, color: COLORS.textPrimary,
   },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
   deleteBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
     backgroundColor: '#E07B54',
   },
-  deleteBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: COLORS.white },
+  deleteBtnText: { fontWeight: '600', fontSize: 14, color: COLORS.white },
   closeBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
     borderWidth: 1, borderColor: COLORS.border,
   },
-  closeBtnText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: COLORS.textSecondary },
+  closeBtnText: { fontWeight: '500', fontSize: 14, color: COLORS.textSecondary },
 });

@@ -139,10 +139,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   dateText: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
     color: COLORS.textMuted,
     marginBottom: 12,
+    fontVariant: ['tabular-nums'],
   },
   mainRow: {
     flexDirection: 'row',
@@ -153,17 +154,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 11,
     color: COLORS.textTertiary,
     letterSpacing: 2,
     marginBottom: 8,
   },
   totalValue: {
-    fontFamily: 'JetBrainsMono_700Bold',
+    fontWeight: '700',
     fontSize: 32,
     color: COLORS.textPrimary,
     marginBottom: 10,
+    fontVariant: ['tabular-nums'],
   },
   totalValuePC: {
     fontSize: 36,
@@ -178,11 +180,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   badgeText: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 13,
+    fontVariant: ['tabular-nums'],
   },
   dailyLabel: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 11,
     color: COLORS.textMuted,
     marginLeft: 8,
@@ -192,17 +194,19 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
   },
   rightLabel: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 11,
     color: COLORS.textTertiary,
     letterSpacing: 1.5,
     marginBottom: 2,
     textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   rightValue: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 15,
     color: COLORS.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   expandedSection: {
     marginTop: 16,
@@ -224,7 +228,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   toggleText: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 12,
   },
 });

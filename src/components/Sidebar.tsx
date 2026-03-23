@@ -51,9 +51,9 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   logo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoText: { fontFamily: 'Newsreader_500Medium', fontSize: 22, color: COLORS.textPrimary },
+  logoText: { fontWeight: '500', fontSize: 22, color: COLORS.textPrimary },
   nav: { gap: 4 },
   navItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, gap: 10 },
-  navLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: COLORS.textSecondary },
-  navLabelActive: { fontFamily: 'Inter_600SemiBold', color: COLORS.white },
+  navLabel: { fontWeight: '500', fontSize: 14, color: COLORS.textSecondary },
+  navLabelActive: { fontWeight: '600', color: COLORS.white },
 });

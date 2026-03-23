@@ -46,21 +46,17 @@ const styles = StyleSheet.create({
   },
   tabSelected: {
     backgroundColor: COLORS.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)',
   },
   label: {
     fontSize: 13,
   },
   labelSelected: {
-    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     color: COLORS.textPrimary,
   },
   labelUnselected: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     color: COLORS.textTertiary,
   },
 });

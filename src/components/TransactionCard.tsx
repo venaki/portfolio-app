@@ -141,11 +141,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badgeText: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
+    fontVariant: ['tabular-nums'],
   },
   ticker: {
-    fontFamily: 'JetBrainsMono_700Bold',
+    fontWeight: '700',
     fontSize: 14,
     color: COLORS.textPrimary,
   },
@@ -156,23 +157,26 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   ownerText: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 11,
     color: COLORS.textTertiary,
   },
   detail: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
     color: COLORS.textTertiary,
+    fontVariant: ['tabular-nums'],
   },
   realizedPL: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
+    fontVariant: ['tabular-nums'],
   },
   date: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 10,
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   right: {
     alignItems: 'flex-end',
@@ -180,13 +184,15 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   amountUSD: {
-    fontFamily: 'JetBrainsMono_700Bold',
+    fontWeight: '700',
     fontSize: 13,
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   amountKRW: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 11,
     color: COLORS.textTertiary,
+    fontVariant: ['tabular-nums'],
   },
 });

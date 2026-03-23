@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   contentMobile: { paddingTop: 0, paddingHorizontal: 24, paddingBottom: 100 },
   contentPC: { paddingTop: 32, paddingHorizontal: 40, paddingBottom: 32 },
   title: {
-    fontFamily: 'Newsreader_500Medium',
+    fontWeight: '500',
     fontSize: 40,
     color: COLORS.textPrimary,
     marginTop: 24,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   titlePC: { marginTop: 0 },
   section: { marginBottom: 32 },
   sectionLabel: {
-    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
     fontSize: 11,
     color: COLORS.textTertiary,
     letterSpacing: 2,
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   fieldLabel: {
-    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 13,
     color: COLORS.textPrimary,
   },
@@ -260,8 +260,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.muted,
   },
   intervalText: {
-    fontFamily: 'JetBrainsMono_500Medium',
+    fontWeight: '500',
     fontSize: 12,
+    fontVariant: ['tabular-nums'],
   },
   mgmtRow: {
     flexDirection: 'row',
@@ -270,7 +271,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   mgmtIcon: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 16,
     color: COLORS.textSecondary,
   },
