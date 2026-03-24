@@ -384,6 +384,12 @@ class SheetsService {
       nameFormula = '=IFERROR(GOOGLEFINANCE("$krx","name"),GOOGLEFINANCE("$kosdaq","name"))';
       changePctFormula = '=IFERROR(GOOGLEFINANCE("$krx","changepct"),GOOGLEFINANCE("$kosdaq","changepct"))';
       closeYestFormula = '=IFERROR(GOOGLEFINANCE("$krx","closeyest"),GOOGLEFINANCE("$kosdaq","closeyest"))';
+    } else if (market == 'FX') {
+      // 환율: 속성 없이 호출해야 정상 작동
+      priceFormula = '=GOOGLEFINANCE("$gfKey")';
+      nameFormula = '';
+      changePctFormula = '';
+      closeYestFormula = '';
     } else {
       priceFormula = '=GOOGLEFINANCE("$gfKey","price")';
       nameFormula = '=GOOGLEFINANCE("$gfKey","name")';

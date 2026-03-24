@@ -34,7 +34,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     if (_devMode) return;
     state = const AsyncValue.loading();
     try {
-      final user = await _authService.signIn();
+      await _authService.signIn();
+      // 웹 리다이렉트 방식: 페이지가 이동되므로 여기 이후는 실행되지 않을 수 있음
+      // 리다이렉트 복귀 후 restoreSession()에서 상태 복원
+      final user = _authService.currentUser;
       state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
