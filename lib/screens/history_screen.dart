@@ -17,6 +17,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   String _marketFilter = '전체';
   String _accountFilter = '전체';
   String _typeFilter = '전체';
+  String _brokerFilter = '전체';
+  bool _filterExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -52,16 +54,22 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         children: [
           // Row 1: Account 필터 (좌측 상단, pill 스타일)
           _buildAccountFilter(accounts),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // Row 2: Type pills (좌) + Market underline (우)
+          // Row 2: Filter toggle (좌) + Market underline (우)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildTypePills(),
+              _buildFilterToggle(),
               _buildMarketFilter(),
             ],
           ),
+
+          // Expandable filters
+          if (_filterExpanded) ...[
+            const SizedBox(height: 12),
+            _buildExpandedFilters(portfolio.settings.brokers),
+          ],
           const SizedBox(height: 16),
 
           if (filtered.isEmpty)
@@ -129,32 +137,116 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  Widget _buildTypePills() {
-    const types = ['전체', '매수', '매도'];
-    return Row(
-      children: types.map((type) {
-        final isSelected = _typeFilter == type;
-        return GestureDetector(
-          onTap: () => setState(() => _typeFilter = type),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF1A1A1A) : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-              border: isSelected ? null : Border.all(color: const Color(0xFFE5E5E5)),
+  Widget _buildFilterToggle() {
+    final hasActiveFilter = _typeFilter != '전체' || _brokerFilter != '전체';
+    return GestureDetector(
+      onTap: () => setState(() => _filterExpanded = !_filterExpanded),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: hasActiveFilter ? const Color(0xFF1A1A1A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: hasActiveFilter ? null : Border.all(color: const Color(0xFFE5E5E5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _filterExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              size: 16,
+              color: hasActiveFilter ? Colors.white : const Color(0xFF888888),
             ),
-            child: Text(
-              type,
+            const SizedBox(width: 4),
+            Text(
+              '필터',
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? Colors.white : const Color(0xFF888888),
+                fontWeight: hasActiveFilter ? FontWeight.w600 : FontWeight.w400,
+                color: hasActiveFilter ? Colors.white : const Color(0xFF888888),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandedFilters(List<String> brokers) {
+    const types = ['전체', '매수', '매도'];
+    final brokerOptions = ['전체', ...brokers];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E5E5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 거래유형
+          const Text('거래유형', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF888888))),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: types.map((type) {
+              final isSelected = _typeFilter == type;
+              return GestureDetector(
+                onTap: () => setState(() => _typeFilter = type),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF1A1A1A) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: isSelected ? null : Border.all(color: const Color(0xFFE5E5E5)),
+                  ),
+                  child: Text(
+                    type,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? Colors.white : const Color(0xFF888888),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-        );
-      }).toList(),
+          if (brokers.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            // 증권사
+            const Text('증권사', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF888888))),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: brokerOptions.map((broker) {
+                final isSelected = _brokerFilter == broker;
+                return GestureDetector(
+                  onTap: () => setState(() => _brokerFilter = broker),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF1A1A1A) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      border: isSelected ? null : Border.all(color: const Color(0xFFE5E5E5)),
+                    ),
+                    child: Text(
+                      broker,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected ? Colors.white : const Color(0xFF888888),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -200,6 +292,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       if (_accountFilter != '전체' && tx.account != _accountFilter) return false;
       if (_typeFilter == '매수' && tx.type == TransactionType.sell) return false;
       if (_typeFilter == '매도' && tx.type != TransactionType.sell) return false;
+      if (_brokerFilter != '전체' && tx.broker != _brokerFilter) return false;
       return true;
     }).toList();
   }

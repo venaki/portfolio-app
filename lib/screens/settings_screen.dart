@@ -20,10 +20,12 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _accountController = TextEditingController();
+  final _brokerController = TextEditingController();
 
   @override
   void dispose() {
     _accountController.dispose();
+    _brokerController.dispose();
     super.dispose();
   }
 
@@ -90,7 +92,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 16),
               Center(
                 child: GestureDetector(
                   onTap: _signOut,
@@ -214,7 +215,112 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         const SizedBox(height: 32),
 
-        // 3. APPEARANCE
+        // 3. INVESTMENT BANKS
+        _sectionLabel('INVESTMENT BANKS'),
+        _card(
+          child: Column(
+            children: [
+              ...settings.brokers.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final name = entry.value;
+                return Column(
+                  children: [
+                    if (idx > 0)
+                      const Divider(height: 1, color: Color(0xFFE5E5E5)),
+                    GestureDetector(
+                      onTap: () => _onBrokerTap(name),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Color(0xFFAAAAAA),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+              if (settings.brokers.isNotEmpty)
+                const Divider(height: 1, color: Color(0xFFE5E5E5)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _brokerController,
+                      decoration: InputDecoration(
+                        hintText: '증권사',
+                        hintStyle: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFAAAAAA),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE5E5E5)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE5E5E5)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: accentColor),
+                        ),
+                        isDense: true,
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _addBroker,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '추가',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // 4. APPEARANCE
         _sectionLabel('APPEARANCE'),
         _card(
           child: Column(
@@ -375,7 +481,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // Version
         const Center(
           child: Text(
-            'v0.1.0',
+            'v0.1.1',
             style: TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
           ),
         ),
@@ -462,6 +568,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     settings.accounts.where((a) => a != name).toList();
                 ref.read(portfolioProvider.notifier).updateSettings(
                       settings.copyWith(accounts: newAccounts),
+                    );
+              },
+      ),
+    );
+  }
+
+  void _addBroker() {
+    final name = _brokerController.text.trim();
+    if (name.isEmpty) return;
+    final settings = ref.read(portfolioProvider).settings;
+    if (settings.brokers.contains(name)) return;
+    final newSettings =
+        settings.copyWith(brokers: [...settings.brokers, name]);
+    ref.read(portfolioProvider.notifier).updateSettings(newSettings);
+    _brokerController.clear();
+  }
+
+  void _onBrokerTap(String name) {
+    final txs = ref.read(portfolioProvider).transactions;
+    final count = txs.where((t) => t.broker == name).length;
+    final blocked = count > 0;
+
+    showDialog(
+      context: context,
+      builder: (_) => AccountDeleteModal(
+        accountName: name,
+        isBlocked: blocked,
+        transactionCount: count,
+        onConfirm: blocked
+            ? null
+            : () {
+                final settings = ref.read(portfolioProvider).settings;
+                final newBrokers =
+                    settings.brokers.where((b) => b != name).toList();
+                ref.read(portfolioProvider.notifier).updateSettings(
+                      settings.copyWith(brokers: newBrokers),
                     );
               },
       ),

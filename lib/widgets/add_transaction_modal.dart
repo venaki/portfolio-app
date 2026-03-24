@@ -34,6 +34,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
   TransactionType _type = TransactionType.buy;
   Market _market = Market.us;
   String _account = '';
+  String _broker = '';
   DateTime _date = DateTime.now();
   bool _isSaving = false;
 
@@ -45,8 +46,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
   @override
   void initState() {
     super.initState();
-    final accounts = ref.read(portfolioProvider).settings.accounts;
-    if (accounts.isNotEmpty) _account = accounts.first;
+    final settings = ref.read(portfolioProvider).settings;
+    if (settings.accounts.isNotEmpty) _account = settings.accounts.first;
+    if (settings.brokers.isNotEmpty) _broker = settings.brokers.first;
     _dateController.text = _date.toIso8601String().substring(0, 10);
   }
 
@@ -79,6 +81,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
       price: double.tryParse(_priceController.text) ?? 0,
       currency: _currency,
       exchangeRate: double.tryParse(_rateController.text) ?? 0,
+      broker: _broker,
       memo: _memoController.text.trim(),
     );
 
@@ -131,7 +134,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
 
   @override
   Widget build(BuildContext context) {
-    final accounts = ref.watch(portfolioProvider).settings.accounts;
+    final settings = ref.watch(portfolioProvider).settings;
+    final accounts = settings.accounts;
+    final brokers = settings.brokers;
     final accentColor = Theme.of(context).colorScheme.primary;
 
     return Dialog(
@@ -205,6 +210,23 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 ),
                 const SizedBox(height: 16),
 
+                // 증권사
+                if (brokers.isNotEmpty) ...[
+                  _buildLabel('증권사'),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: brokers
+                        .map((b) => _buildChip(b,
+                            isActive: _broker == b,
+                            accentColor: accentColor,
+                            onTap: () => setState(() => _broker = b)))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // 종목코드 (TickerSearch)
                 _buildLabel('종목코드'),
                 const SizedBox(height: 6),
@@ -246,7 +268,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 const SizedBox(height: 6),
                 _buildInput(
                   controller: _sharesController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
                   accentColor: accentColor,
                 ),
@@ -258,7 +280,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 const SizedBox(height: 6),
                 _buildInput(
                   controller: _priceController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
                   accentColor: accentColor,
                 ),
@@ -270,7 +292,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                   const SizedBox(height: 6),
                   _buildInput(
                     controller: _rateController,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     accentColor: accentColor,
                   ),
                   const SizedBox(height: 16),

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import '../utils/format.dart';
+import 'change_row.dart';
 
 class AccountCard extends StatelessWidget {
   final String account;
   final Color color;
   final double valueKRW;
   final double valueUSD;
-  final double profitPercentKRW;
+  final double dailyChangeKRW;
+  final double dailyChangePct;
+  final double profitKRW;
+  final double profitPct;
   /// 서브카테고리별 평가금액 (미국/한국/기타)
   final Map<String, double> subCategories;
 
@@ -16,15 +20,15 @@ class AccountCard extends StatelessWidget {
     required this.color,
     required this.valueKRW,
     required this.valueUSD,
-    required this.profitPercentKRW,
+    required this.dailyChangeKRW,
+    required this.dailyChangePct,
+    required this.profitKRW,
+    required this.profitPct,
     this.subCategories = const {},
   });
 
   @override
   Widget build(BuildContext context) {
-    final isProfit = profitPercentKRW >= 0;
-    final profitColor = isProfit ? const Color(0xFF16A34A) : const Color(0xFFE07B54);
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -35,7 +39,7 @@ class AccountCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: dot + name + percent
+          // Row 1: account name (좌) + 오늘 변동 (우)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -54,19 +58,16 @@ class AccountCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                formatPercent(profitPercentKRW),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: profitColor,
-                ),
+              ChangeRow(
+                changeKRW: dailyChangeKRW,
+                changePct: dailyChangePct,
+                label: '오늘',
               ),
             ],
           ),
           const SizedBox(height: 8),
 
-          // Value: KRW + USD
+          // Row 2: balance
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,

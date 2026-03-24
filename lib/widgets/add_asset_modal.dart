@@ -27,14 +27,18 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
   final _valueController = TextEditingController();
   final _memoController = TextEditingController();
 
+  final _dateController = TextEditingController();
+
   String _account = '';
   AssetCategory _category = AssetCategory.savings;
   Currency _currency = Currency.krw;
+  DateTime _date = DateTime.now();
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
+    _dateController.text = _date.toIso8601String().substring(0, 10);
     final accounts = ref.read(portfolioProvider).settings.accounts;
     if (accounts.isNotEmpty) _account = accounts.first;
   }
@@ -44,6 +48,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
     _nameController.dispose();
     _valueController.dispose();
     _memoController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
@@ -60,7 +65,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
       category: _category,
       value: double.tryParse(_valueController.text) ?? 0,
       currency: _currency,
-      date: DateTime.now().toIso8601String().substring(0, 10),
+      date: _date.toIso8601String().substring(0, 10),
       memo: _memoController.text.trim(),
     );
 
@@ -182,7 +187,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                 const SizedBox(height: 6),
                 _buildInput(
                   controller: _valueController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
                   accentColor: accentColor,
                 ),
@@ -205,6 +210,35 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                         onTap: () =>
                             setState(() => _currency = Currency.usd)),
                   ],
+                ),
+                const SizedBox(height: 16),
+
+                // 날짜
+                _buildLabel('날짜'),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _date,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _date = picked;
+                        _dateController.text =
+                            picked.toIso8601String().substring(0, 10);
+                      });
+                    }
+                  },
+                  child: AbsorbPointer(
+                    child: _buildInput(
+                      controller: _dateController,
+                      hint: 'YYYY-MM-DD',
+                      accentColor: accentColor,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
 

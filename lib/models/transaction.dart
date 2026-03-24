@@ -16,13 +16,15 @@ class Transaction {
   final double price;
   final Currency currency;
   final double exchangeRate;
+  final String broker;
   final String memo;
 
   const Transaction({
     required this.id, required this.date, required this.account,
     required this.type, required this.ticker, required this.market,
     required this.name, required this.shares, required this.price,
-    required this.currency, required this.exchangeRate, this.memo = '',
+    required this.currency, required this.exchangeRate, this.broker = '',
+    this.memo = '',
   });
 
   factory Transaction.fromSheetRow(List<String> row) {
@@ -34,13 +36,14 @@ class Transaction {
       currency: row[9] == 'KRW' ? Currency.krw : Currency.usd,
       exchangeRate: double.tryParse(row[10]) ?? 0,
       memo: row.length > 11 ? row[11] : '',
+      broker: row.length > 12 ? row[12] : '',
     );
   }
 
   List<String> toSheetRow() {
     return [id, date, account, type.toSheetValue(), ticker, market.toSheetValue(),
             name, shares.toString(), price.toString(),
-            currency == Currency.krw ? 'KRW' : 'USD', exchangeRate.toString(), memo];
+            currency == Currency.krw ? 'KRW' : 'USD', exchangeRate.toString(), memo, broker];
   }
 
   static TransactionType _parseType(String value) {

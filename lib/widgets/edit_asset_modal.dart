@@ -26,10 +26,12 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
   final _nameController = TextEditingController();
   final _valueController = TextEditingController();
   final _memoController = TextEditingController();
+  final _dateController = TextEditingController();
 
   late String _account;
   late AssetCategory _category;
   late Currency _currency;
+  late DateTime _date;
   bool _isSaving = false;
 
   @override
@@ -39,9 +41,11 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
     _account = a.account;
     _category = a.category;
     _currency = a.currency;
+    _date = DateTime.parse(a.date);
     _nameController.text = a.name;
     _valueController.text = a.value.toString();
     _memoController.text = a.memo;
+    _dateController.text = a.date.substring(0, 10);
   }
 
   @override
@@ -49,6 +53,7 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
     _nameController.dispose();
     _valueController.dispose();
     _memoController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
@@ -64,7 +69,7 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
       category: _category,
       value: double.tryParse(_valueController.text) ?? 0,
       currency: _currency,
-      date: widget.asset.date,
+      date: _date.toIso8601String().substring(0, 10),
       memo: _memoController.text.trim(),
     );
 
@@ -201,7 +206,7 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
                 const SizedBox(height: 6),
                 _buildInput(
                   controller: _valueController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
                   accentColor: accentColor,
                 ),
@@ -224,6 +229,35 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
                         onTap: () =>
                             setState(() => _currency = Currency.usd)),
                   ],
+                ),
+                const SizedBox(height: 16),
+
+                // 날짜
+                _buildLabel('날짜'),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _date,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _date = picked;
+                        _dateController.text =
+                            picked.toIso8601String().substring(0, 10);
+                      });
+                    }
+                  },
+                  child: AbsorbPointer(
+                    child: _buildInput(
+                      controller: _dateController,
+                      hint: 'YYYY-MM-DD',
+                      accentColor: accentColor,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
 

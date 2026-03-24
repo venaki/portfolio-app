@@ -8,7 +8,8 @@ class MockData {
   static const exchangeRate = 1380.0;
 
   static const settings = AppSettings(
-    accounts: ['토스증권', '미래에셋'],
+    accounts: ['철수', '영희'],
+    brokers: ['토스증권', '나무증권'],
     baseCurrency: 'KRW',
     accentColor: '#0D6E6E',
     refreshInterval: 60,
@@ -22,76 +23,76 @@ class MockData {
 
     // AAPL: 상승 종목 (매수만)
     Transaction(
-      id: 'tx-001', date: '2025-06-15', account: '토스증권',
+      id: 'tx-001', date: '2025-06-15', account: '철수',
       type: TransactionType.buy, ticker: 'AAPL', market: Market.us,
       name: 'Apple Inc.', shares: 10, price: 155.0,
-      currency: Currency.usd, exchangeRate: 1320.0,
+      currency: Currency.usd, exchangeRate: 1320.0, broker: '토스증권',
     ),
     Transaction(
-      id: 'tx-002', date: '2025-09-20', account: '토스증권',
+      id: 'tx-002', date: '2025-09-20', account: '철수',
       type: TransactionType.buy, ticker: 'AAPL', market: Market.us,
       name: 'Apple Inc.', shares: 5, price: 170.0,
-      currency: Currency.usd, exchangeRate: 1350.0,
+      currency: Currency.usd, exchangeRate: 1350.0, broker: '토스증권',
     ),
 
     // TSLA: 하락 종목 (매수만)
     Transaction(
-      id: 'tx-003', date: '2025-07-10', account: '토스증권',
+      id: 'tx-003', date: '2025-07-10', account: '철수',
       type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
       name: 'Tesla, Inc.', shares: 8, price: 280.0,
-      currency: Currency.usd, exchangeRate: 1330.0,
+      currency: Currency.usd, exchangeRate: 1330.0, broker: '나무증권',
     ),
 
     // NVDA: 매수 + 매도 혼합
     Transaction(
-      id: 'tx-004', date: '2025-05-01', account: '미래에셋',
+      id: 'tx-004', date: '2025-05-01', account: '영희',
       type: TransactionType.buy, ticker: 'NVDA', market: Market.us,
       name: 'NVIDIA Corporation', shares: 20, price: 90.0,
-      currency: Currency.usd, exchangeRate: 1300.0,
+      currency: Currency.usd, exchangeRate: 1300.0, broker: '나무증권',
     ),
     Transaction(
-      id: 'tx-005', date: '2025-11-15', account: '미래에셋',
+      id: 'tx-005', date: '2025-11-15', account: '영희',
       type: TransactionType.sell, ticker: 'NVDA', market: Market.us,
       name: 'NVIDIA Corporation', shares: 10, price: 140.0,
-      currency: Currency.usd, exchangeRate: 1370.0,
+      currency: Currency.usd, exchangeRate: 1370.0, broker: '나무증권',
     ),
 
     // ── 한국주식 ──
 
     // 삼성전자: 상승 종목 (매수만)
     Transaction(
-      id: 'tx-006', date: '2025-06-01', account: '토스증권',
+      id: 'tx-006', date: '2025-06-01', account: '철수',
       type: TransactionType.buy, ticker: '005930', market: Market.krx,
       name: '삼성전자', shares: 50, price: 65000.0,
-      currency: Currency.krw, exchangeRate: 1.0,
+      currency: Currency.krw, exchangeRate: 1.0, broker: '토스증권',
     ),
     Transaction(
-      id: 'tx-007', date: '2025-10-05', account: '토스증권',
+      id: 'tx-007', date: '2025-10-05', account: '철수',
       type: TransactionType.buy, ticker: '005930', market: Market.krx,
       name: '삼성전자', shares: 30, price: 68000.0,
-      currency: Currency.krw, exchangeRate: 1.0,
+      currency: Currency.krw, exchangeRate: 1.0, broker: '토스증권',
     ),
 
     // 카카오: 하락 종목 (매수만)
     Transaction(
-      id: 'tx-008', date: '2025-08-20', account: '미래에셋',
+      id: 'tx-008', date: '2025-08-20', account: '영희',
       type: TransactionType.buy, ticker: '035720', market: Market.kosdaq,
       name: '카카오', shares: 100, price: 55000.0,
-      currency: Currency.krw, exchangeRate: 1.0,
+      currency: Currency.krw, exchangeRate: 1.0, broker: '나무증권',
     ),
 
     // SK하이닉스: 매수 + 매도 혼합
     Transaction(
-      id: 'tx-009', date: '2025-04-10', account: '토스증권',
+      id: 'tx-009', date: '2025-04-10', account: '철수',
       type: TransactionType.buy, ticker: '000660', market: Market.krx,
       name: 'SK하이닉스', shares: 40, price: 150000.0,
-      currency: Currency.krw, exchangeRate: 1.0,
+      currency: Currency.krw, exchangeRate: 1.0, broker: '토스증권',
     ),
     Transaction(
-      id: 'tx-010', date: '2025-12-01', account: '토스증권',
+      id: 'tx-010', date: '2025-12-01', account: '철수',
       type: TransactionType.sell, ticker: '000660', market: Market.krx,
       name: 'SK하이닉스', shares: 15, price: 185000.0,
-      currency: Currency.krw, exchangeRate: 1.0,
+      currency: Currency.krw, exchangeRate: 1.0, broker: '토스증권',
     ),
   ];
 
@@ -130,27 +131,27 @@ class MockData {
 
   static const otherAssets = <OtherAsset>[
     OtherAsset(
-      id: 'oa-001', account: '토스증권', name: '토스뱅크 정기예금',
+      id: 'oa-001', account: '철수', name: '토스뱅크 정기예금',
       category: AssetCategory.savings, value: 30000000,
       currency: Currency.krw, date: '2025-01-15', memo: '연 3.5%, 2026-01 만기',
     ),
     OtherAsset(
-      id: 'oa-002', account: '미래에셋', name: '국고채 10년물',
+      id: 'oa-002', account: '영희', name: '국고채 10년물',
       category: AssetCategory.bond, value: 10000000,
       currency: Currency.krw, date: '2025-03-01', memo: '연 3.2%',
     ),
     OtherAsset(
-      id: 'oa-003', account: '토스증권', name: '신용대출',
+      id: 'oa-003', account: '철수', name: '신용대출',
       category: AssetCategory.loan, value: -15000000,
       currency: Currency.krw, date: '2025-06-01', memo: '연 4.5%',
     ),
     OtherAsset(
-      id: 'oa-004', account: '미래에셋', name: 'USD 현금',
+      id: 'oa-004', account: '영희', name: 'USD 현금',
       category: AssetCategory.cash, value: 5000,
       currency: Currency.usd, date: '2025-09-10',
     ),
     OtherAsset(
-      id: 'oa-005', account: '토스증권', name: '비트코인 (참고용)',
+      id: 'oa-005', account: '철수', name: '비트코인 (참고용)',
       category: AssetCategory.other, value: 2500000,
       currency: Currency.krw, date: '2025-11-20', memo: '0.03 BTC',
     ),

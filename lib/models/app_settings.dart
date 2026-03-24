@@ -1,12 +1,13 @@
 class AppSettings {
   final List<String> accounts;
+  final List<String> brokers;
   final String baseCurrency;
   final String accentColor;
   final int refreshInterval;
   final int version;
 
   const AppSettings({
-    this.accounts = const [], this.baseCurrency = 'KRW',
+    this.accounts = const [], this.brokers = const [], this.baseCurrency = 'KRW',
     this.accentColor = '#0D6E6E', this.refreshInterval = 60, this.version = 1,
   });
 
@@ -17,6 +18,7 @@ class AppSettings {
     }
     return AppSettings(
       accounts: (map['accounts'] ?? '').split(',').where((s) => s.isNotEmpty).toList(),
+      brokers: (map['brokers'] ?? '').split(',').where((s) => s.isNotEmpty).toList(),
       baseCurrency: map['base_currency'] ?? 'KRW',
       accentColor: map['accent_color'] ?? '#0D6E6E',
       refreshInterval: int.tryParse(map['refresh_interval'] ?? '60') ?? 60,
@@ -27,6 +29,7 @@ class AppSettings {
   List<List<String>> toSheetRows() {
     return [
       ['accounts', accounts.join(',')],
+      ['brokers', brokers.join(',')],
       ['base_currency', baseCurrency],
       ['accent_color', accentColor],
       ['refresh_interval', refreshInterval.toString()],
@@ -35,11 +38,12 @@ class AppSettings {
   }
 
   AppSettings copyWith({
-    List<String>? accounts, String? baseCurrency, String? accentColor,
-    int? refreshInterval, int? version,
+    List<String>? accounts, List<String>? brokers, String? baseCurrency,
+    String? accentColor, int? refreshInterval, int? version,
   }) {
     return AppSettings(
       accounts: accounts ?? this.accounts,
+      brokers: brokers ?? this.brokers,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       accentColor: accentColor ?? this.accentColor,
       refreshInterval: refreshInterval ?? this.refreshInterval,

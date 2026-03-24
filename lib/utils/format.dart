@@ -4,7 +4,7 @@ final _krwFormat = NumberFormat('#,###', 'ko_KR');
 final _usdFormat = NumberFormat('#,##0.00', 'en_US');
 
 String formatKRW(double value) {
-  final abs = value.abs().round();
+  final abs = value.abs().truncate();
   final formatted = _krwFormat.format(abs);
   return value < 0 ? '-₩$formatted' : '₩$formatted';
 }

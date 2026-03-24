@@ -59,19 +59,24 @@ class DashboardScreen extends ConsumerWidget {
         : 0.0;
 
     // 계좌별 집계 + 서브카테고리
-    final accountMap = <String, ({double value, double cost, double usValue, double krValue, double otherValue})>{};
+    final accountMap = <String, ({double value, double cost, double dailyChange, double yestValue, double usValue, double krValue, double otherValue})>{};
     for (final h in portfolio.holdings) {
       final quote = portfolio.quotes[h.ticker];
       final price = quote?.price ?? 0;
+      final closeYest = quote?.closeYest ?? price;
       final val = calcTotalValueKRW(h, price, portfolio.exchangeRate);
       final cost = calcCostKRW(h);
+      final daily = calcDailyChangeKRW(h, price, closeYest, portfolio.exchangeRate);
+      final yest = calcTotalValueKRW(h, closeYest, portfolio.exchangeRate);
       final isUS = h.market == Market.us;
       final isKR = h.market == Market.krx || h.market == Market.kosdaq;
 
-      final entry = accountMap[h.account] ?? (value: 0.0, cost: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
+      final entry = accountMap[h.account] ?? (value: 0.0, cost: 0.0, dailyChange: 0.0, yestValue: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
       accountMap[h.account] = (
         value: entry.value + val,
         cost: entry.cost + cost,
+        dailyChange: entry.dailyChange + daily,
+        yestValue: entry.yestValue + yest,
         usValue: entry.usValue + (isUS ? val : 0),
         krValue: entry.krValue + (isKR ? val : 0),
         otherValue: entry.otherValue,
@@ -80,10 +85,12 @@ class DashboardScreen extends ConsumerWidget {
     for (final oa in portfolio.otherAssets) {
       final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
       final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
-      final entry = accountMap[oa.account] ?? (value: 0.0, cost: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
+      final entry = accountMap[oa.account] ?? (value: 0.0, cost: 0.0, dailyChange: 0.0, yestValue: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
       accountMap[oa.account] = (
         value: entry.value + v,
         cost: entry.cost + v,
+        dailyChange: entry.dailyChange,
+        yestValue: entry.yestValue + v,
         usValue: entry.usValue,
         krValue: entry.krValue,
         otherValue: entry.otherValue + v,
@@ -164,15 +171,17 @@ class DashboardScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: accountMap.entries.indexed.map((e) {
                 final (index, entry) = e;
-                final profit = entry.value.value - entry.value.cost;
-                final pct = entry.value.cost > 0 ? (profit / entry.value.cost) * 100 : 0.0;
+                final v = entry.value;
+                final profit = v.value - v.cost;
+                final profitPct = v.cost > 0 ? (profit / v.cost) * 100 : 0.0;
+                final dailyPct = v.yestValue > 0 ? (v.dailyChange / v.yestValue) * 100 : 0.0;
                 final valueUSD = portfolio.exchangeRate > 0
-                    ? entry.value.value / portfolio.exchangeRate
+                    ? v.value / portfolio.exchangeRate
                     : 0.0;
                 final subs = <String, double>{};
-                if (entry.value.usValue != 0) subs['미국'] = entry.value.usValue;
-                if (entry.value.krValue != 0) subs['한국'] = entry.value.krValue;
-                if (entry.value.otherValue != 0) subs['기타'] = entry.value.otherValue;
+                if (v.usValue != 0) subs['미국'] = v.usValue;
+                if (v.krValue != 0) subs['한국'] = v.krValue;
+                if (v.otherValue != 0) subs['기타'] = v.otherValue;
 
                 return Expanded(
                   child: Padding(
@@ -180,9 +189,12 @@ class DashboardScreen extends ConsumerWidget {
                     child: AccountCard(
                       account: entry.key,
                       color: getAccountColor(index),
-                      valueKRW: entry.value.value,
+                      valueKRW: v.value,
                       valueUSD: valueUSD,
-                      profitPercentKRW: pct,
+                      dailyChangeKRW: v.dailyChange,
+                      dailyChangePct: dailyPct,
+                      profitKRW: profit,
+                      profitPct: profitPct,
                       subCategories: subs,
                     ),
                   ),
@@ -192,24 +204,29 @@ class DashboardScreen extends ConsumerWidget {
           else
             ...accountMap.entries.indexed.map((e) {
               final (index, entry) = e;
-              final profit = entry.value.value - entry.value.cost;
-              final pct = entry.value.cost > 0 ? (profit / entry.value.cost) * 100 : 0.0;
+              final v = entry.value;
+              final profit = v.value - v.cost;
+              final profitPct = v.cost > 0 ? (profit / v.cost) * 100 : 0.0;
+              final dailyPct = v.yestValue > 0 ? (v.dailyChange / v.yestValue) * 100 : 0.0;
               final valueUSD = portfolio.exchangeRate > 0
-                  ? entry.value.value / portfolio.exchangeRate
+                  ? v.value / portfolio.exchangeRate
                   : 0.0;
               final subs = <String, double>{};
-              if (entry.value.usValue != 0) subs['미국'] = entry.value.usValue;
-              if (entry.value.krValue != 0) subs['한국'] = entry.value.krValue;
-              if (entry.value.otherValue != 0) subs['기타'] = entry.value.otherValue;
+              if (v.usValue != 0) subs['미국'] = v.usValue;
+              if (v.krValue != 0) subs['한국'] = v.krValue;
+              if (v.otherValue != 0) subs['기타'] = v.otherValue;
 
               return Padding(
                 padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
                 child: AccountCard(
                   account: entry.key,
                   color: getAccountColor(index),
-                  valueKRW: entry.value.value,
+                  valueKRW: v.value,
                   valueUSD: valueUSD,
-                  profitPercentKRW: pct,
+                  dailyChangeKRW: v.dailyChange,
+                  dailyChangePct: dailyPct,
+                  profitKRW: profit,
+                  profitPct: profitPct,
                   subCategories: subs,
                 ),
               );

@@ -82,26 +82,49 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
               ),
             ),
 
-          ...filtered.asMap().entries.map((entry) {
-            final index = entry.key;
-            final asset = entry.value;
-            return Column(
-              children: [
-                if (index > 0)
-                  const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F0)),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8, top: 8),
-                  child: AssetCard(
-                    asset: asset,
-                    onTap: () => showEditAssetDialog(context, asset),
-                  ),
-                ),
-              ],
-            );
-          }),
+          ..._buildGroupedAssets(filtered),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildGroupedAssets(List<OtherAsset> assets) {
+    // 날짜순 정렬 (최신 먼저)
+    final sorted = List<OtherAsset>.from(assets)
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    final grouped = <String, List<OtherAsset>>{};
+    for (final a in sorted) {
+      final key = _monthKey(a.date);
+      (grouped[key] ??= []).add(a);
+    }
+
+    return grouped.entries.expand((entry) => [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12, top: 4),
+        child: Text(
+          entry.key,
+          style: const TextStyle(fontSize: 11, letterSpacing: 2, color: Color(0xFF888888)),
+        ),
+      ),
+      ...entry.value.map(
+        (asset) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: AssetCard(
+            asset: asset,
+            onTap: () => showEditAssetDialog(context, asset),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+    ]).toList();
+  }
+
+  String _monthKey(String date) {
+    if (date.length < 7) return date;
+    final year = date.substring(0, 4);
+    final month = date.substring(5, 7);
+    return '$year년 $month월';
   }
 
   Widget _buildAccountFilter(List<String> accounts) {

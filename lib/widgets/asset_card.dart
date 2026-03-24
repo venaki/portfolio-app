@@ -38,8 +38,8 @@ class AssetCard extends StatelessWidget {
                   Text(
                     asset.name,
                     style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFF1A1A1A),
                     ),
                   ),
@@ -72,8 +72,8 @@ class AssetCard extends StatelessWidget {
             Text(
               isUSD ? formatUSD(displayValue) : formatKRW(displayValue),
               style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
                 color: isLoan ? const Color(0xFFE07B54) : const Color(0xFF1A1A1A),
               ),
             ),

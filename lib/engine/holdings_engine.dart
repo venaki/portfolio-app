@@ -8,7 +8,7 @@ List<Holding> replayTransactions(List<Transaction> transactions) {
   final map = <String, Holding>{};
 
   for (final tx in sorted) {
-    final key = '${tx.account}::${tx.ticker}';
+    final key = '${tx.account}::${tx.ticker}::${tx.broker}';
     final existing = map[key];
 
     switch (tx.type) {
@@ -24,9 +24,9 @@ List<Holding> replayTransactions(List<Transaction> transactions) {
           existing.shares = totalShares;
         } else {
           map[key] = Holding(
-            account: tx.account, ticker: tx.ticker, market: tx.market,
-            currency: tx.currency, shares: tx.shares, avgCost: tx.price,
-            avgExchangeRate: tx.exchangeRate,
+            account: tx.account, broker: tx.broker, ticker: tx.ticker,
+            market: tx.market, currency: tx.currency, shares: tx.shares,
+            avgCost: tx.price, avgExchangeRate: tx.exchangeRate,
           );
         }
         break;

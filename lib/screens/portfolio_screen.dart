@@ -11,6 +11,7 @@ import '../engine/calculations.dart';
 import '../utils/format.dart';
 import '../utils/constants.dart';
 import '../widgets/holding_transactions_modal.dart';
+import '../widgets/change_row.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
@@ -55,14 +56,19 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 24),
           children: [
-            // Account filter
-            _buildAccountFilter(accounts),
-            const SizedBox(height: 12),
-            // Market filter
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildMarketFilter(),
+            // Account filter (좌) + Market filter (우)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(child: _buildAccountFilter(accounts)),
+                _buildMarketFilter(),
+              ],
             ),
+            const SizedBox(height: 16),
+            // 합계
+            if (holdings.isNotEmpty || otherAssets.isNotEmpty)
+              _buildSummary(holdings, otherAssets, portfolio),
+
             // Content: PC table vs Mobile cards
             if (isWide)
               _buildPCTable(holdings, otherAssets, portfolio, showOtherOnly, showStocksOnly)
@@ -102,6 +108,62 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildSummary(List<Holding> holdings, List<OtherAsset> otherAssets, dynamic portfolio) {
+    double totalValue = 0;
+    double totalCost = 0;
+    for (final h in holdings) {
+      final quote = portfolio.quotes[h.ticker] as StockQuote?;
+      final price = quote?.price ?? 0;
+      totalValue += calcTotalValueKRW(h, price, portfolio.exchangeRate);
+      totalCost += calcCostKRW(h);
+    }
+    for (final oa in otherAssets) {
+      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
+      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
+      totalValue += v;
+      totalCost += v;
+    }
+    final profit = totalValue - totalCost;
+    final profitPct = totalCost > 0 ? (profit / totalCost) * 100 : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
+      child: Column(
+        children: [
+          // Row 1: 합계 + 평가금액
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('합계',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+              Text(formatKRW(totalValue),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A))),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Row 2: 원금 + 수익
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text('원금 ', style: TextStyle(fontSize: 12, color: Color(0xFF888888))),
+                  Text(formatKRW(totalCost),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF888888))),
+                ],
+              ),
+              ChangeRow(
+                changeKRW: profit,
+                changePct: profitPct,
+                label: '',
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -218,8 +280,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
         : holding.ticker;
     final displayName = isKR ? holding.ticker : (quote?.name ?? '');
 
-    final marketLabel = isKR ? '한국' : '미국';
-
     return Column(
       children: [
         GestureDetector(
@@ -227,6 +287,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             context,
             ticker: holding.ticker,
             displayName: displayTicker,
+            account: holding.account,
+            broker: holding.broker,
           ),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -253,7 +315,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        _marketBadge(marketLabel),
+                        _marketBadge(holding.account),
+                        if (holding.broker.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          _marketBadge(holding.broker),
+                        ],
                       ],
                     ),
                     if (displayName.isNotEmpty)
@@ -448,7 +514,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   final isKR = h.market == Market.krx || h.market == Market.kosdaq;
                   final q = portfolio.quotes[h.ticker];
                   final name = isKR && q != null && q.name.isNotEmpty ? q.name : h.ticker;
-                  showHoldingTransactionsDialog(context, ticker: h.ticker, displayName: name);
+                  showHoldingTransactionsDialog(context, ticker: h.ticker, displayName: name, account: h.account, broker: h.broker);
                 },
               ),
             );

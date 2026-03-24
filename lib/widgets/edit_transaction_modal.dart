@@ -35,6 +35,7 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
   late TransactionType _type;
   late Market _market;
   late String _account;
+  late String _broker;
   late DateTime _date;
   late String _ticker;
   late String _tickerName;
@@ -49,6 +50,7 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
     _type = tx.type;
     _market = tx.market;
     _account = tx.account;
+    _broker = tx.broker;
     _ticker = tx.ticker;
     _tickerName = tx.name;
     _date = DateTime.tryParse(tx.date) ?? DateTime.now();
@@ -86,6 +88,7 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
       price: double.tryParse(_priceController.text) ?? 0,
       currency: _currency,
       exchangeRate: double.tryParse(_rateController.text) ?? 0,
+      broker: _broker,
       memo: _memoController.text.trim(),
     );
 
@@ -127,7 +130,9 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
 
   @override
   Widget build(BuildContext context) {
-    final accounts = ref.watch(portfolioProvider).settings.accounts;
+    final settings = ref.watch(portfolioProvider).settings;
+    final accounts = settings.accounts;
+    final brokers = settings.brokers;
     final tx = widget.transaction;
     final accentColor = Theme.of(context).colorScheme.primary;
 
@@ -202,6 +207,23 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                 ),
                 const SizedBox(height: 16),
 
+                // 증권사
+                if (brokers.isNotEmpty) ...[
+                  _buildLabel('증권사'),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: brokers
+                        .map((b) => _buildChip(b,
+                            isActive: _broker == b,
+                            accentColor: accentColor,
+                            onTap: () => setState(() => _broker = b)))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // 종목코드
                 _buildLabel('종목코드'),
                 const SizedBox(height: 6),
@@ -251,7 +273,7 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                 const SizedBox(height: 6),
                 _buildInput(
                   controller: _sharesController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
                   accentColor: accentColor,
                 ),
@@ -263,7 +285,7 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                 const SizedBox(height: 6),
                 _buildInput(
                   controller: _priceController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
                   accentColor: accentColor,
                 ),
@@ -275,7 +297,7 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                   const SizedBox(height: 6),
                   _buildInput(
                     controller: _rateController,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     accentColor: accentColor,
                   ),
                   const SizedBox(height: 16),

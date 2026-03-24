@@ -48,8 +48,8 @@ class SheetsService {
 
     // 2. 헤더 + 초기 데이터 삽입
     await _batchUpdate(id, headers, [
-      _valueRange('Transactions!A1:L1', [
-        ['id', 'date', 'account', 'type', 'ticker', 'market', 'name', 'shares', 'price', 'currency', 'exchangeRate', 'memo']
+      _valueRange('Transactions!A1:M1', [
+        ['id', 'date', 'account', 'type', 'ticker', 'market', 'name', 'shares', 'price', 'currency', 'exchangeRate', 'memo', 'broker']
       ]),
       _valueRange('Prices!A1:H1', [
         ['ticker', 'market', 'googlefinance_key', 'price', 'name', 'changepct', 'closeyest', 'currency']
@@ -58,8 +58,9 @@ class SheetsService {
       _valueRange('OtherAssets!A1:H1', [
         ['id', 'account', 'name', 'category', 'value', 'currency', 'date', 'memo']
       ]),
-      _valueRange('Settings!A1:B5', [
+      _valueRange('Settings!A1:B6', [
         ['accounts', ''],
+        ['brokers', ''],
         ['base_currency', 'KRW'],
         ['accent_color', '#0D6E6E'],
         ['refresh_interval', '60'],
@@ -86,7 +87,7 @@ class SheetsService {
     _ensureId();
     final headers = await _getAuthHeaders();
     final ranges = [
-      'Transactions!A2:L',
+      'Transactions!A2:Z',
       'Prices!A2:H',
       'OtherAssets!A2:H',
       'Settings!A1:B',
@@ -103,19 +104,30 @@ class SheetsService {
 
     // Transactions
     final txRows = _getRows(valueRanges[0]);
-    final transactions = txRows.map((r) => Transaction.fromSheetRow(_padRow(r, 12))).toList();
+    final transactions = txRows.map((r) => Transaction.fromSheetRow(_padRow(r, 13))).toList();
 
     // Prices → quotes + exchangeRate
     final priceRows = _getRows(valueRanges[1]);
     final quotes = <StockQuote>[];
     double exchangeRate = 1450;
+    bool hasFxRow = false;
     for (final row in priceRows) {
       final padded = _padRow(row, 8);
       if (padded[1] == 'FX') {
+        hasFxRow = true;
         exchangeRate = double.tryParse(padded[3]) ?? 1450;
       } else {
         quotes.add(StockQuote.fromSheetRow(padded));
       }
+    }
+
+    // FX 행이 없으면 자동 삽입
+    if (!hasFxRow) {
+      final authHeaders = await _getAuthHeaders();
+      authHeaders['Content-Type'] = 'application/json';
+      await _insertPriceFormula(
+        _spreadsheetId!, authHeaders, 'USDKRW', 'FX', 'CURRENCY:USDKRW', 'KRW',
+      );
     }
 
     // OtherAssets
@@ -168,7 +180,7 @@ class SheetsService {
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
     await http.post(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/Transactions!A:L:append?valueInputOption=RAW'),
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/Transactions!A:Z:append?valueInputOption=RAW'),
       headers: headers,
       body: jsonEncode({'values': [tx.toSheetRow()]}),
     );
@@ -178,7 +190,7 @@ class SheetsService {
     final rowIndex = await findRowById('Transactions', tx.id);
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
-    final range = 'Transactions!A${rowIndex + 2}:L${rowIndex + 2}';
+    final range = 'Transactions!A${rowIndex + 2}:Z${rowIndex + 2}';
     await http.put(
       Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=RAW'),
       headers: headers,
@@ -296,10 +308,14 @@ class SheetsService {
     _ensureId();
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
+
+    // 기존 Settings 시트를 클리어 후 동적 행 수만큼 쓰기
+    final rows = settings.toSheetRows();
+    final endRow = rows.length;
     await http.put(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Settings!A1:B5")}?valueInputOption=RAW'),
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Settings!A1:B$endRow")}?valueInputOption=RAW'),
       headers: headers,
-      body: jsonEncode({'values': settings.toSheetRows()}),
+      body: jsonEncode({'values': rows}),
     );
   }
 

@@ -30,17 +30,16 @@ class _TotalAssetCardState extends State<TotalAssetCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDailyPositive = widget.dailyChangeKRW >= 0;
-    final isProfitPositive = widget.totalProfitKRW >= 0;
-    const positive = Color(0xFF16A34A);
-    const negative = Color(0xFFE07B54);
-    final dailyColor = isDailyPositive ? positive : negative;
-    final profitColor = isProfitPositive ? positive : negative;
     final accentColor = Theme.of(context).colorScheme.primary;
     final isWide = MediaQuery.of(context).size.width >= 768;
 
     final now = DateTime.now();
     final dateText = '${now.year}년 ${now.month}월 ${now.day}일';
+
+    final dailyPositive = widget.dailyChangeKRW >= 0;
+    final dailyColor = dailyPositive ? const Color(0xFF16A34A) : const Color(0xFFE07B54);
+    final profitPositive = widget.totalProfitKRW >= 0;
+    final profitColor = profitPositive ? const Color(0xFF16A34A) : const Color(0xFFE07B54);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -64,102 +63,67 @@ class _TotalAssetCardState extends State<TotalAssetCard> {
           const SizedBox(height: 8),
 
           // 총자산 KRW + USD
-          if (isWide)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  formatKRW(widget.totalValueKRW),
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text('USD', style: TextStyle(fontSize: 11, color: Color(0xFF888888))),
-                    Text(formatUSD(widget.totalValueUSD),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A))),
-                  ],
-                ),
-              ],
-            )
-          else
-            Text(
-              formatKRW(widget.totalValueKRW),
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
-            ),
-          const SizedBox(height: 12),
-
-          // Row 1: 일간변동 (어제 대비) — 항상 표시
-          _buildChangeRow(
-            changeKRW: widget.dailyChangeKRW,
-            changePct: widget.dailyChangePct,
-            color: dailyColor,
-            isPositive: isDailyPositive,
-            label: '어제',
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                formatKRW(widget.totalValueKRW),
+                style: TextStyle(fontSize: isWide ? 32 : 28, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A1A)),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                formatUSD(widget.totalValueUSD),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF888888)),
+              ),
+            ],
           ),
+          const SizedBox(height: 6),
+
+          // 오늘 변동 (항상 표시)
+          _buildChangeLabel(widget.dailyChangeKRW, widget.dailyChangePct, dailyColor, dailyPositive, '오늘'),
 
           // 펼침 시 추가 정보
           if (_expanded) ...[
-            const SizedBox(height: 8),
-
-            // 구분선
             const SizedBox(height: 12),
             Container(height: 1, color: const Color(0xFFF0F0F0)),
             const SizedBox(height: 12),
 
-            // 원금 대비 뱃지 + 원금 금액 (같은 줄)
-            if (isWide)
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildChangeRow(
-                      changeKRW: widget.totalProfitKRW,
-                      changePct: widget.totalProfitPct,
-                      color: profitColor,
-                      isPositive: isProfitPositive,
-                      label: '원금 대비',
+            // 원금 대비 (좌) + 원금/USD 금액 (우)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 좌: 수익금 + 수익률
+                Expanded(
+                  child: _buildChangeLabel(widget.totalProfitKRW, widget.totalProfitPct, profitColor, profitPositive, '원금'),
+                ),
+                // 우: 원금 + USD
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(formatKRW(widget.totalCostKRW),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A))),
+                        const SizedBox(width: 6),
+                        const Text('원금', style: TextStyle(fontSize: 11, color: Color(0xFF888888))),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Row(
-                    children: [
-                      const Text('원금', style: TextStyle(fontSize: 11, color: Color(0xFF888888))),
-                      const SizedBox(width: 8),
-                      Text(formatKRW(widget.totalCostKRW),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A))),
-                    ],
-                  ),
-                ],
-              )
-            else ...[
-              _buildChangeRow(
-                changeKRW: widget.totalProfitKRW,
-                changePct: widget.totalProfitPct,
-                color: profitColor,
-                isPositive: isProfitPositive,
-                label: '원금 대비',
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('원금', style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
-                  Text(formatKRW(widget.totalCostKRW),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A))),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('USD', style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
-                  Text(formatUSD(widget.totalValueUSD),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A))),
-                ],
-              ),
-            ],
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(formatUSD(widget.totalValueUSD),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A))),
+                        const SizedBox(width: 6),
+                        const Text('USD', style: TextStyle(fontSize: 11, color: Color(0xFF888888))),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ],
 
           // 펼치기/접기 버튼
@@ -178,20 +142,12 @@ class _TotalAssetCardState extends State<TotalAssetCard> {
     );
   }
 
-  /// 수익금 뱃지 + 수익률 텍스트 + 라벨
-  Widget _buildChangeRow({
-    required double changeKRW,
-    required double changePct,
-    required Color color,
-    required bool isPositive,
-    required String label,
-  }) {
+  Widget _buildChangeLabel(double amount, double pct, Color color, bool isPositive, String label) {
     return Wrap(
       spacing: 8,
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // 수익금 뱃지
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
@@ -199,14 +155,13 @@ class _TotalAssetCardState extends State<TotalAssetCard> {
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
-            '${isPositive ? '+' : ''}${formatKRW(changeKRW)}',
+            '${isPositive ? '+' : ''}${formatKRW(amount)}',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
           ),
         ),
-        // 수익률 텍스트 (뱃지 아님)
         Text(
-          formatPercent(changePct),
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+          formatPercent(pct),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color),
         ),
         Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF888888))),
       ],

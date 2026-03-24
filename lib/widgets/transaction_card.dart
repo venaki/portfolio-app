@@ -99,6 +99,23 @@ class TransactionCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // Broker badge
+                      if (tx.broker.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F0F0),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            tx.broker,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF888888),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -135,7 +152,7 @@ class TransactionCard extends StatelessWidget {
                 Text(
                   isKRW ? formatKRW(totalKRW) : formatUSD(totalNative),
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A1A1A),
                   ),
@@ -145,7 +162,7 @@ class TransactionCard extends StatelessWidget {
                   Text(
                     formatKRW(totalKRW),
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF888888),
                     ),

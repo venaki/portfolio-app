@@ -12,12 +12,17 @@ Future<void> showHoldingTransactionsDialog(
   BuildContext context, {
   required String ticker,
   required String displayName,
+  required String account,
+  required String broker,
 }) {
   return showDialog(
     context: context,
     barrierDismissible: true,
     builder: (_) => Center(
-      child: HoldingTransactionsModal(ticker: ticker, displayName: displayName),
+      child: HoldingTransactionsModal(
+        ticker: ticker, displayName: displayName,
+        account: account, broker: broker,
+      ),
     ),
   );
 }
@@ -25,11 +30,15 @@ Future<void> showHoldingTransactionsDialog(
 class HoldingTransactionsModal extends ConsumerStatefulWidget {
   final String ticker;
   final String displayName;
+  final String account;
+  final String broker;
 
   const HoldingTransactionsModal({
     super.key,
     required this.ticker,
     required this.displayName,
+    required this.account,
+    required this.broker,
   });
 
   @override
@@ -57,7 +66,9 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
     final transactions = portfolio.transactions
-        .where((tx) => tx.ticker == widget.ticker)
+        .where((tx) => tx.ticker == widget.ticker
+            && tx.account == widget.account
+            && tx.broker == widget.broker)
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
 
