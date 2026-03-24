@@ -35,7 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final authState = ref.watch(authStateProvider);
     final settings = portfolio.settings;
     final accentColor = Theme.of(context).colorScheme.primary;
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = MediaQuery.of(context).size.width >= 1024;
     final hPadding = isWide ? 40.0 : 24.0;
 
     return ListView(
@@ -57,10 +57,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     children: [
                       CircleAvatar(
                         radius: 20,
-                        backgroundImage: user.photoUrl != null
-                            ? NetworkImage(user.photoUrl!)
+                        backgroundImage: user.photoURL != null
+                            ? NetworkImage(user.photoURL!)
                             : null,
-                        child: user.photoUrl == null
+                        child: user.photoURL == null
                             ? const Icon(Icons.person, size: 20)
                             : null,
                       ),
@@ -70,7 +70,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user.email,
+                              user.email ?? '',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,

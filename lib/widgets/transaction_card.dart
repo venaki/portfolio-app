@@ -99,6 +99,22 @@ class TransactionCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // Country badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F0F0),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isKR ? '한국' : '미국',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF888888),
+                          ),
+                        ),
+                      ),
                       // Broker badge
                       if (tx.broker.isNotEmpty)
                         Container(

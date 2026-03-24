@@ -58,18 +58,22 @@ class SheetsService {
       _valueRange('OtherAssets!A1:H1', [
         ['id', 'account', 'name', 'category', 'value', 'currency', 'date', 'memo']
       ]),
-      _valueRange('Settings!A1:B6', [
+      _valueRange('Settings!A1:B7', [
         ['accounts', ''],
         ['brokers', ''],
         ['base_currency', 'KRW'],
         ['accent_color', '#0D6E6E'],
         ['refresh_interval', '60'],
         ['version', '1'],
+        ['exchange_rate', ''],
       ]),
     ]);
 
     // 3. Prices 시트에 환율 GOOGLEFINANCE 수식 삽입
     await _insertPriceFormula(id, headers, 'USDKRW', 'FX', 'CURRENCY:USDKRW', 'KRW');
+
+    // 4. Settings 시트에 환율 GOOGLEFINANCE 수식 삽입
+    await _insertSettingsExchangeRate(id, headers);
 
     return id;
   }
@@ -94,7 +98,7 @@ class SheetsService {
     ].map(Uri.encodeComponent).join('&ranges=');
 
     final res = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values:batchGet?ranges=$ranges'),
+      Uri.parse('$_baseUrl/$_spreadsheetId/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&ranges=$ranges'),
       headers: headers,
     );
     if (res.statusCode != 200) throw Exception('batchGet failed: ${res.body}');
@@ -138,10 +142,20 @@ class SheetsService {
     final settingsRows = _getRows(valueRanges[3]);
     final settings = AppSettings.fromSheetRows(settingsRows.map((r) => _padRow(r, 2)).toList());
 
+    // Settings의 환율 우선, 없으면 Prices FX 행 fallback
+    final finalExchangeRate = settings.exchangeRate ?? exchangeRate;
+
+    // 기존 시트에 Settings exchange_rate가 없으면 자동 추가
+    if (settings.exchangeRate == null) {
+      final authHeaders = await _getAuthHeaders();
+      authHeaders['Content-Type'] = 'application/json';
+      await _insertSettingsExchangeRate(_spreadsheetId!, authHeaders);
+    }
+
     return (
       transactions: transactions,
       quotes: quotes,
-      exchangeRate: exchangeRate,
+      exchangeRate: finalExchangeRate,
       otherAssets: otherAssets,
       settings: settings,
     );
@@ -152,14 +166,22 @@ class SheetsService {
   Future<({List<StockQuote> quotes, double exchangeRate})> loadPrices() async {
     _ensureId();
     final headers = await _getAuthHeaders();
+    final ranges = [
+      'Prices!A2:H',
+      'Settings!A1:B',
+    ].map(Uri.encodeComponent).join('&ranges=');
+
     final res = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Prices!A2:H")}'),
+      Uri.parse('$_baseUrl/$_spreadsheetId/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&ranges=$ranges'),
       headers: headers,
     );
     if (res.statusCode != 200) throw Exception('loadPrices failed: ${res.body}');
 
     final data = jsonDecode(res.body);
-    final rows = _getRows(data);
+    final valueRanges = data['valueRanges'] as List;
+
+    // Prices → quotes + FX fallback
+    final rows = _getRows(valueRanges[0]);
     final quotes = <StockQuote>[];
     double exchangeRate = 1450;
     for (final row in rows) {
@@ -170,6 +192,14 @@ class SheetsService {
         quotes.add(StockQuote.fromSheetRow(padded));
       }
     }
+
+    // Settings에서 환율 읽기 (우선)
+    final settingsRows = _getRows(valueRanges[1]);
+    final settings = AppSettings.fromSheetRows(settingsRows.map((r) => _padRow(r, 2)).toList());
+    if (settings.exchangeRate != null) {
+      exchangeRate = settings.exchangeRate!;
+    }
+
     return (quotes: quotes, exchangeRate: exchangeRate);
   }
 
@@ -292,14 +322,11 @@ class SheetsService {
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
 
-    String gfKey;
-    switch (market) {
-      case 'KRX': gfKey = 'KRX:$ticker'; break;
-      case 'KOSDAQ': gfKey = 'KOSDAQ:$ticker'; break;
-      default: gfKey = ticker; break;
-    }
+    // 한국 주식: KRX/KOSDAQ 구분 없이 IFERROR로 둘 다 시도
+    final isKorean = market == 'KRX' || market == 'KOSDAQ';
+    final gfKey = isKorean ? 'KRX:$ticker' : ticker;
 
-    await _insertPriceFormula(_spreadsheetId!, headers, ticker, market, gfKey, currency);
+    await _insertPriceFormula(_spreadsheetId!, headers, ticker, market, gfKey, currency, isKorean: isKorean);
   }
 
   // ─── Settings 업데이트 ───
@@ -309,11 +336,11 @@ class SheetsService {
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
 
-    // 기존 Settings 시트를 클리어 후 동적 행 수만큼 쓰기
+    // USER_ENTERED로 쓰기 (GOOGLEFINANCE 수식 보존)
     final rows = settings.toSheetRows();
     final endRow = rows.length;
     await http.put(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Settings!A1:B$endRow")}?valueInputOption=RAW'),
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Settings!A1:B$endRow")}?valueInputOption=USER_ENTERED'),
       headers: headers,
       body: jsonEncode({'values': rows}),
     );
@@ -345,27 +372,73 @@ class SheetsService {
 
   Future<void> _insertPriceFormula(
     String ssId, Map<String, String> headers,
-    String ticker, String market, String gfKey, String currency,
-  ) async {
-    // Append row with formulas using USER_ENTERED
+    String ticker, String market, String gfKey, String currency, {
+    bool isKorean = false,
+  }) async {
+    // 한국 주식: IFERROR(KRX, KOSDAQ)로 양쪽 거래소 모두 시도
+    String priceFormula, nameFormula, changePctFormula, closeYestFormula;
+    if (isKorean) {
+      final krx = 'KRX:$ticker';
+      final kosdaq = 'KOSDAQ:$ticker';
+      priceFormula = '=IFERROR(GOOGLEFINANCE("$krx","price"),GOOGLEFINANCE("$kosdaq","price"))';
+      nameFormula = '=IFERROR(GOOGLEFINANCE("$krx","name"),GOOGLEFINANCE("$kosdaq","name"))';
+      changePctFormula = '=IFERROR(GOOGLEFINANCE("$krx","changepct"),GOOGLEFINANCE("$kosdaq","changepct"))';
+      closeYestFormula = '=IFERROR(GOOGLEFINANCE("$krx","closeyest"),GOOGLEFINANCE("$kosdaq","closeyest"))';
+    } else {
+      priceFormula = '=GOOGLEFINANCE("$gfKey","price")';
+      nameFormula = '=GOOGLEFINANCE("$gfKey","name")';
+      changePctFormula = '=GOOGLEFINANCE("$gfKey","changepct")';
+      closeYestFormula = '=GOOGLEFINANCE("$gfKey","closeyest")';
+    }
+
     await http.post(
       Uri.parse('$_baseUrl/$ssId/values/Prices!A:H:append?valueInputOption=USER_ENTERED'),
       headers: headers,
       body: jsonEncode({
         'values': [
-          [
-            ticker,
-            market,
-            gfKey,
-            '=GOOGLEFINANCE("$gfKey","price")',
-            '=GOOGLEFINANCE("$gfKey","name")',
-            '=GOOGLEFINANCE("$gfKey","changepct")',
-            '=GOOGLEFINANCE("$gfKey","closeyest")',
-            currency,
-          ]
+          [ticker, market, gfKey, priceFormula, nameFormula, changePctFormula, closeYestFormula, currency]
         ]
       }),
     );
+  }
+
+  /// Settings 시트에 환율 GOOGLEFINANCE 수식 삽입 (마이그레이션용)
+  Future<void> _insertSettingsExchangeRate(String ssId, Map<String, String> headers) async {
+    // Settings에서 기존 행을 읽어 exchange_rate 행 위치를 찾거나 append
+    final res = await http.get(
+      Uri.parse('$_baseUrl/$ssId/values/${Uri.encodeComponent("Settings!A1:B")}'),
+      headers: headers,
+    );
+    if (res.statusCode != 200) return;
+
+    final data = jsonDecode(res.body);
+    final rows = _getRows(data);
+
+    // exchange_rate 행이 이미 있는지 확인
+    int existingRow = -1;
+    for (int i = 0; i < rows.length; i++) {
+      if (rows[i].isNotEmpty && rows[i][0].toString() == 'exchange_rate') {
+        existingRow = i;
+        break;
+      }
+    }
+
+    if (existingRow >= 0) {
+      // 기존 행에 수식 덮어쓰기
+      final row = existingRow + 1; // 1-based
+      await http.put(
+        Uri.parse('$_baseUrl/$ssId/values/${Uri.encodeComponent("Settings!A$row:B$row")}?valueInputOption=USER_ENTERED'),
+        headers: headers,
+        body: jsonEncode({'values': [['exchange_rate', '=GOOGLEFINANCE("USDKRW")']]}),
+      );
+    } else {
+      // 새 행 추가
+      await http.post(
+        Uri.parse('$_baseUrl/$ssId/values/Settings!A:B:append?valueInputOption=USER_ENTERED'),
+        headers: headers,
+        body: jsonEncode({'values': [['exchange_rate', '=GOOGLEFINANCE("USDKRW")']]}),
+      );
+    }
   }
 
   Future<void> _batchUpdate(String ssId, Map<String, String> headers, List<Map<String, dynamic>> data) async {

@@ -31,7 +31,7 @@ class _TotalAssetCardState extends State<TotalAssetCard> {
   @override
   Widget build(BuildContext context) {
     final accentColor = Theme.of(context).colorScheme.primary;
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = MediaQuery.of(context).size.width >= 1024;
 
     final now = DateTime.now();
     final dateText = '${now.year}년 ${now.month}월 ${now.day}일';

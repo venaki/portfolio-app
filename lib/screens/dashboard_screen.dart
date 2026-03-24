@@ -104,7 +104,7 @@ class DashboardScreen extends ConsumerWidget {
       updateTimeText = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')} 업데이트';
     }
 
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = MediaQuery.of(context).size.width >= 1024;
     final hPadding = isWide ? 40.0 : 24.0;
 
     return RefreshIndicator(

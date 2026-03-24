@@ -25,7 +25,7 @@ class CustomTabBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(21, 12, 21, 21),
       child: Container(
-        height: 62,
+        height: 52,
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: const Color(0xFFFFFFFF),
@@ -53,30 +53,14 @@ class CustomTabBar extends StatelessWidget {
                     color: isActive ? accentColor : Colors.transparent,
                     borderRadius: BorderRadius.circular(26),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _tabs[i].icon,
-                        size: 18,
-                        color: isActive
-                            ? const Color(0xFFFFFFFF)
-                            : const Color(0xFFAAAAAA),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _tabs[i].label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight:
-                              isActive ? FontWeight.w600 : FontWeight.w500,
-                          letterSpacing: 0.5,
-                          color: isActive
-                              ? const Color(0xFFFFFFFF)
-                              : const Color(0xFFAAAAAA),
-                        ),
-                      ),
-                    ],
+                  child: Center(
+                    child: Icon(
+                      _tabs[i].icon,
+                      size: 20,
+                      color: isActive
+                          ? const Color(0xFFFFFFFF)
+                          : const Color(0xFFAAAAAA),
+                    ),
                   ),
                 ),
               ),

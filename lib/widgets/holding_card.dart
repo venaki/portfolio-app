@@ -92,6 +92,22 @@ class HoldingCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F0F0),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isKR ? '한국' : '미국',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF888888),
+                            ),
+                          ),
+                        ),
                         if (holding.broker.isNotEmpty) ...[
                           const SizedBox(width: 4),
                           Container(

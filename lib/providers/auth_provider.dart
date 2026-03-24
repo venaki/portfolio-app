@@ -1,16 +1,16 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import '../services/auth_service.dart';
 
 const _devMode = bool.fromEnvironment('DEV_MODE');
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<GoogleSignInAccount?>>((ref) {
+final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
   return AuthNotifier(ref.read(authServiceProvider));
 });
 
-class AuthNotifier extends StateNotifier<AsyncValue<GoogleSignInAccount?>> {
+class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final AuthService _authService;
 
   AuthNotifier(this._authService) : super(const AsyncValue.loading()) {
@@ -19,12 +19,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<GoogleSignInAccount?>> {
 
   Future<void> _init() async {
     if (_devMode) {
-      // Dev 모드: SSO 스킵, 가짜 로그인 상태
       state = const AsyncValue.data(null);
       return;
     }
     try {
-      final user = await _authService.signInSilently();
+      final user = await _authService.restoreSession();
       state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

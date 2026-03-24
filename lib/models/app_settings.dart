@@ -5,10 +5,12 @@ class AppSettings {
   final String accentColor;
   final int refreshInterval;
   final int version;
+  final double? exchangeRate;
 
   const AppSettings({
     this.accounts = const [], this.brokers = const [], this.baseCurrency = 'KRW',
     this.accentColor = '#0D6E6E', this.refreshInterval = 60, this.version = 1,
+    this.exchangeRate,
   });
 
   factory AppSettings.fromSheetRows(List<List<String>> rows) {
@@ -23,6 +25,7 @@ class AppSettings {
       accentColor: map['accent_color'] ?? '#0D6E6E',
       refreshInterval: int.tryParse(map['refresh_interval'] ?? '60') ?? 60,
       version: int.tryParse(map['version'] ?? '1') ?? 1,
+      exchangeRate: double.tryParse(map['exchange_rate'] ?? ''),
     );
   }
 
@@ -34,12 +37,13 @@ class AppSettings {
       ['accent_color', accentColor],
       ['refresh_interval', refreshInterval.toString()],
       ['version', version.toString()],
+      ['exchange_rate', '=GOOGLEFINANCE("USDKRW")'],
     ];
   }
 
   AppSettings copyWith({
     List<String>? accounts, List<String>? brokers, String? baseCurrency,
-    String? accentColor, int? refreshInterval, int? version,
+    String? accentColor, int? refreshInterval, int? version, double? exchangeRate,
   }) {
     return AppSettings(
       accounts: accounts ?? this.accounts,
@@ -48,6 +52,7 @@ class AppSettings {
       accentColor: accentColor ?? this.accentColor,
       refreshInterval: refreshInterval ?? this.refreshInterval,
       version: version ?? this.version,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
     );
   }
 }

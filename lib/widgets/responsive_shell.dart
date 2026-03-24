@@ -14,7 +14,7 @@ class ResponsiveShell extends StatelessWidget {
     required this.child,
   });
 
-  static const breakpoint = 768.0;
+  static const breakpoint = 1024.0;
 
   @override
   Widget build(BuildContext context) {

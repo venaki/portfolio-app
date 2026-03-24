@@ -25,6 +25,7 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
       await saveSpreadsheetId(id);
       if (mounted) {
         ref.invalidate(spreadsheetIdProvider);
+        if (Navigator.canPop(context)) Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -152,6 +153,7 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
       await ref.read(portfolioProvider.notifier).connect(id);
       if (mounted) {
         ref.invalidate(spreadsheetIdProvider);
+        if (Navigator.canPop(context)) Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {

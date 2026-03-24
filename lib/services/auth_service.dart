@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -9,30 +10,51 @@ class AuthService {
     scopes: _scopes,
   );
 
-  GoogleSignInAccount? _currentUser;
+  FirebaseAuth get _firebaseAuth => FirebaseAuth.instance;
 
-  GoogleSignInAccount? get currentUser => _currentUser;
-  bool get isSignedIn => _currentUser != null;
+  /// Firebase Auth의 현재 사용자
+  User? get currentUser => _firebaseAuth.currentUser;
+  bool get isSignedIn => _firebaseAuth.currentUser != null;
 
-  Future<GoogleSignInAccount?> signInSilently() async {
-    _currentUser = await _googleSignIn.signInSilently();
-    return _currentUser;
+  /// 앱 시작 시 세션 복원 시도
+  /// Firebase Auth는 세션을 IndexedDB에 저장하므로 새로고침 후에도 유지됨
+  Future<User?> restoreSession() async {
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser == null) return null;
+
+    // Firebase 세션은 있지만, Google API 호출을 위해 Google Sign-In도 복원
+    await _googleSignIn.signInSilently();
+    return firebaseUser;
   }
 
-  Future<GoogleSignInAccount?> signIn() async {
-    _currentUser = await _googleSignIn.signIn();
-    return _currentUser;
+  Future<User?> signIn() async {
+    final googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) return null;
+
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final userCredential =
+        await _firebaseAuth.signInWithCredential(credential);
+    return userCredential.user;
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    _currentUser = null;
+    await Future.wait([
+      _firebaseAuth.signOut(),
+      _googleSignIn.signOut(),
+    ]);
   }
 
   Future<Map<String, String>> getAuthHeaders() async {
-    final user = _currentUser;
-    if (user == null) throw Exception('Not signed in');
-    return await user.authHeaders;
+    // Google Sign-In 세션에서 auth headers 가져오기
+    final googleUser = _googleSignIn.currentUser ??
+        await _googleSignIn.signInSilently();
+    if (googleUser == null) throw Exception('Not signed in');
+    return await googleUser.authHeaders;
   }
 
   /// Drive 스코프를 추가 요청 (시트 선택 시 사용)

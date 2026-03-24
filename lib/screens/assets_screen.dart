@@ -41,7 +41,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
       return sum + value;
     });
 
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = MediaQuery.of(context).size.width >= 1024;
     final hPadding = isWide ? 40.0 : 24.0;
 
     return Scaffold(

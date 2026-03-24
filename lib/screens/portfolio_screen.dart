@@ -47,7 +47,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       holdings = holdings.where((h) => h.market == Market.krx || h.market == Market.kosdaq).toList();
     }
 
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = MediaQuery.of(context).size.width >= 1024;
     final hPadding = isWide ? 40.0 : 24.0;
 
     return Scaffold(
@@ -319,6 +319,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                         ),
                         const SizedBox(width: 6),
                         _marketBadge(holding.account),
+                        const SizedBox(width: 4),
+                        _marketBadge(isKR ? '한국' : '미국'),
                         if (holding.broker.isNotEmpty) ...[
                           const SizedBox(width: 4),
                           _marketBadge(holding.broker),
