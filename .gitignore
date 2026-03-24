@@ -53,3 +53,4 @@ app.*.map.json
 
 # Node (legacy)
 node_modules/
+.firebase/

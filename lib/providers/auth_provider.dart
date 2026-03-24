@@ -23,8 +23,15 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       return;
     }
     try {
-      final user = await _authService.restoreSession();
-      state = AsyncValue.data(user);
+      // Firebase Auth 상태 변화를 리슨 (리다이렉트 복귀 포함)
+      FirebaseAuth.instance.authStateChanges().listen((user) {
+        if (!mounted) return;
+        state = AsyncValue.data(user);
+        // Google API 토큰 복원
+        if (user != null) {
+          _authService.restoreGoogleToken();
+        }
+      });
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -35,10 +42,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     state = const AsyncValue.loading();
     try {
       await _authService.signIn();
-      // 웹 리다이렉트 방식: 페이지가 이동되므로 여기 이후는 실행되지 않을 수 있음
-      // 리다이렉트 복귀 후 restoreSession()에서 상태 복원
-      final user = _authService.currentUser;
-      state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

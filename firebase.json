@@ -1,1 +1,18 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"portfolio-app-venaki-ed7b4","configurations":{"web":"1:243864565219:web:b4b2080007b4f39d0f5cd6"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "portfolio-app-venaki-ed7b4",
+          "configurations": {
+            "web": "1:243864565219:web:b4b2080007b4f39d0f5cd6"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }
+}
