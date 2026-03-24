@@ -481,7 +481,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // Version
         const Center(
           child: Text(
-            'v0.1.1',
+            'v0.1.2',
             style: TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
           ),
         ),
