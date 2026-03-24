@@ -140,17 +140,21 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
   }
 
   /// refresh prices only
-  Future<void> refreshPrices() async {
+  Future<void> refreshPrices({bool force = false}) async {
+    state = state.copyWith(isLoading: true);
     try {
-      final data = await _sheets.loadPrices();
+      final data = force
+          ? await _sheets.forceRefreshPrices()
+          : await _sheets.loadPrices();
       final quotesMap = {for (final q in data.quotes) q.ticker: q};
       state = state.copyWith(
         quotes: quotesMap,
         exchangeRate: data.exchangeRate,
+        isLoading: false,
         lastUpdated: DateTime.now(),
       );
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 

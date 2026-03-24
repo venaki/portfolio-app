@@ -203,6 +203,62 @@ class SheetsService {
     return (quotes: quotes, exchangeRate: exchangeRate);
   }
 
+  // ─── 강제 시세 갱신 ───
+
+  /// GOOGLEFINANCE 수식을 변조 → 복원하여 Google Sheets 캐시를 강제 클리어
+  Future<({List<StockQuote> quotes, double exchangeRate})> forceRefreshPrices() async {
+    _ensureId();
+    final headers = await _getAuthHeaders();
+    headers['Content-Type'] = 'application/json';
+
+    // 1. 현재 수식 읽기
+    final res = await http.get(
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Prices!A2:H")}?valueRenderOption=FORMULA'),
+      headers: headers,
+    );
+    if (res.statusCode != 200) return loadPrices(); // fallback
+    final data = jsonDecode(res.body);
+    final originalRows = _getRows(data);
+    if (originalRows.isEmpty) return loadPrices();
+
+    // 2. GOOGLEFINANCE 수식의 티커를 1자 잘라서 변조
+    final brokenRows = originalRows.map((row) {
+      return row.map((cell) {
+        final s = cell.toString();
+        if (s.startsWith('=') && s.contains('GOOGLEFINANCE')) {
+          return s.replaceAllMapped(
+            RegExp(r'GOOGLEFINANCE\("([^"]{2,})"'),
+            (m) {
+              final ticker = m.group(1)!;
+              return 'GOOGLEFINANCE("${ticker.substring(0, ticker.length - 1)}"';
+            },
+          );
+        }
+        return s;
+      }).toList();
+    }).toList();
+
+    // 3. 변조된 수식 쓰기
+    final range = 'Prices!A2:H${originalRows.length + 1}';
+    await http.put(
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=USER_ENTERED'),
+      headers: headers,
+      body: jsonEncode({'values': brokenRows}),
+    );
+
+    // 4. 잠시 대기 후 원본 수식 복원
+    await Future.delayed(const Duration(seconds: 1));
+    await http.put(
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=USER_ENTERED'),
+      headers: headers,
+      body: jsonEncode({'values': originalRows}),
+    );
+
+    // 5. 재계산 대기 후 값 읽기
+    await Future.delayed(const Duration(seconds: 2));
+    return loadPrices();
+  }
+
   // ─── Transaction CRUD ───
 
   Future<void> addTransaction(Transaction tx) async {

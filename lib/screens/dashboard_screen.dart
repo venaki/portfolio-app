@@ -150,7 +150,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : IconButton(
-                        onPressed: () => ref.read(portfolioProvider.notifier).refreshPrices(),
+                        onPressed: () => ref.read(portfolioProvider.notifier).refreshPrices(force: true),
                         icon: const Icon(Icons.refresh, color: Color(0xFF888888), size: 20),
                         padding: EdgeInsets.zero,
                         splashRadius: 16,
