@@ -9,12 +9,36 @@ import '../widgets/account_card.dart';
 import '../utils/format.dart';
 import '../utils/constants.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _wasLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
+
+    // 로딩 완료 감지 → SnackBar
+    if (_wasLoading && !portfolio.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('업데이트 완료'),
+              duration: const Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            ),
+          );
+        }
+      });
+    }
+    _wasLoading = portfolio.isLoading;
 
     if (portfolio.isLoading && portfolio.holdings.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -114,12 +138,24 @@ class DashboardScreen extends ConsumerWidget {
         children: [
           // 리프레쉬 버튼
           Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 16),
+            padding: const EdgeInsets.only(top: 8, bottom: 8),
             child: Align(
               alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () => ref.read(portfolioProvider.notifier).refreshPrices(),
-                child: const Icon(Icons.refresh, color: Color(0xFF888888), size: 20),
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: portfolio.isLoading && portfolio.holdings.isNotEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        onPressed: () => ref.read(portfolioProvider.notifier).refreshPrices(),
+                        icon: const Icon(Icons.refresh, color: Color(0xFF888888), size: 20),
+                        padding: EdgeInsets.zero,
+                        splashRadius: 16,
+                        tooltip: '새로고침',
+                      ),
               ),
             ),
           ),

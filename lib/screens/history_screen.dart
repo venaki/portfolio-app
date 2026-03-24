@@ -5,6 +5,7 @@ import '../models/transaction.dart';
 import '../widgets/transaction_card.dart';
 import '../widgets/add_transaction_modal.dart';
 import '../widgets/edit_transaction_modal.dart';
+import '../providers/filter_provider.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -14,15 +15,14 @@ class HistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
-  String _marketFilter = '전체';
-  String _accountFilter = '전체';
-  String _typeFilter = '전체';
-  String _brokerFilter = '전체';
-  bool _filterExpanded = false;
-
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
+    final _marketFilter = ref.watch(historyMarketFilter);
+    final _accountFilter = ref.watch(historyAccountFilter);
+    final _typeFilter = ref.watch(historyTypeFilter);
+    final _brokerFilter = ref.watch(historyBrokerFilter);
+    final _filterExpanded = ref.watch(historyFilterExpanded);
     final accentColor = Theme.of(context).colorScheme.primary;
 
     if (portfolio.isLoading && portfolio.transactions.isEmpty) {
@@ -30,7 +30,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
 
     final accounts = ['전체', ...portfolio.settings.accounts];
-    final filtered = _applyFilters(portfolio.transactions);
+    final filtered = _applyFilters(portfolio.transactions,
+      marketFilter: _marketFilter, accountFilter: _accountFilter,
+      typeFilter: _typeFilter, brokerFilter: _brokerFilter);
     filtered.sort((a, b) => b.date.compareTo(a.date));
 
     final grouped = <String, List<Transaction>>{};
@@ -112,9 +114,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       spacing: 0,
       runSpacing: 6,
       children: accounts.map((account) {
-        final isSelected = account == _accountFilter;
+        final isSelected = account == ref.watch(historyAccountFilter);
         return GestureDetector(
-          onTap: () => setState(() => _accountFilter = account),
+          onTap: () => ref.read(historyAccountFilter.notifier).state = account,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             margin: const EdgeInsets.only(right: 4),
@@ -138,9 +140,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Widget _buildFilterToggle() {
-    final hasActiveFilter = _typeFilter != '전체' || _brokerFilter != '전체';
+    final hasActiveFilter = ref.watch(historyTypeFilter) != '전체' || ref.watch(historyBrokerFilter) != '전체';
     return GestureDetector(
-      onTap: () => setState(() => _filterExpanded = !_filterExpanded),
+      onTap: () => ref.read(historyFilterExpanded.notifier).state = !ref.read(historyFilterExpanded),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
@@ -152,7 +154,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              _filterExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              ref.watch(historyFilterExpanded) ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
               size: 16,
               color: hasActiveFilter ? Colors.white : const Color(0xFF888888),
             ),
@@ -191,9 +193,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             spacing: 4,
             runSpacing: 4,
             children: types.map((type) {
-              final isSelected = _typeFilter == type;
+              final isSelected = ref.watch(historyTypeFilter) == type;
               return GestureDetector(
-                onTap: () => setState(() => _typeFilter = type),
+                onTap: () => ref.read(historyTypeFilter.notifier).state = type,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -222,9 +224,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               spacing: 4,
               runSpacing: 4,
               children: brokerOptions.map((broker) {
-                final isSelected = _brokerFilter == broker;
+                final isSelected = ref.watch(historyBrokerFilter) == broker;
                 return GestureDetector(
-                  onTap: () => setState(() => _brokerFilter = broker),
+                  onTap: () => ref.read(historyBrokerFilter.notifier).state = broker,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
@@ -256,9 +258,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       padding: const EdgeInsets.only(right: 8),
       child: Row(
       children: options.map((option) {
-        final isSelected = option == _marketFilter;
+        final isSelected = option == ref.watch(historyMarketFilter);
         return GestureDetector(
-          onTap: () => setState(() => _marketFilter = option),
+          onTap: () => ref.read(historyMarketFilter.notifier).state = option,
           child: Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Column(
@@ -286,16 +288,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  List<Transaction> _applyFilters(List<Transaction> txs) {
+  List<Transaction> _applyFilters(List<Transaction> txs, {
+    required String marketFilter, required String accountFilter,
+    required String typeFilter, required String brokerFilter,
+  }) {
     return txs.where((tx) {
-      if (_marketFilter == '미국' && tx.market != Market.us) return false;
-      if (_marketFilter == '한국' &&
+      if (marketFilter == '미국' && tx.market != Market.us) return false;
+      if (marketFilter == '한국' &&
           tx.market != Market.krx &&
           tx.market != Market.kosdaq) return false;
-      if (_accountFilter != '전체' && tx.account != _accountFilter) return false;
-      if (_typeFilter == '매수' && tx.type == TransactionType.sell) return false;
-      if (_typeFilter == '매도' && tx.type != TransactionType.sell) return false;
-      if (_brokerFilter != '전체' && tx.broker != _brokerFilter) return false;
+      if (accountFilter != '전체' && tx.account != accountFilter) return false;
+      if (typeFilter == '매수' && tx.type == TransactionType.sell) return false;
+      if (typeFilter == '매도' && tx.type != TransactionType.sell) return false;
+      if (brokerFilter != '전체' && tx.broker != brokerFilter) return false;
       return true;
     }).toList();
   }

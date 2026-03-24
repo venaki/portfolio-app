@@ -13,7 +13,7 @@ class CustomTabBar extends StatelessWidget {
   static const _tabs = [
     _TabItem(icon: Icons.home_outlined, label: 'HOME'),
     _TabItem(icon: Icons.bar_chart, label: 'PORTFOLIO'),
-    _TabItem(icon: Icons.schedule, label: 'HISTORY'),
+    _TabItem(icon: Icons.receipt_long_outlined, label: 'HISTORY'),
     _TabItem(icon: Icons.account_balance_wallet_outlined, label: 'ASSETS'),
     _TabItem(icon: Icons.settings_outlined, label: 'SETTINGS'),
   ];

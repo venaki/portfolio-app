@@ -228,10 +228,11 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 ],
 
                 // 종목코드 (TickerSearch)
-                _buildLabel('종목코드'),
+                _buildLabel(_market == Market.us ? '티커' : '종목명'),
                 const SizedBox(height: 6),
                 TickerSearch(
-                  hint: _market == Market.us ? '예: TSLA' : '예: 005930',
+                  hint: _market == Market.us ? '예: TSLA' : '예: 삼성전자',
+                  isKorean: _market != Market.us,
                   existingTickers: _getExistingTickers(),
                   onSelected: _onTickerSelected,
                   onManualInput: (value) {

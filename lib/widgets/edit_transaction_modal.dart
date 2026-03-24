@@ -225,11 +225,12 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                 ],
 
                 // 종목코드
-                _buildLabel('종목코드'),
+                _buildLabel(_market == Market.us ? '티커' : '종목명'),
                 const SizedBox(height: 6),
                 TickerSearch(
-                  initialValue: tx.ticker,
-                  hint: '예: TSLA',
+                  initialValue: _market == Market.us ? tx.ticker : (tx.name.isNotEmpty ? tx.name : tx.ticker),
+                  hint: _market == Market.us ? '예: TSLA' : '예: 삼성전자',
+                  isKorean: _market != Market.us,
                   onSelected: (result) {
                     setState(() {
                       _ticker = result.ticker;

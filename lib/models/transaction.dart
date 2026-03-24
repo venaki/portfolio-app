@@ -28,9 +28,15 @@ class Transaction {
   });
 
   factory Transaction.fromSheetRow(List<String> row) {
+    final market = _parseMarket(row[5]);
+    var ticker = row[4];
+    // 한국 종목코드: 6자리로 정규화 (Sheets가 숫자로 해석해 앞자리 0 제거하는 문제 대응)
+    if ((market == Market.krx || market == Market.kosdaq) && RegExp(r'^\d+$').hasMatch(ticker) && ticker.length < 6) {
+      ticker = ticker.padLeft(6, '0');
+    }
     return Transaction(
       id: row[0], date: row[1], account: row[2],
-      type: _parseType(row[3]), ticker: row[4], market: _parseMarket(row[5]),
+      type: _parseType(row[3]), ticker: ticker, market: market,
       name: row[6], shares: double.tryParse(row[7]) ?? 0,
       price: double.tryParse(row[8]) ?? 0,
       currency: row[9] == 'KRW' ? Currency.krw : Currency.usd,

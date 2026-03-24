@@ -12,6 +12,7 @@ import '../utils/format.dart';
 import '../utils/constants.dart';
 import '../widgets/holding_transactions_modal.dart';
 import '../widgets/change_row.dart';
+import '../providers/filter_provider.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
@@ -21,14 +22,13 @@ class PortfolioScreen extends ConsumerStatefulWidget {
 }
 
 class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
-  String _accountFilter = '전체';
-  String _marketFilter = '전체';
-
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
     final accentColor = Theme.of(context).colorScheme.primary;
     final accounts = ['전체', ...portfolio.settings.accounts];
+    final _accountFilter = ref.watch(portfolioAccountFilter);
+    final _marketFilter = ref.watch(portfolioMarketFilter);
 
     var holdings = portfolio.holdings;
     var otherAssets = portfolio.otherAssets;
@@ -37,8 +37,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
     // 계정 필터
     if (_accountFilter != '전체') {
-      holdings = holdings.where((h) => h.account == _accountFilter).toList();
-      otherAssets = otherAssets.where((a) => a.account == _accountFilter).toList();
+      holdings = holdings.where((h) => h.account == ref.watch(portfolioAccountFilter)).toList();
+      otherAssets = otherAssets.where((a) => a.account == ref.watch(portfolioAccountFilter)).toList();
     }
     // 시장 필터
     if (_marketFilter == '미국') {
@@ -86,9 +86,9 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       spacing: 0,
       runSpacing: 6,
       children: accounts.map((account) {
-        final isSelected = account == _accountFilter;
+        final isSelected = account == ref.watch(portfolioAccountFilter);
         return GestureDetector(
-          onTap: () => setState(() => _accountFilter = account),
+          onTap: () => ref.read(portfolioAccountFilter.notifier).state = account,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             margin: const EdgeInsets.only(right: 4),
@@ -174,9 +174,9 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       child: Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: options.map((option) {
-        final isSelected = option == _marketFilter;
+        final isSelected = option == ref.watch(portfolioMarketFilter);
         return GestureDetector(
-          onTap: () => setState(() => _marketFilter = option),
+          onTap: () => ref.read(portfolioMarketFilter.notifier).state = option,
           child: Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Column(

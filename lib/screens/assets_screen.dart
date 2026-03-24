@@ -6,6 +6,7 @@ import '../utils/format.dart';
 import '../widgets/asset_card.dart';
 import '../widgets/add_asset_modal.dart';
 import '../widgets/edit_asset_modal.dart';
+import '../providers/filter_provider.dart';
 
 class AssetsScreen extends ConsumerStatefulWidget {
   const AssetsScreen({super.key});
@@ -15,11 +16,10 @@ class AssetsScreen extends ConsumerStatefulWidget {
 }
 
 class _AssetsScreenState extends ConsumerState<AssetsScreen> {
-  String _accountFilter = '전체';
-
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
+    final _accountFilter = ref.watch(assetsAccountFilter);
     final accentColor = Theme.of(context).colorScheme.primary;
 
     if (portfolio.isLoading && portfolio.otherAssets.isEmpty) {
@@ -133,9 +133,9 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
       spacing: 0,
       runSpacing: 6,
       children: accounts.map((account) {
-        final isSelected = account == _accountFilter;
+        final isSelected = account == ref.watch(assetsAccountFilter);
         return GestureDetector(
-          onTap: () => setState(() => _accountFilter = account),
+          onTap: () => ref.read(assetsAccountFilter.notifier).state = account,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             margin: const EdgeInsets.only(right: 4),

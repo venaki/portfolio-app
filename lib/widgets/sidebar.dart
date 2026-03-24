@@ -9,7 +9,7 @@ class Sidebar extends StatelessWidget {
   static const _items = [
     _SidebarItem(icon: Icons.home_outlined, label: '대시보드'),
     _SidebarItem(icon: Icons.bar_chart, label: '포트폴리오'),
-    _SidebarItem(icon: Icons.schedule, label: '거래내역'),
+    _SidebarItem(icon: Icons.receipt_long_outlined, label: '거래내역'),
     _SidebarItem(icon: Icons.account_balance_wallet_outlined, label: '기타 자산'),
     _SidebarItem(icon: Icons.settings_outlined, label: '설정'),
   ];

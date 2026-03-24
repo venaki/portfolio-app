@@ -322,8 +322,11 @@ class SheetsService {
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
 
-    // 한국 주식: KRX/KOSDAQ 구분 없이 IFERROR로 둘 다 시도
+    // 한국 주식: 6자리 정규화 + IFERROR로 KRX/KOSDAQ 둘 다 시도
     final isKorean = market == 'KRX' || market == 'KOSDAQ';
+    if (isKorean && RegExp(r'^\d+$').hasMatch(ticker) && ticker.length < 6) {
+      ticker = ticker.padLeft(6, '0');
+    }
     final gfKey = isKorean ? 'KRX:$ticker' : ticker;
 
     await _insertPriceFormula(_spreadsheetId!, headers, ticker, market, gfKey, currency, isKorean: isKorean);
@@ -397,12 +400,15 @@ class SheetsService {
       closeYestFormula = '=GOOGLEFINANCE("$gfKey","closeyest")';
     }
 
+    // 한국 종목코드: 앞자리 0 보존을 위해 텍스트 접두사(') 추가
+    final tickerValue = isKorean ? "'$ticker" : ticker;
+
     await http.post(
       Uri.parse('$_baseUrl/$ssId/values/Prices!A:H:append?valueInputOption=USER_ENTERED'),
       headers: headers,
       body: jsonEncode({
         'values': [
-          [ticker, market, gfKey, priceFormula, nameFormula, changePctFormula, closeYestFormula, currency]
+          [tickerValue, market, gfKey, priceFormula, nameFormula, changePctFormula, closeYestFormula, currency]
         ]
       }),
     );

@@ -21,6 +21,8 @@ class TickerSearch extends StatefulWidget {
   final ValueChanged<TickerSearchResult>? onSelected;
   final ValueChanged<String>? onManualInput;
   final String hint;
+  /// 한국 주식 모드: 종목명으로 검색하고, 선택 시 종목명 표시 + 코드 자동 세팅
+  final bool isKorean;
   /// 기존 거래 종목 목록 (포커스 시 드롭다운 표시)
   final List<TickerSearchResult> existingTickers;
 
@@ -31,6 +33,7 @@ class TickerSearch extends StatefulWidget {
     this.onSelected,
     this.onManualInput,
     this.hint = '예: TSLA',
+    this.isKorean = false,
     this.existingTickers = const [],
   });
 
@@ -94,26 +97,32 @@ class _TickerSearchState extends State<TickerSearch> {
 
   void _onChanged(String value) {
     _debounce?.cancel();
-    // 수동 입력 시 대문자 변환 + 부모에게 값 전달
-    final upper = value.trim().toUpperCase();
-    if (_controller.text != upper) {
-      final offset = _controller.selection.baseOffset;
-      _controller.text = upper;
-      _controller.selection = TextSelection.collapsed(
-        offset: offset.clamp(0, upper.length),
-      );
+    final trimmed = value.trim();
+
+    if (widget.isKorean) {
+      // 한국주식: 종목명 그대로 검색, 대문자 변환 안 함
+      widget.onManualInput?.call(trimmed);
+      _showExistingTickers(trimmed);
+    } else {
+      // 미국주식: 대문자 변환 + 부모에게 값 전달
+      final upper = trimmed.toUpperCase();
+      if (_controller.text != upper) {
+        final offset = _controller.selection.baseOffset;
+        _controller.text = upper;
+        _controller.selection = TextSelection.collapsed(
+          offset: offset.clamp(0, upper.length),
+        );
+      }
+      widget.onManualInput?.call(upper);
+      _showExistingTickers(upper);
     }
-    widget.onManualInput?.call(upper);
 
-    // 기존 종목 로컬 매칭 우선 표시
-    _showExistingTickers(upper);
-
-    if (value.trim().length < 2) {
+    if (trimmed.length < 2) {
       if (widget.existingTickers.isEmpty) _removeOverlay();
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      _search(value.trim());
+      _search(trimmed);
     });
   }
 
@@ -187,7 +196,7 @@ class _TickerSearchState extends State<TickerSearch> {
                       child: Row(
                         children: [
                           Text(
-                            r.ticker,
+                            widget.isKorean ? r.name : r.ticker,
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -197,7 +206,7 @@ class _TickerSearchState extends State<TickerSearch> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              r.name,
+                              widget.isKorean ? r.ticker : r.name,
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF666666),
@@ -233,7 +242,8 @@ class _TickerSearchState extends State<TickerSearch> {
   }
 
   void _selectResult(TickerSearchResult result) {
-    _controller.text = result.ticker.toUpperCase();
+    // 한국주식: 종목명 표시, 미국주식: 티커 표시
+    _controller.text = widget.isKorean ? result.name : result.ticker.toUpperCase();
     _removeOverlay();
     _focusNode.unfocus();
     widget.onSelected?.call(result);
