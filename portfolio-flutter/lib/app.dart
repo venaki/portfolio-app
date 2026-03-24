@@ -12,6 +12,8 @@ import 'screens/settings_screen.dart';
 import 'widgets/responsive_shell.dart';
 import 'utils/constants.dart';
 
+const _devMode = bool.fromEnvironment('DEV_MODE');
+
 class PortfolioApp extends ConsumerWidget {
   const PortfolioApp({super.key});
 
@@ -41,14 +43,16 @@ class PortfolioApp extends ConsumerWidget {
           ),
         ),
       ),
-      home: authState.when(
-        loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (_, __) => const LoginScreen(),
-        data: (user) {
-          if (user == null) return const LoginScreen();
-          return const SheetConnectGate();
-        },
-      ),
+      home: _devMode
+          ? const MainApp()
+          : authState.when(
+              loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+              error: (_, __) => const LoginScreen(),
+              data: (user) {
+                if (user == null) return const LoginScreen();
+                return const SheetConnectGate();
+              },
+            ),
     );
   }
 }
@@ -89,6 +93,7 @@ class _MainAppState extends ConsumerState<MainApp> {
   }
 
   Future<void> _initData() async {
+    if (_devMode) return; // 이미 PortfolioNotifier 생성자에서 로드됨
     final ssId = await ref.read(spreadsheetIdProvider.future);
     if (ssId != null) {
       await ref.read(portfolioProvider.notifier).connect(ssId);

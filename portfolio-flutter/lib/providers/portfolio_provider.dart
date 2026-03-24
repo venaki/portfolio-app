@@ -7,10 +7,15 @@ import '../models/stock_quote.dart';
 import '../models/other_asset.dart';
 import '../models/app_settings.dart';
 import '../services/sheets_service.dart';
+import '../services/mock_sheets_service.dart';
+import '../services/mock_data.dart';
 import '../engine/holdings_engine.dart';
 import 'auth_provider.dart';
 
+const _devMode = bool.fromEnvironment('DEV_MODE');
+
 final sheetsServiceProvider = Provider<SheetsService>((ref) {
+  if (_devMode) return MockSheetsService();
   final authService = ref.read(authServiceProvider);
   return SheetsService(getAuthHeaders: authService.getAuthHeaders);
 });
@@ -71,7 +76,24 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
   final SheetsService _sheets;
   Timer? _refreshTimer;
 
-  PortfolioNotifier(this._sheets) : super(const PortfolioState());
+  PortfolioNotifier(this._sheets) : super(const PortfolioState()) {
+    if (_devMode) _loadMockData();
+  }
+
+  void _loadMockData() {
+    final data = MockData.transactions;
+    final holdings = replayTransactions(data);
+    final quotesMap = {for (final q in MockData.quotes) q.ticker: q};
+    state = PortfolioState(
+      transactions: data,
+      holdings: holdings,
+      quotes: quotesMap,
+      exchangeRate: MockData.exchangeRate,
+      otherAssets: MockData.otherAssets,
+      settings: MockData.settings,
+      lastUpdated: DateTime.now(),
+    );
+  }
 
   /// connect spreadsheet
   Future<void> connect(String spreadsheetId) async {
