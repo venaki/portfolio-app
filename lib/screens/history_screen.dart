@@ -252,7 +252,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   Widget _buildMarketFilter() {
     const options = ['전체', '미국', '한국'];
-    return Row(
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Row(
       children: options.map((option) {
         final isSelected = option == _marketFilter;
         return GestureDetector(
@@ -280,6 +282,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
         );
       }).toList(),
+    ),
     );
   }
 
