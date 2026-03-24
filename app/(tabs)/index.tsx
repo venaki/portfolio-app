@@ -4,6 +4,7 @@ import { useResponsive } from '../../src/hooks/useResponsive';
 import { calcTotalValueKRW, calcCostKRW, calcDailyChangeKRW } from '../../src/engine/calculations';
 import { formatKRW, formatUSD, formatRelativeTime } from '../../src/utils/format';
 import { COLORS, getAccountColor } from '../../src/constants';
+import { PAGE, SECTION } from '../../src/styles/shared';
 import { TotalAssetCard } from '../../src/components/TotalAssetCard';
 import { AccountCard } from '../../src/components/AccountCard';
 
@@ -124,7 +125,7 @@ export default function Dashboard() {
     >
       {/* Header */}
       <View style={[styles.header, isPC && styles.headerPC]}>
-        <Text style={styles.headerTitle}>자산 현황</Text>
+        <Text style={PAGE.title}>자산 현황</Text>
         <TouchableOpacity
           onPress={market.refresh}
           disabled={market.isLoading}
@@ -161,7 +162,7 @@ export default function Dashboard() {
       </View>
 
       {/* BY ACCOUNT section */}
-      <Text style={[styles.sectionLabel, isPC && styles.sectionLabelPC]}>BY ACCOUNT</Text>
+      <Text style={[SECTION.label, styles.sectionLabelLocal, isPC && styles.sectionLabelPC]}>BY ACCOUNT</Text>
 
       <View style={[styles.accountsContainer, isPC && styles.accountsContainerPC]}>
         {ownerData.map((data, idx) => (
@@ -218,11 +219,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingTop: 24,
   },
-  headerTitle: {
-    fontWeight: '500',
-    fontSize: 22,
-    color: COLORS.textPrimary,
-  },
   refreshButton: {
     width: 32,
     height: 32,
@@ -252,14 +248,9 @@ const styles = StyleSheet.create({
   metaStale: {
     fontSize: 11,
   },
-  sectionLabel: {
-    fontWeight: '600',
-    fontSize: 11,
-    color: COLORS.textTertiary,
-    letterSpacing: 2,
+  sectionLabelLocal: {
     paddingHorizontal: 16,
     marginTop: 24,
-    marginBottom: 10,
   },
   sectionLabelPC: {
     paddingHorizontal: 0,

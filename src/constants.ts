@@ -55,3 +55,23 @@ export const ASSET_CLASS_LABELS: Record<string, AssetClass | 'all'> = {
 export const ASSET_CLASS_OPTIONS = ['전체', '미국', '한국', '기타'];
 
 export const POSITIVE_COLOR = '#16A34A';
+
+export const POSITIVE_BG = '#E8F5E9';
+export const NEGATIVE_BG = '#FFF0EB';
+
+/** 거래 유형 한글 라벨 */
+export const TRANSACTION_TYPE_LABELS: Record<string, string> = {
+  buy: '매수',
+  sell: '매도',
+  opening_balance: '매수',
+  adjustment: '매수',
+};
+
+/** 값의 부호에 따른 색상 반환 */
+export function getStatusColors(value: number) {
+  const positive = value >= 0;
+  return {
+    color: positive ? POSITIVE_COLOR : NEGATIVE_COLOR,
+    bg: positive ? POSITIVE_BG : NEGATIVE_BG,
+  };
+}

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useApp } from '../../src/context/AppContext';
 import { ACCENT_PRESETS, COLORS } from '../../src/constants';
+import { CARD_BASE, SECTION, MODAL } from '../../src/styles/shared';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { ColorPicker } from '../../src/components/ColorPicker';
 import { AccountManager } from '../../src/components/AccountManager';
@@ -146,9 +147,9 @@ export default function Settings() {
 
       {/* ── APPEARANCE ── */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>APPEARANCE</Text>
+        <Text style={SECTION.label}>APPEARANCE</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>강조 색상</Text>
+          <Text style={MODAL.fieldLabel}>강조 색상</Text>
           <View style={styles.pickerWrapper}>
             <ColorPicker
               colors={ACCENT_PRESETS}
@@ -161,10 +162,10 @@ export default function Settings() {
 
       {/* ── DATA REFRESH ── */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>DATA REFRESH</Text>
+        <Text style={SECTION.label}>DATA REFRESH</Text>
         <View style={styles.card}>
           <View style={styles.row}>
-            <Text style={styles.fieldLabel}>자동 새로고침 간격</Text>
+            <Text style={MODAL.fieldLabel}>자동 새로고침 간격</Text>
             <Pressable onPress={handleCycleInterval} style={styles.intervalBadge}>
               <Text style={[styles.intervalText, { color: accentColor }]}>
                 {getIntervalLabel(settings.refreshInterval)}
@@ -176,20 +177,20 @@ export default function Settings() {
 
       {/* ── DATA MANAGEMENT ── */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>DATA MANAGEMENT</Text>
+        <Text style={SECTION.label}>DATA MANAGEMENT</Text>
         <View style={styles.card}>
           <Pressable style={styles.mgmtRow} onPress={handleBackup}>
-            <Text style={styles.fieldLabel}>데이터 백업 (JSON 내보내기)</Text>
+            <Text style={MODAL.fieldLabel}>데이터 백업 (JSON 내보내기)</Text>
             <Text style={styles.mgmtIcon}>↑</Text>
           </Pressable>
           <View style={styles.divider} />
           <Pressable style={styles.mgmtRow} onPress={handleRestore}>
-            <Text style={styles.fieldLabel}>데이터 복원 (JSON 가져오기)</Text>
+            <Text style={MODAL.fieldLabel}>데이터 복원 (JSON 가져오기)</Text>
             <Text style={styles.mgmtIcon}>↓</Text>
           </Pressable>
           <View style={styles.divider} />
           <Pressable style={styles.mgmtRow} onPress={handleReset}>
-            <Text style={[styles.fieldLabel, styles.resetText]}>데이터 초기화</Text>
+            <Text style={[MODAL.fieldLabel, styles.resetText]}>데이터 초기화</Text>
             <Text style={[styles.mgmtIcon, styles.resetText]}>⌫</Text>
           </Pressable>
         </View>
@@ -222,24 +223,8 @@ const styles = StyleSheet.create({
   },
   titlePC: { marginTop: 0 },
   section: { marginBottom: 32 },
-  sectionLabel: {
-    fontWeight: '600',
-    fontSize: 11,
-    color: COLORS.textTertiary,
-    letterSpacing: 2,
-    marginBottom: 10,
-  },
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-  },
-  fieldLabel: {
-    fontWeight: '500',
-    fontSize: 13,
-    color: COLORS.textPrimary,
+    ...CARD_BASE,
   },
   pickerWrapper: { marginTop: 12 },
   row: {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { COLORS, NEGATIVE_COLOR, POSITIVE_COLOR } from '../constants';
+import { COLORS, getStatusColors } from '../constants';
+import { CARD_BASE } from '../styles/shared';
 import { formatKRW, formatUSD, formatPercent } from '../utils/format';
 import { useResponsive } from '../hooks/useResponsive';
 
@@ -29,14 +30,13 @@ export function TotalAssetCard({
   const [expanded, setExpanded] = useState(false);
 
   // Daily change colors
+  const { color: dailyColor, bg: dailyBg } = getStatusColors(dailyChangeKRW);
   const dailyPositive = dailyChangeKRW >= 0;
-  const dailyColor = dailyPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
-  const dailyBg = dailyPositive ? '#E8F5E9' : '#FFF0EB';
   const dailySign = dailyPositive ? '+' : '';
 
   // Total profit colors (for expanded section)
   const profitPositive = totalProfitKRW >= 0;
-  const profitColor = profitPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
+  const { color: profitColor, bg: profitBg } = getStatusColors(totalProfitKRW);
 
   // Today's date
   const today = new Date();
@@ -85,12 +85,12 @@ export function TotalAssetCard({
           <View style={styles.expandedRow}>
             {/* 왼쪽: 수익금/수익률 배지 */}
             <View style={styles.badgeRow}>
-              <View style={[styles.badge, { backgroundColor: profitPositive ? '#E8F5E9' : '#FFF0EB' }]}>
+              <View style={[styles.badge, { backgroundColor: profitBg }]}>
                 <Text style={[styles.badgeText, { color: profitColor }]}>
                   {profitPositive ? '+' : ''}{formatKRW(totalProfitKRW)}
                 </Text>
               </View>
-              <View style={[styles.badge, { backgroundColor: profitPositive ? '#E8F5E9' : '#FFF0EB', marginLeft: 6 }]}>
+              <View style={[styles.badge, { backgroundColor: profitBg, marginLeft: 6 }]}>
                 <Text style={[styles.badgeText, { color: profitColor }]}>
                   {formatPercent(totalProfitPctKRW)}
                 </Text>
@@ -127,10 +127,7 @@ export function TotalAssetCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    ...CARD_BASE,
     padding: 20,
     marginHorizontal: 16,
     marginTop: 12,

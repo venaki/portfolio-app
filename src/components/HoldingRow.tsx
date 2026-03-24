@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Holding, StockQuote } from '../types';
 import { COLORS } from '../constants';
+import { BADGE } from '../styles/shared';
 import { formatUSD, formatKRW, formatPercent, formatShares } from '../utils/format';
 import { useHoldingCalc } from '../hooks/useHoldingCalc';
 
@@ -22,8 +23,8 @@ export function HoldingRow({ holding, quote, exchangeRate, accentColor }: Props)
       <View style={styles.colTicker}>
         <View style={styles.tickerRow}>
           <Text style={styles.ticker}>{isKR && quote?.name ? quote.name : holding.ticker}</Text>
-          <View style={styles.ownerBadge}>
-            <Text style={styles.ownerText}>{holding.owner}</Text>
+          <View style={BADGE.container}>
+            <Text style={BADGE.text}>{holding.owner}</Text>
           </View>
         </View>
         {!isCash && (isKR
@@ -123,17 +124,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textPrimary,
     fontVariant: ['tabular-nums'],
-  },
-  ownerBadge: {
-    backgroundColor: COLORS.muted,
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  ownerText: {
-    fontWeight: '500',
-    fontSize: 9,
-    color: COLORS.textTertiary,
   },
   tickerName: {
     fontSize: 11,

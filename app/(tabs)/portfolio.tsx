@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet } 
 import { useApp } from '../../src/context/AppContext';
 import { useResponsive } from '../../src/hooks/useResponsive';
 import { COLORS, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS } from '../../src/constants';
+import { PAGE } from '../../src/styles/shared';
 import { FilterTabs } from '../../src/components/FilterTabs';
 import { HoldingCard } from '../../src/components/HoldingCard';
 import { HoldingRow } from '../../src/components/HoldingRow';
@@ -32,7 +33,7 @@ export default function Portfolio() {
       {isMobile && (
         <>
           <View style={styles.headerMobile}>
-            <Text style={styles.headerTitle}>포트폴리오</Text>
+            <Text style={PAGE.title}>포트폴리오</Text>
           </View>
 
           <View style={styles.filterWrapperMobile}>
@@ -63,8 +64,8 @@ export default function Portfolio() {
             }
           >
             {filteredHoldings.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>보유 종목이 없습니다</Text>
+              <View style={PAGE.emptyContainer}>
+                <Text style={PAGE.emptyText}>보유 종목이 없습니다</Text>
               </View>
             ) : (
               filteredHoldings.map((holding) => (
@@ -86,7 +87,7 @@ export default function Portfolio() {
       {isPC && (
         <>
           <View style={styles.headerPC}>
-            <Text style={styles.headerTitle}>포트폴리오</Text>
+            <Text style={PAGE.title}>포트폴리오</Text>
             <View style={styles.headerActions}>
               <FilterTabs
                 options={OWNER_OPTIONS}
@@ -126,8 +127,8 @@ export default function Portfolio() {
               }
             >
               {filteredHoldings.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>보유 종목이 없습니다</Text>
+                <View style={PAGE.emptyContainer}>
+                  <Text style={PAGE.emptyText}>보유 종목이 없습니다</Text>
                 </View>
               ) : (
                 filteredHoldings.map((holding) => (
@@ -162,11 +163,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 8,
   },
-  headerTitle: {
-    fontWeight: '500',
-    fontSize: 22,
-    color: COLORS.textPrimary,
-  },
   addBtnMobile: {
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -177,11 +173,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     marginLeft: 12,
-  },
-  addBtnText: {
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#FFFFFF',
   },
   filterWrapperMobile: {
     paddingHorizontal: 16,
@@ -196,14 +187,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardWrapper: {},
-  emptyContainer: {
-    paddingVertical: 48,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: COLORS.textTertiary,
-  },
   headerPC: {
     flexDirection: 'row',
     justifyContent: 'space-between',

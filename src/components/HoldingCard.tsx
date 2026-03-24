@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Holding, StockQuote } from '../types';
 import { COLORS } from '../constants';
+import { CARD_BASE, BADGE } from '../styles/shared';
 import { formatUSD, formatKRW, formatPercent, formatShares } from '../utils/format';
 import { useHoldingCalc } from '../hooks/useHoldingCalc';
 
@@ -23,8 +24,8 @@ export function HoldingCard({ holding, quote, exchangeRate, accentColor }: Props
       <View style={styles.topRow}>
         <View style={styles.tickerArea}>
           <Text style={styles.ticker}>{isKR && quote?.name ? quote.name : holding.ticker}</Text>
-          <View style={styles.ownerBadge}>
-            <Text style={styles.ownerText}>{holding.owner}</Text>
+          <View style={BADGE.container}>
+            <Text style={BADGE.text}>{holding.owner}</Text>
           </View>
         </View>
         <View style={styles.priceArea}>
@@ -89,11 +90,7 @@ export function HoldingCard({ holding, quote, exchangeRate, accentColor }: Props
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
+    ...CARD_BASE,
   },
   topRow: {
     flexDirection: 'row',
@@ -111,17 +108,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.textPrimary,
     fontVariant: ['tabular-nums'],
-  },
-  ownerBadge: {
-    backgroundColor: COLORS.muted,
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  ownerText: {
-    fontWeight: '500',
-    fontSize: 10,
-    color: COLORS.textTertiary,
   },
   priceArea: {
     alignItems: 'flex-end',

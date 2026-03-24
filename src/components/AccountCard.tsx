@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, POSITIVE_COLOR, NEGATIVE_COLOR } from '../constants';
+import { CARD_BASE } from '../styles/shared';
 import { formatKRW, formatUSD, formatPercent } from '../utils/format';
 import { useResponsive } from '../hooks/useResponsive';
 
@@ -72,11 +73,7 @@ export function AccountCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
+    ...CARD_BASE,
     flex: 1,
   },
   cardPC: {

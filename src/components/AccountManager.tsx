@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, Text, TextInput, Pressable, Alert, StyleSheet } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { COLORS } from '../constants';
+import { CARD_BASE, SECTION } from '../styles/shared';
 import { BaseModal } from './BaseModal';
 
 interface Props {
@@ -43,7 +44,7 @@ export function AccountManager({ accentColor }: Props) {
   return (
     <>
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>ACCOUNTS</Text>
+        <Text style={SECTION.label}>ACCOUNTS</Text>
         <View style={styles.card}>
           {accounts.map((account, idx) => (
             <View key={account}>
@@ -113,19 +114,8 @@ export function AccountManager({ accentColor }: Props) {
 
 const styles = StyleSheet.create({
   section: { marginBottom: 32 },
-  sectionLabel: {
-    fontWeight: '600',
-    fontSize: 11,
-    color: COLORS.textTertiary,
-    letterSpacing: 2,
-    marginBottom: 10,
-  },
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
+    ...CARD_BASE,
   },
   fieldLabel: {
     fontWeight: '500',

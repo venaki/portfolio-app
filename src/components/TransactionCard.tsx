@@ -3,7 +3,8 @@ import { Transaction } from '../types';
 import { Holding } from '../types';
 import { calcRealizedPL } from '../engine/calculations';
 import { formatKRW, formatUSD, formatDate } from '../utils/format';
-import { COLORS, POSITIVE_COLOR, NEGATIVE_COLOR } from '../constants';
+import { COLORS, POSITIVE_COLOR, NEGATIVE_COLOR, getStatusColors } from '../constants';
+import { CARD_BASE, BADGE } from '../styles/shared';
 
 interface TransactionCardProps {
   transaction: Transaction;
@@ -56,9 +57,9 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
     );
   }
 
-  const plIsPositive = realizedPL ? realizedPL.usd >= 0 : true;
-  const plColor = plIsPositive ? POSITIVE_COLOR : NEGATIVE_COLOR;
-  const plSign = plIsPositive ? '+' : '';
+  const plValue = realizedPL ? realizedPL.usd : 0;
+  const { color: plColor } = getStatusColors(plValue);
+  const plSign = plValue >= 0 ? '+' : '';
 
   // Detail line differs by asset type
   let detailText: string;
@@ -80,7 +81,7 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
             <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
           </View>
           <Text style={styles.ticker}>{tx.assetClass === 'kr_stock' && stockName ? stockName : tx.ticker}</Text>
-          <View style={styles.ownerBadge}>
+          <View style={BADGE.container}>
             <Text style={styles.ownerText}>{tx.owner}</Text>
           </View>
         </View>
@@ -116,14 +117,10 @@ export function TransactionCard({ transaction: tx, accentColor, holdingBeforeSel
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    flexDirection: 'row',
+    ...CARD_BASE,
+    flexDirection: 'row' as const,
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'flex-start' as const,
   },
   left: {
     flex: 1,
@@ -149,12 +146,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     color: COLORS.textPrimary,
-  },
-  ownerBadge: {
-    backgroundColor: COLORS.muted,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
   },
   ownerText: {
     fontWeight: '500',
