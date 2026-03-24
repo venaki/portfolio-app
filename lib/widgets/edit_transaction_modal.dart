@@ -76,12 +76,18 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
 
     setState(() => _isSaving = true);
 
+    // 한국 종목코드: 6자리로 정규화
+    var ticker = _ticker.toUpperCase();
+    if (_market != Market.us && RegExp(r'^\d+$').hasMatch(ticker) && ticker.length < 6) {
+      ticker = ticker.padLeft(6, '0');
+    }
+
     final tx = Transaction(
       id: widget.transaction.id,
       date: _date.toIso8601String().substring(0, 10),
       account: _account,
       type: _type,
-      ticker: _ticker.toUpperCase(),
+      ticker: ticker,
       market: _market,
       name: _tickerName,
       shares: double.tryParse(_sharesController.text) ?? 0,
@@ -184,10 +190,15 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                         accentColor: accentColor,
                         onTap: () => setState(() => _market = Market.us)),
                     const SizedBox(width: 8),
-                    _buildChip('한국',
-                        isActive: _market != Market.us,
+                    _buildChip('KRX',
+                        isActive: _market == Market.krx,
                         accentColor: accentColor,
                         onTap: () => setState(() => _market = Market.krx)),
+                    const SizedBox(width: 8),
+                    _buildChip('KOSDAQ',
+                        isActive: _market == Market.kosdaq,
+                        accentColor: accentColor,
+                        onTap: () => setState(() => _market = Market.kosdaq)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -225,7 +236,7 @@ class _EditTransactionModalState extends ConsumerState<EditTransactionModal> {
                 ],
 
                 // 종목코드
-                _buildLabel(_market == Market.us ? '티커' : '종목명'),
+                _buildLabel(_market == Market.us ? '티커' : '종목코드'),
                 const SizedBox(height: 6),
                 TickerSearch(
                   initialValue: _market == Market.us ? tx.ticker : (tx.name.isNotEmpty ? tx.name : tx.ticker),
