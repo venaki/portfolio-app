@@ -193,18 +193,33 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                         accentColor: accentColor,
                         onTap: () => setState(() => _market = Market.us)),
                     const SizedBox(width: 8),
-                    _buildChip('KRX',
-                        isActive: _market == Market.krx,
+                    _buildChip('한국',
+                        isActive: _market != Market.us,
                         accentColor: accentColor,
                         onTap: () => setState(() => _market = Market.krx)),
-                    const SizedBox(width: 8),
-                    _buildChip('KOSDAQ',
-                        isActive: _market == Market.kosdaq,
-                        accentColor: accentColor,
-                        onTap: () => setState(() => _market = Market.kosdaq)),
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                // 거래소 (한국 선택 시)
+                if (_market != Market.us) ...[
+                  _buildLabel('거래소'),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _buildChip('KRX',
+                          isActive: _market == Market.krx,
+                          accentColor: accentColor,
+                          onTap: () => setState(() => _market = Market.krx)),
+                      const SizedBox(width: 8),
+                      _buildChip('KOSDAQ',
+                          isActive: _market == Market.kosdaq,
+                          accentColor: accentColor,
+                          onTap: () => setState(() => _market = Market.kosdaq)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // 명의
                 _buildLabel('명의'),
