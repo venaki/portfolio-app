@@ -96,6 +96,26 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
     }
   }
 
+  List<TickerSearchResult> _getExistingTickers() {
+    final portfolio = ref.read(portfolioProvider);
+    final isUS = _market == Market.us;
+    final seen = <String>{};
+    final results = <TickerSearchResult>[];
+    for (final tx in portfolio.transactions) {
+      final txIsUS = tx.market == Market.us;
+      if (txIsUS != isUS) continue;
+      if (seen.add(tx.ticker)) {
+        final quote = portfolio.quotes[tx.ticker];
+        final name = quote?.name ?? tx.name;
+        final exchange = tx.market == Market.us ? 'US'
+            : tx.market == Market.krx ? 'KRX'
+            : tx.market == Market.kosdaq ? 'KOSDAQ' : '';
+        results.add(TickerSearchResult(ticker: tx.ticker, name: name, exchange: exchange));
+      }
+    }
+    return results;
+  }
+
   void _onTickerSelected(TickerSearchResult result) {
     setState(() {
       _ticker = result.ticker;
@@ -189,7 +209,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 _buildLabel('종목코드'),
                 const SizedBox(height: 6),
                 TickerSearch(
-                  hint: '예: TSLA',
+                  hint: _market == Market.us ? '예: TSLA' : '예: 005930',
+                  existingTickers: _getExistingTickers(),
                   onSelected: _onTickerSelected,
                   onManualInput: (value) {
                     setState(() {

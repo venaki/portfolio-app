@@ -26,17 +26,14 @@ class DashboardScreen extends ConsumerWidget {
     for (final h in portfolio.holdings) {
       final quote = portfolio.quotes[h.ticker];
       final price = quote?.price ?? 0;
-
       totalValueKRW += calcTotalValueKRW(h, price, portfolio.exchangeRate);
       totalCostKRW += calcCostKRW(h);
     }
 
-    // 기타 자산 합산 (대출은 음수)
+    // 기타 자산 합산
     for (final oa in portfolio.otherAssets) {
       final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
-      final v = oa.currency == Currency.krw
-          ? raw
-          : raw * portfolio.exchangeRate;
+      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
       totalValueKRW += v;
       totalCostKRW += v;
     }
@@ -47,7 +44,7 @@ class DashboardScreen extends ConsumerWidget {
         ? totalValueKRW / portfolio.exchangeRate
         : 0.0;
 
-    // 어제 대비 일간 변동 계산
+    // 어제 대비 일간 변동
     double dailyChangeKRW = 0;
     double totalYestValueKRW = 0;
     for (final h in portfolio.holdings) {
@@ -57,36 +54,47 @@ class DashboardScreen extends ConsumerWidget {
       dailyChangeKRW += calcDailyChangeKRW(h, price, closeYest, portfolio.exchangeRate);
       totalYestValueKRW += calcTotalValueKRW(h, closeYest, portfolio.exchangeRate);
     }
-    // 기타자산은 일간변동 없음 (고정 자산)
     final dailyChangePct = totalYestValueKRW > 0
         ? (dailyChangeKRW / totalYestValueKRW) * 100
         : 0.0;
 
-    // 계좌별 집계
-    final accountMap = <String, ({double value, double cost})>{};
+    // 계좌별 집계 + 서브카테고리
+    final accountMap = <String, ({double value, double cost, double usValue, double krValue, double otherValue})>{};
     for (final h in portfolio.holdings) {
       final quote = portfolio.quotes[h.ticker];
       final price = quote?.price ?? 0;
-      final entry = accountMap[h.account] ?? (value: 0.0, cost: 0.0);
+      final val = calcTotalValueKRW(h, price, portfolio.exchangeRate);
+      final cost = calcCostKRW(h);
+      final isUS = h.market == Market.us;
+      final isKR = h.market == Market.krx || h.market == Market.kosdaq;
+
+      final entry = accountMap[h.account] ?? (value: 0.0, cost: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
       accountMap[h.account] = (
-        value: entry.value + calcTotalValueKRW(h, price, portfolio.exchangeRate),
-        cost: entry.cost + calcCostKRW(h),
+        value: entry.value + val,
+        cost: entry.cost + cost,
+        usValue: entry.usValue + (isUS ? val : 0),
+        krValue: entry.krValue + (isKR ? val : 0),
+        otherValue: entry.otherValue,
       );
     }
     for (final oa in portfolio.otherAssets) {
       final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
       final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
-      final entry = accountMap[oa.account] ?? (value: 0.0, cost: 0.0);
-      accountMap[oa.account] = (value: entry.value + v, cost: entry.cost + v);
+      final entry = accountMap[oa.account] ?? (value: 0.0, cost: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
+      accountMap[oa.account] = (
+        value: entry.value + v,
+        cost: entry.cost + v,
+        usValue: entry.usValue,
+        krValue: entry.krValue,
+        otherValue: entry.otherValue + v,
+      );
     }
 
-    // 업데이트 시간 포맷 (HH:mm)
+    // 업데이트 시간
     String updateTimeText = '';
     if (portfolio.lastUpdated != null) {
       final t = portfolio.lastUpdated!;
-      final hh = t.hour.toString().padLeft(2, '0');
-      final mm = t.minute.toString().padLeft(2, '0');
-      updateTimeText = '$hh:$mm 업데이트';
+      updateTimeText = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')} 업데이트';
     }
 
     final isWide = MediaQuery.of(context).size.width >= 768;
@@ -97,29 +105,15 @@ class DashboardScreen extends ConsumerWidget {
       child: ListView(
         padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 24),
         children: [
-          // Header
+          // 리프레쉬 버튼
           Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '자산 현황',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => ref.read(portfolioProvider.notifier).refreshPrices(),
-                  child: const Icon(
-                    Icons.refresh,
-                    color: Color(0xFF888888),
-                    size: 22,
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.only(top: 16, bottom: 16),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => ref.read(portfolioProvider.notifier).refreshPrices(),
+                child: const Icon(Icons.refresh, color: Color(0xFF888888), size: 20),
+              ),
             ),
           ),
 
@@ -135,42 +129,24 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // Meta Row
+          // Meta Row: exchange rate + update time
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.attach_money,
-                    size: 14,
-                    color: Color(0xFF888888),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'USD/KRW ${formatKRW(portfolio.exchangeRate)}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF888888),
-                    ),
-                  ),
-                ],
+              Text(
+                '1 USD = ${formatKRW(portfolio.exchangeRate)}',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF888888)),
               ),
               if (updateTimeText.isNotEmpty)
                 Text(
                   updateTimeText,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFFAAAAAA),
-                  ),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
                 ),
             ],
           ),
           const SizedBox(height: 32),
 
-          // BY ACCOUNT section label
+          // BY ACCOUNT
           const Text(
             'BY ACCOUNT',
             style: TextStyle(
@@ -182,25 +158,62 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // Account Cards
-          ...accountMap.entries.indexed.map((e) {
-            final (index, entry) = e;
-            final profit = entry.value.value - entry.value.cost;
-            final pct = entry.value.cost > 0 ? (profit / entry.value.cost) * 100 : 0.0;
-            final valueUSD = portfolio.exchangeRate > 0
-                ? entry.value.value / portfolio.exchangeRate
-                : 0.0;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: AccountCard(
-                account: entry.key,
-                color: getAccountColor(index),
-                valueKRW: entry.value.value,
-                valueUSD: valueUSD,
-                profitPercentKRW: pct,
-              ),
-            );
-          }),
+          // Account Cards — PC: 가로 배열, Mobile: 세로 배열
+          if (isWide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: accountMap.entries.indexed.map((e) {
+                final (index, entry) = e;
+                final profit = entry.value.value - entry.value.cost;
+                final pct = entry.value.cost > 0 ? (profit / entry.value.cost) * 100 : 0.0;
+                final valueUSD = portfolio.exchangeRate > 0
+                    ? entry.value.value / portfolio.exchangeRate
+                    : 0.0;
+                final subs = <String, double>{};
+                if (entry.value.usValue != 0) subs['미국'] = entry.value.usValue;
+                if (entry.value.krValue != 0) subs['한국'] = entry.value.krValue;
+                if (entry.value.otherValue != 0) subs['기타'] = entry.value.otherValue;
+
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                    child: AccountCard(
+                      account: entry.key,
+                      color: getAccountColor(index),
+                      valueKRW: entry.value.value,
+                      valueUSD: valueUSD,
+                      profitPercentKRW: pct,
+                      subCategories: subs,
+                    ),
+                  ),
+                );
+              }).toList(),
+            )
+          else
+            ...accountMap.entries.indexed.map((e) {
+              final (index, entry) = e;
+              final profit = entry.value.value - entry.value.cost;
+              final pct = entry.value.cost > 0 ? (profit / entry.value.cost) * 100 : 0.0;
+              final valueUSD = portfolio.exchangeRate > 0
+                  ? entry.value.value / portfolio.exchangeRate
+                  : 0.0;
+              final subs = <String, double>{};
+              if (entry.value.usValue != 0) subs['미국'] = entry.value.usValue;
+              if (entry.value.krValue != 0) subs['한국'] = entry.value.krValue;
+              if (entry.value.otherValue != 0) subs['기타'] = entry.value.otherValue;
+
+              return Padding(
+                padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
+                child: AccountCard(
+                  account: entry.key,
+                  color: getAccountColor(index),
+                  valueKRW: entry.value.value,
+                  valueUSD: valueUSD,
+                  profitPercentKRW: pct,
+                  subCategories: subs,
+                ),
+              );
+            }),
         ],
       ),
     );

@@ -7,6 +7,8 @@ class AccountCard extends StatelessWidget {
   final double valueKRW;
   final double valueUSD;
   final double profitPercentKRW;
+  /// 서브카테고리별 평가금액 (미국/한국/기타)
+  final Map<String, double> subCategories;
 
   const AccountCard({
     super.key,
@@ -15,14 +17,13 @@ class AccountCard extends StatelessWidget {
     required this.valueKRW,
     required this.valueUSD,
     required this.profitPercentKRW,
+    this.subCategories = const {},
   });
 
   @override
   Widget build(BuildContext context) {
     final isProfit = profitPercentKRW >= 0;
-    const profitPositive = Color(0xFF0D6E6E);
-    const profitNegative = Color(0xFFE07B54);
-    final profitColor = isProfit ? profitPositive : profitNegative;
+    final profitColor = isProfit ? const Color(0xFF16A34A) : const Color(0xFFE07B54);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -32,7 +33,9 @@ class AccountCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE5E5E5)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: dot + name + percent
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -40,20 +43,14 @@ class AccountCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     account,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -68,8 +65,11 @@ class AccountCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+
+          // Value: KRW + USD
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
                 formatKRW(valueKRW),
@@ -79,6 +79,7 @@ class AccountCard extends StatelessWidget {
                   color: Color(0xFF1A1A1A),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 formatUSD(valueUSD),
                 style: const TextStyle(
@@ -89,6 +90,27 @@ class AccountCard extends StatelessWidget {
               ),
             ],
           ),
+
+          // Sub categories
+          if (subCategories.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...subCategories.entries.map((e) => Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    e.key,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+                  ),
+                  Text(
+                    formatKRW(e.value),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+                  ),
+                ],
+              ),
+            )),
+          ],
         ],
       ),
     );

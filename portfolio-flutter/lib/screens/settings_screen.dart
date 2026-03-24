@@ -39,18 +39,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return ListView(
       padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 40),
       children: [
-        // Title
-        const Padding(
-          padding: EdgeInsets.only(top: 16, bottom: 24),
-          child: Text(
-            '설정',
-            style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF1A1A1A),
-            ),
-          ),
-        ),
+        const SizedBox(height: 16),
 
         // 1. ACCOUNT
         _sectionLabel('ACCOUNT'),
@@ -379,6 +368,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 40),
+
+        // Version
+        const Center(
+          child: Text(
+            'v0.1.0',
+            style: TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
           ),
         ),
       ],

@@ -21,6 +21,8 @@ class TickerSearch extends StatefulWidget {
   final ValueChanged<TickerSearchResult>? onSelected;
   final ValueChanged<String>? onManualInput;
   final String hint;
+  /// 기존 거래 종목 목록 (포커스 시 드롭다운 표시)
+  final List<TickerSearchResult> existingTickers;
 
   const TickerSearch({
     super.key,
@@ -29,6 +31,7 @@ class TickerSearch extends StatefulWidget {
     this.onSelected,
     this.onManualInput,
     this.hint = '예: TSLA',
+    this.existingTickers = const [],
   });
 
   @override
@@ -65,8 +68,27 @@ class _TickerSearchState extends State<TickerSearch> {
   }
 
   void _onFocusChange() {
-    if (!_focusNode.hasFocus) {
-      _removeOverlay();
+    if (_focusNode.hasFocus) {
+      _showExistingTickers(_controller.text.trim());
+    } else {
+      // 딜레이: 드롭다운 항목 탭이 먼저 처리되도록
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !_focusNode.hasFocus) _removeOverlay();
+      });
+    }
+  }
+
+  void _showExistingTickers(String query) {
+    if (widget.existingTickers.isEmpty) return;
+    final q = query.toUpperCase();
+    final filtered = q.isEmpty
+        ? widget.existingTickers
+        : widget.existingTickers.where((t) =>
+            t.ticker.toUpperCase().contains(q) ||
+            t.name.toUpperCase().contains(q)).toList();
+    if (filtered.isNotEmpty) {
+      _results = filtered;
+      _showOverlay();
     }
   }
 
@@ -82,8 +104,12 @@ class _TickerSearchState extends State<TickerSearch> {
       );
     }
     widget.onManualInput?.call(upper);
+
+    // 기존 종목 로컬 매칭 우선 표시
+    _showExistingTickers(upper);
+
     if (value.trim().length < 2) {
-      _removeOverlay();
+      if (widget.existingTickers.isEmpty) _removeOverlay();
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 300), () {
