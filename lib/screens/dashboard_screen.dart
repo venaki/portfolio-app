@@ -281,9 +281,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   List<Widget> _buildTypeView(PortfolioState portfolio) {
-    // 주식 종목을 market별로 그룹핑
-    final usHoldings = <HoldingRow>[];
-    final krHoldings = <HoldingRow>[];
+    // 같은 티커끼리 합산 (계좌/증권사 무관)
+    final usMap = <String, HoldingRow>{};
+    final krMap = <String, HoldingRow>{};
 
     for (final h in portfolio.holdings) {
       final quote = portfolio.quotes[h.ticker];
@@ -295,25 +295,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final dailyChange = calcDailyChangeKRW(h, price, closeYest, portfolio.exchangeRate);
       final yestValue = calcTotalValueKRW(h, closeYest, portfolio.exchangeRate);
 
-      final row = HoldingRow(
-        name: name,
-        ticker: h.ticker,
-        valueKRW: valueKRW,
-        costKRW: costKRW,
-        dailyChangeKRW: dailyChange,
-        yestValueKRW: yestValue,
-      );
-
-      if (h.market == Market.us) {
-        usHoldings.add(row);
+      final isUS = h.market == Market.us;
+      final map = isUS ? usMap : krMap;
+      final existing = map[h.ticker];
+      if (existing != null) {
+        map[h.ticker] = HoldingRow(
+          name: name,
+          ticker: h.ticker,
+          valueKRW: existing.valueKRW + valueKRW,
+          costKRW: existing.costKRW + costKRW,
+          dailyChangeKRW: existing.dailyChangeKRW + dailyChange,
+          yestValueKRW: existing.yestValueKRW + yestValue,
+        );
       } else {
-        krHoldings.add(row);
+        map[h.ticker] = HoldingRow(
+          name: name,
+          ticker: h.ticker,
+          valueKRW: valueKRW,
+          costKRW: costKRW,
+          dailyChangeKRW: dailyChange,
+          yestValueKRW: yestValue,
+        );
       }
     }
 
-    // 평가금액 내림차순 정렬
-    usHoldings.sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
-    krHoldings.sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
+    final usHoldings = usMap.values.toList()..sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
+    final krHoldings = krMap.values.toList()..sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
 
     // 기타자산을 category별로 그룹핑
     final otherByCategory = <AssetCategory, List<HoldingRow>>{};
