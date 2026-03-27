@@ -26,8 +26,11 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
   final _nameController = TextEditingController();
   final _valueController = TextEditingController();
   final _memoController = TextEditingController();
-
   final _dateController = TextEditingController();
+
+  final _nameFocusNode = FocusNode();
+  final _nameLayerLink = LayerLink();
+  OverlayEntry? _nameOverlay;
 
   String _account = '';
   AssetCategory _category = AssetCategory.savings;
@@ -41,10 +44,14 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
     _dateController.text = _date.toIso8601String().substring(0, 10);
     final accounts = ref.read(portfolioProvider).settings.accounts;
     if (accounts.isNotEmpty) _account = accounts.first;
+    _nameFocusNode.addListener(_onNameFocusChange);
   }
 
   @override
   void dispose() {
+    _removeNameOverlay();
+    _nameFocusNode.removeListener(_onNameFocusChange);
+    _nameFocusNode.dispose();
     _nameController.dispose();
     _valueController.dispose();
     _memoController.dispose();
@@ -175,11 +182,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                 // 자산명
                 _buildLabel('자산명'),
                 const SizedBox(height: 6),
-                _buildInput(
-                  controller: _nameController,
-                  validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
-                  accentColor: accentColor,
-                ),
+                _buildNameField(accentColor),
                 const SizedBox(height: 16),
 
                 // 금액
@@ -287,6 +290,123 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ── Name autocomplete ───────────────────────────────────
+
+  List<String> get _existingNames {
+    final assets = ref.read(portfolioProvider).otherAssets;
+    return assets.map((a) => a.name).toSet().toList()..sort();
+  }
+
+  void _onNameFocusChange() {
+    if (_nameFocusNode.hasFocus) {
+      _showNameSuggestions(_nameController.text.trim());
+    } else {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !_nameFocusNode.hasFocus) _removeNameOverlay();
+      });
+    }
+  }
+
+  void _showNameSuggestions(String query) {
+    final names = _existingNames;
+    if (names.isEmpty) return;
+    final q = query.toLowerCase();
+    final filtered = q.isEmpty
+        ? names
+        : names.where((n) => n.toLowerCase().contains(q)).toList();
+    if (filtered.isEmpty) {
+      _removeNameOverlay();
+      return;
+    }
+    _removeNameOverlay();
+
+    _nameOverlay = OverlayEntry(
+      builder: (_) => Positioned(
+        width: 300,
+        child: CompositedTransformFollower(
+          link: _nameLayerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, 48),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE5E5E5)),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: filtered.length,
+                itemBuilder: (_, i) => InkWell(
+                  onTap: () {
+                    _nameController.text = filtered[i];
+                    _removeNameOverlay();
+                    _nameFocusNode.unfocus();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                    child: Text(
+                      filtered[i],
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF1A1A1A)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_nameOverlay!);
+  }
+
+  void _removeNameOverlay() {
+    _nameOverlay?.remove();
+    _nameOverlay = null;
+  }
+
+  Widget _buildNameField(Color accentColor) {
+    return CompositedTransformTarget(
+      link: _nameLayerLink,
+      child: TextFormField(
+        controller: _nameController,
+        focusNode: _nameFocusNode,
+        onChanged: (v) => _showNameSuggestions(v.trim()),
+        style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+        validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
+        decoration: InputDecoration(
+          hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE5E5E5)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE5E5E5)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: accentColor),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+          isDense: true,
         ),
       ),
     );

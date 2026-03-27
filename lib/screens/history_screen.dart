@@ -2,10 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/portfolio_provider.dart';
 import '../models/transaction.dart';
+import '../models/other_asset.dart';
 import '../widgets/transaction_card.dart';
+import '../widgets/asset_card.dart';
 import '../widgets/add_transaction_modal.dart';
 import '../widgets/edit_transaction_modal.dart';
+import '../widgets/add_asset_modal.dart';
+import '../widgets/edit_asset_modal.dart';
 import '../providers/filter_provider.dart';
+
+/// Transaction과 OtherAsset을 하나의 타임라인에 표시하기 위한 래퍼
+class _TimelineItem {
+  final String date;
+  final Transaction? transaction;
+  final OtherAsset? asset;
+  const _TimelineItem.tx(this.transaction) : asset = null, date = '';
+  const _TimelineItem.oa(this.asset) : transaction = null, date = '';
+
+  String get sortDate => transaction?.date ?? asset?.date ?? '';
+  bool get isTransaction => transaction != null;
+}
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -30,15 +46,28 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
 
     final accounts = ['전체', ...portfolio.settings.accounts];
-    final filtered = _applyFilters(portfolio.transactions,
+
+    // Transaction 필터링
+    final filteredTx = _applyFilters(portfolio.transactions,
       marketFilter: _marketFilter, accountFilter: _accountFilter,
       typeFilter: _typeFilter, brokerFilter: _brokerFilter);
-    filtered.sort((a, b) => b.date.compareTo(a.date));
 
-    final grouped = <String, List<Transaction>>{};
-    for (final tx in filtered) {
-      final key = _monthKey(tx.date);
-      (grouped[key] ??= []).add(tx);
+    // OtherAsset 필터링
+    final filteredOa = _applyAssetFilters(portfolio.otherAssets,
+      marketFilter: _marketFilter, accountFilter: _accountFilter,
+      typeFilter: _typeFilter);
+
+    // 통합 타임라인
+    final items = <_TimelineItem>[
+      ...filteredTx.map((tx) => _TimelineItem.tx(tx)),
+      ...filteredOa.map((oa) => _TimelineItem.oa(oa)),
+    ];
+    items.sort((a, b) => b.sortDate.compareTo(a.sortDate));
+
+    final grouped = <String, List<_TimelineItem>>{};
+    for (final item in items) {
+      final key = _monthKey(item.sortDate);
+      (grouped[key] ??= []).add(item);
     }
 
     final isWide = MediaQuery.of(context).size.width >= 1024;
@@ -47,7 +76,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddTransactionDialog(context),
+        onPressed: () => _showAddOptions(context),
         backgroundColor: accentColor,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -74,7 +103,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ],
           const SizedBox(height: 16),
 
-          if (filtered.isEmpty)
+          if (items.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 80),
               child: Center(
@@ -92,13 +121,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ),
                 ),
                 ...entry.value.map(
-                  (tx) => Padding(
+                  (item) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: TransactionCard(
-                      transaction: tx,
-                      stockName: portfolio.quotes[tx.ticker]?.name,
-                      onTap: () => showEditTransactionDialog(context, tx),
-                    ),
+                    child: item.isTransaction
+                        ? TransactionCard(
+                            transaction: item.transaction!,
+                            stockName: portfolio.quotes[item.transaction!.ticker]?.name,
+                            onTap: () => showEditTransactionDialog(context, item.transaction!),
+                          )
+                        : AssetCard(
+                            asset: item.asset!,
+                            onTap: () => showEditAssetDialog(context, item.asset!),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -174,7 +208,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Widget _buildExpandedFilters(List<String> brokers) {
-    const types = ['전체', '매수', '매도'];
+    const types = ['전체', '매수', '매도', '기타자산'];
     final brokerOptions = ['전체', ...brokers];
     return Container(
       padding: const EdgeInsets.all(12),
@@ -253,7 +287,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Widget _buildMarketFilter() {
-    const options = ['전체', '미국', '한국'];
+    const options = ['전체', '미국', '한국', '기타'];
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Row(
@@ -292,6 +326,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     required String marketFilter, required String accountFilter,
     required String typeFilter, required String brokerFilter,
   }) {
+    // '기타자산' 타입 필터 시 Transaction은 모두 제외
+    if (typeFilter == '기타자산') return [];
+    // '기타' 마켓 필터 시 Transaction은 모두 제외
+    if (marketFilter == '기타') return [];
     return txs.where((tx) {
       if (marketFilter == '미국' && tx.market != Market.us) return false;
       if (marketFilter == '한국' &&
@@ -303,6 +341,57 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       if (brokerFilter != '전체' && tx.broker != brokerFilter) return false;
       return true;
     }).toList();
+  }
+
+  List<OtherAsset> _applyAssetFilters(List<OtherAsset> assets, {
+    required String marketFilter, required String accountFilter,
+    required String typeFilter,
+  }) {
+    // '매수' 또는 '매도' 타입 필터 시 OtherAsset은 제외
+    if (typeFilter == '매수' || typeFilter == '매도') return [];
+    // '미국' 또는 '한국' 마켓 필터 시 OtherAsset은 제외
+    if (marketFilter == '미국' || marketFilter == '한국') return [];
+    return assets.where((a) {
+      if (accountFilter != '전체' && a.account != accountFilter) return false;
+      return true;
+    }).toList();
+  }
+
+  void _showAddOptions(BuildContext context) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.show_chart, color: accentColor),
+                title: const Text('주식 거래 추가'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showAddTransactionDialog(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.account_balance_wallet, color: accentColor),
+                title: const Text('기타 자산 추가'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showAddAssetDialog(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _monthKey(String date) {

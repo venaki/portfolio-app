@@ -4,8 +4,6 @@ import '../models/other_asset.dart';
 import '../providers/portfolio_provider.dart';
 import '../utils/format.dart';
 import '../widgets/asset_card.dart';
-import '../widgets/add_asset_modal.dart';
-import '../widgets/edit_asset_modal.dart';
 import '../providers/filter_provider.dart';
 
 class AssetsScreen extends ConsumerStatefulWidget {
@@ -46,11 +44,6 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddAssetDialog(context),
-        backgroundColor: accentColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 80),
         children: [
@@ -112,7 +105,6 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
           padding: const EdgeInsets.only(bottom: 8),
           child: AssetCard(
             asset: asset,
-            onTap: () => showEditAssetDialog(context, asset),
           ),
         ),
       ),
