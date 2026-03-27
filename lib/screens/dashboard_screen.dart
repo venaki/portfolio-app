@@ -6,6 +6,8 @@ import '../models/other_asset.dart';
 import '../engine/calculations.dart';
 import '../widgets/total_asset_card.dart';
 import '../widgets/account_card.dart';
+import '../widgets/type_group_card.dart';
+import '../widgets/segmented_filter.dart';
 import '../utils/format.dart';
 import '../utils/constants.dart';
 
@@ -22,6 +24,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
+    final viewMode = ref.watch(dashboardViewModeProvider);
 
     // 로딩 완료 감지 → SnackBar
     if (_wasLoading && !portfolio.isLoading) {
@@ -189,23 +192,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const SizedBox(height: 32),
 
-          // BY ACCOUNT
-          const Text(
-            'BY ACCOUNT',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2,
-              color: Color(0xFF888888),
+          // View Mode Toggle
+          SizedBox(
+            width: 240,
+            child: SegmentedFilter(
+              options: const ['By Account', 'By Type'],
+              selected: viewMode,
+              onChanged: (v) => ref.read(dashboardViewModeProvider.notifier).state = v,
             ),
           ),
           const SizedBox(height: 12),
 
-          // Account Cards — PC: 가로 배열, Mobile: 세로 배열
-          if (isWide)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: accountMap.entries.indexed.map((e) {
+          // Conditional View
+          if (viewMode == 'By Account') ...[
+            // Account Cards — PC: 가로 배열, Mobile: 세로 배열
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: accountMap.entries.indexed.map((e) {
+                  final (index, entry) = e;
+                  final v = entry.value;
+                  final profit = v.value - v.cost;
+                  final profitPct = v.cost > 0 ? (profit / v.cost) * 100 : 0.0;
+                  final dailyPct = v.yestValue > 0 ? (v.dailyChange / v.yestValue) * 100 : 0.0;
+                  final valueUSD = portfolio.exchangeRate > 0
+                      ? v.value / portfolio.exchangeRate
+                      : 0.0;
+                  final subs = <String, double>{};
+                  if (v.usValue != 0) subs['미국'] = v.usValue;
+                  if (v.krValue != 0) subs['한국'] = v.krValue;
+                  if (v.otherValue != 0) subs['기타'] = v.otherValue;
+
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                      child: AccountCard(
+                        account: entry.key,
+                        color: getAccountColor(index),
+                        valueKRW: v.value,
+                        valueUSD: valueUSD,
+                        dailyChangeKRW: v.dailyChange,
+                        dailyChangePct: dailyPct,
+                        profitKRW: profit,
+                        profitPct: profitPct,
+                        subCategories: subs,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              )
+            else
+              ...accountMap.entries.indexed.map((e) {
                 final (index, entry) = e;
                 final v = entry.value;
                 final profit = v.value - v.cost;
@@ -219,56 +256,114 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 if (v.krValue != 0) subs['한국'] = v.krValue;
                 if (v.otherValue != 0) subs['기타'] = v.otherValue;
 
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
-                    child: AccountCard(
-                      account: entry.key,
-                      color: getAccountColor(index),
-                      valueKRW: v.value,
-                      valueUSD: valueUSD,
-                      dailyChangeKRW: v.dailyChange,
-                      dailyChangePct: dailyPct,
-                      profitKRW: profit,
-                      profitPct: profitPct,
-                      subCategories: subs,
-                    ),
+                return Padding(
+                  padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
+                  child: AccountCard(
+                    account: entry.key,
+                    color: getAccountColor(index),
+                    valueKRW: v.value,
+                    valueUSD: valueUSD,
+                    dailyChangeKRW: v.dailyChange,
+                    dailyChangePct: dailyPct,
+                    profitKRW: profit,
+                    profitPct: profitPct,
+                    subCategories: subs,
                   ),
                 );
-              }).toList(),
-            )
-          else
-            ...accountMap.entries.indexed.map((e) {
-              final (index, entry) = e;
-              final v = entry.value;
-              final profit = v.value - v.cost;
-              final profitPct = v.cost > 0 ? (profit / v.cost) * 100 : 0.0;
-              final dailyPct = v.yestValue > 0 ? (v.dailyChange / v.yestValue) * 100 : 0.0;
-              final valueUSD = portfolio.exchangeRate > 0
-                  ? v.value / portfolio.exchangeRate
-                  : 0.0;
-              final subs = <String, double>{};
-              if (v.usValue != 0) subs['미국'] = v.usValue;
-              if (v.krValue != 0) subs['한국'] = v.krValue;
-              if (v.otherValue != 0) subs['기타'] = v.otherValue;
-
-              return Padding(
-                padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
-                child: AccountCard(
-                  account: entry.key,
-                  color: getAccountColor(index),
-                  valueKRW: v.value,
-                  valueUSD: valueUSD,
-                  dailyChangeKRW: v.dailyChange,
-                  dailyChangePct: dailyPct,
-                  profitKRW: profit,
-                  profitPct: profitPct,
-                  subCategories: subs,
-                ),
-              );
-            }),
+              }),
+          ] else ...[
+            // By Type View
+            ..._buildTypeView(portfolio),
+          ],
         ],
       ),
     );
+  }
+
+  List<Widget> _buildTypeView(PortfolioState portfolio) {
+    // 주식 종목을 market별로 그룹핑
+    final usHoldings = <HoldingRow>[];
+    final krHoldings = <HoldingRow>[];
+
+    for (final h in portfolio.holdings) {
+      final quote = portfolio.quotes[h.ticker];
+      final price = quote?.price ?? 0;
+      final closeYest = quote?.closeYest ?? price;
+      final name = quote?.name ?? h.ticker;
+      final valueKRW = calcTotalValueKRW(h, price, portfolio.exchangeRate);
+      final costKRW = calcCostKRW(h);
+      final dailyChange = calcDailyChangeKRW(h, price, closeYest, portfolio.exchangeRate);
+      final yestValue = calcTotalValueKRW(h, closeYest, portfolio.exchangeRate);
+
+      final row = HoldingRow(
+        name: name,
+        ticker: h.ticker,
+        valueKRW: valueKRW,
+        costKRW: costKRW,
+        dailyChangeKRW: dailyChange,
+        yestValueKRW: yestValue,
+      );
+
+      if (h.market == Market.us) {
+        usHoldings.add(row);
+      } else {
+        krHoldings.add(row);
+      }
+    }
+
+    // 평가금액 내림차순 정렬
+    usHoldings.sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
+    krHoldings.sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
+
+    // 기타자산을 category별로 그룹핑
+    final otherByCategory = <AssetCategory, List<HoldingRow>>{};
+    for (final oa in portfolio.otherAssets) {
+      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
+      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
+      final row = HoldingRow(
+        name: oa.name,
+        ticker: oa.name,
+        valueKRW: v,
+        costKRW: v,
+        dailyChangeKRW: 0,
+        yestValueKRW: v,
+      );
+      (otherByCategory[oa.category] ??= []).add(row);
+    }
+
+    final categoryLabels = {
+      AssetCategory.savings: '예금',
+      AssetCategory.bond: '채권',
+      AssetCategory.loan: '대출',
+      AssetCategory.cash: '현금',
+      AssetCategory.other: '기타',
+    };
+
+    final cards = <Widget>[];
+    var index = 0;
+
+    if (usHoldings.isNotEmpty) {
+      cards.add(Padding(
+        padding: EdgeInsets.only(top: index++ == 0 ? 0 : 8),
+        child: TypeGroupCard(title: '미국주식', items: usHoldings),
+      ));
+    }
+    if (krHoldings.isNotEmpty) {
+      cards.add(Padding(
+        padding: EdgeInsets.only(top: index++ == 0 ? 0 : 8),
+        child: TypeGroupCard(title: '한국주식', items: krHoldings),
+      ));
+    }
+    for (final cat in [AssetCategory.savings, AssetCategory.bond, AssetCategory.cash, AssetCategory.loan, AssetCategory.other]) {
+      final items = otherByCategory[cat];
+      if (items != null && items.isNotEmpty) {
+        cards.add(Padding(
+          padding: EdgeInsets.only(top: index++ == 0 ? 0 : 8),
+          child: TypeGroupCard(title: categoryLabels[cat]!, items: items),
+        ));
+      }
+    }
+
+    return cards;
   }
 }

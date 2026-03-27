@@ -14,6 +14,9 @@ import 'auth_provider.dart';
 
 const _devMode = bool.fromEnvironment('DEV_MODE');
 
+/// 대시보드 뷰 모드 (By Account / By Type)
+final dashboardViewModeProvider = StateProvider<String>((ref) => 'By Account');
+
 final sheetsServiceProvider = Provider<SheetsService>((ref) {
   if (_devMode) return MockSheetsService();
   final authService = ref.read(authServiceProvider);
