@@ -55,7 +55,7 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
         return;
       }
 
-      final headers = await ref.read(authServiceProvider).getAuthHeaders();
+      final headers = await ref.read(authServiceProvider).getAuthHeadersInteractive();
       final res = await http.get(
         Uri.parse(
           "https://www.googleapis.com/drive/v3/files"

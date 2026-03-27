@@ -193,6 +193,40 @@ class AuthService {
     }
   }
 
+  /// 팝업 포함 재인증 (사용자 명시적 액션 시에만 호출)
+  Future<Map<String, String>> getAuthHeadersInteractive() async {
+    try {
+      return await getAuthHeaders();
+    } catch (_) {
+      // silent refresh 실패 → 팝업으로 재로그인
+      return _signInWithPopupAndGetHeaders();
+    }
+  }
+
+  Future<Map<String, String>> _signInWithPopupAndGetHeaders() async {
+    final provider = GoogleAuthProvider();
+    for (final scope in _scopes) {
+      provider.addScope(scope);
+    }
+    provider.setCustomParameters({
+      'access_type': 'offline',
+      'prompt': 'consent',
+    });
+    final result = await _firebaseAuth.signInWithPopup(provider);
+    if (result.credential != null) {
+      final oAuth = result.credential as OAuthCredential;
+      _cachedAccessToken = oAuth.accessToken;
+      if (oAuth.accessToken != null) {
+        await _persistToken(oAuth.accessToken!);
+        if (_firebaseAuth.currentUser != null) {
+          await _exchangeForRefreshToken(result);
+        }
+      }
+      return {'Authorization': 'Bearer $_cachedAccessToken'};
+    }
+    throw Exception('Failed to get auth headers');
+  }
+
   Future<Map<String, String>> getAuthHeaders() async {
     // 캐시된 토큰이 유효하면 사용
     if (_cachedAccessToken != null) {
@@ -206,7 +240,7 @@ class AuthService {
       _cachedAccessToken = null;
     }
 
-    // 웹: Workers refresh 시도
+    // 웹: Workers refresh 시도 (팝업 없이)
     if (kIsWeb) {
       final uid = _firebaseAuth.currentUser?.uid;
       if (uid != null) {
@@ -215,29 +249,7 @@ class AuthService {
           return {'Authorization': 'Bearer $_cachedAccessToken'};
         }
       }
-
-      // refresh 실패 → 팝업으로 재로그인
-      final provider = GoogleAuthProvider();
-      for (final scope in _scopes) {
-        provider.addScope(scope);
-      }
-      provider.setCustomParameters({
-        'access_type': 'offline',
-        'prompt': 'consent',
-      });
-      final result = await _firebaseAuth.signInWithPopup(provider);
-      if (result.credential != null) {
-        final oAuth = result.credential as OAuthCredential;
-        _cachedAccessToken = oAuth.accessToken;
-        if (oAuth.accessToken != null) {
-          await _persistToken(oAuth.accessToken!);
-          if (_firebaseAuth.currentUser != null) {
-            await _exchangeForRefreshToken(result);
-          }
-        }
-        return {'Authorization': 'Bearer $_cachedAccessToken'};
-      }
-      throw Exception('Failed to get auth headers');
+      throw Exception('Token expired - re-login required');
     }
 
     // 네이티브: google_sign_in 사용
