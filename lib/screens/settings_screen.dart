@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/portfolio_provider.dart';
 import '../models/app_settings.dart';
@@ -530,11 +531,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const SizedBox(height: 40),
 
         // Version
-        const Center(
-          child: Text(
-            'v0.1.4',
-            style: TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
-          ),
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, snapshot) {
+            final version = snapshot.data?.version ?? '';
+            return Center(
+              child: Text(
+                'v$version',
+                style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+              ),
+            );
+          },
         ),
       ],
     );
