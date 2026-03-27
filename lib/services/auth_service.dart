@@ -1,12 +1,18 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const _scopes = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.readonly',
   ];
+
+  static const _tokenKey = 'google_access_token';
+  static const _tokenExpiryKey = 'google_token_expiry';
+  // Google OAuth access token 유효기간: 3600초. 만료 1분 전에 갱신.
+  static const _tokenLifetime = Duration(seconds: 3540);
 
   // 네이티브 전용
   final _googleSignIn = GoogleSignIn(scopes: _scopes);
@@ -21,11 +27,40 @@ class AuthService {
   /// 앱 시작 시 토큰 복원
   Future<void> restoreGoogleToken() async {
     if (kIsWeb) {
-      // 웹: 세션 복원 시 재로그인으로 토큰 갱신 필요
-      // cachedAccessToken이 없으면 getAuthHeaders에서 재로그인 유도
+      // localStorage에서 토큰 복원
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(_tokenKey);
+      final expiryMs = prefs.getInt(_tokenExpiryKey);
+      if (token != null && expiryMs != null) {
+        final expiry = DateTime.fromMillisecondsSinceEpoch(expiryMs);
+        if (DateTime.now().isBefore(expiry)) {
+          _cachedAccessToken = token;
+        } else {
+          // 만료된 토큰 정리
+          await prefs.remove(_tokenKey);
+          await prefs.remove(_tokenExpiryKey);
+        }
+      }
       return;
     }
     await _googleSignIn.signInSilently();
+  }
+
+  /// 웹: 토큰을 localStorage에 저장
+  Future<void> _persistToken(String token) async {
+    if (!kIsWeb) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+    await prefs.setInt(_tokenExpiryKey,
+        DateTime.now().add(_tokenLifetime).millisecondsSinceEpoch);
+  }
+
+  /// 웹: localStorage에서 토큰 제거
+  Future<void> _clearPersistedToken() async {
+    if (!kIsWeb) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_tokenExpiryKey);
   }
 
   Future<void> signIn() async {
@@ -39,6 +74,9 @@ class AuthService {
       if (result.credential != null) {
         final oAuth = result.credential as OAuthCredential;
         _cachedAccessToken = oAuth.accessToken;
+        if (oAuth.accessToken != null) {
+          await _persistToken(oAuth.accessToken!);
+        }
       }
     } else {
       final googleUser = await _googleSignIn.signIn();
@@ -55,6 +93,7 @@ class AuthService {
 
   Future<void> signOut() async {
     _cachedAccessToken = null;
+    await _clearPersistedToken();
     if (kIsWeb) {
       await _firebaseAuth.signOut();
     } else {
@@ -81,6 +120,9 @@ class AuthService {
       if (result.credential != null) {
         final oAuth = result.credential as OAuthCredential;
         _cachedAccessToken = oAuth.accessToken;
+        if (oAuth.accessToken != null) {
+          await _persistToken(oAuth.accessToken!);
+        }
         return {'Authorization': 'Bearer $_cachedAccessToken'};
       }
       throw Exception('Failed to get auth headers');
