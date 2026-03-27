@@ -30,6 +30,7 @@ class AuthService {
 
   Future<void> signIn() async {
     if (kIsWeb) {
+      await _firebaseAuth.setPersistence(Persistence.LOCAL);
       final provider = GoogleAuthProvider();
       for (final scope in _scopes) {
         provider.addScope(scope);
