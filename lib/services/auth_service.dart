@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/constants.dart';
 
 class AuthService {
   static const _scopes = [
@@ -11,8 +14,6 @@ class AuthService {
 
   static const _tokenKey = 'google_access_token';
   static const _tokenExpiryKey = 'google_token_expiry';
-  // Google OAuth access token 유효기간: 3600초. 만료 1분 전에 갱신.
-  static const _tokenLifetime = Duration(seconds: 3540);
 
   // 네이티브 전용
   final _googleSignIn = GoogleSignIn(scopes: _scopes);
@@ -27,7 +28,7 @@ class AuthService {
   /// 앱 시작 시 토큰 복원
   Future<void> restoreGoogleToken() async {
     if (kIsWeb) {
-      // localStorage에서 토큰 복원
+      // 1. localStorage에서 캐시된 토큰 확인
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString(_tokenKey);
       final expiryMs = prefs.getInt(_tokenExpiryKey);
@@ -35,24 +36,51 @@ class AuthService {
         final expiry = DateTime.fromMillisecondsSinceEpoch(expiryMs);
         if (DateTime.now().isBefore(expiry)) {
           _cachedAccessToken = token;
-        } else {
-          // 만료된 토큰 정리
-          await prefs.remove(_tokenKey);
-          await prefs.remove(_tokenExpiryKey);
+          return;
         }
       }
+      // 2. 캐시 만료/없음 → Workers로 refresh 시도
+      final uid = _firebaseAuth.currentUser?.uid;
+      if (uid != null) {
+        final refreshed = await _refreshViaWorker(uid);
+        if (refreshed) return;
+      }
+      // 3. refresh도 실패 → getAuthHeaders에서 팝업 유도
       return;
     }
     await _googleSignIn.signInSilently();
   }
 
+  /// Workers /auth/refresh로 토큰 갱신
+  Future<bool> _refreshViaWorker(String uid) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$corsProxyBase/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'uid': uid}),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final token = data['access_token'] as String?;
+        final expiresIn = data['expires_in'] as int?;
+        if (token != null) {
+          _cachedAccessToken = token;
+          await _persistToken(token, expiresIn: expiresIn);
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
   /// 웹: 토큰을 localStorage에 저장
-  Future<void> _persistToken(String token) async {
+  Future<void> _persistToken(String token, {int? expiresIn}) async {
     if (!kIsWeb) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
+    final duration = Duration(seconds: (expiresIn ?? 3600) - 60);
     await prefs.setInt(_tokenExpiryKey,
-        DateTime.now().add(_tokenLifetime).millisecondsSinceEpoch);
+        DateTime.now().add(duration).millisecondsSinceEpoch);
   }
 
   /// 웹: localStorage에서 토큰 제거
@@ -70,12 +98,22 @@ class AuthService {
       for (final scope in _scopes) {
         provider.addScope(scope);
       }
+      // offline access를 위해 access_type=offline, prompt=consent 추가
+      provider.setCustomParameters({
+        'access_type': 'offline',
+        'prompt': 'consent',
+      });
       final result = await _firebaseAuth.signInWithPopup(provider);
       if (result.credential != null) {
         final oAuth = result.credential as OAuthCredential;
         _cachedAccessToken = oAuth.accessToken;
         if (oAuth.accessToken != null) {
           await _persistToken(oAuth.accessToken!);
+        }
+
+        // authorization code가 있으면 Workers로 exchange하여 refresh token 저장
+        if (oAuth.accessToken != null && _firebaseAuth.currentUser != null) {
+          await _exchangeForRefreshToken(result);
         }
       }
     } else {
@@ -91,7 +129,58 @@ class AuthService {
     }
   }
 
+  /// Firebase signInWithPopup 결과에서 serverAuthCode 추출 시도
+  /// Firebase Web SDK는 authorization code를 직접 노출하지 않으므로,
+  /// google_sign_in 패키지를 통해 serverAuthCode를 받아 exchange
+  Future<void> _exchangeForRefreshToken(UserCredential result) async {
+    try {
+      // google_sign_in으로 serverAuthCode 획득 시도
+      final googleUser = await _googleSignIn.signInSilently();
+      if (googleUser == null) {
+        // signInSilently 실패 시 interactive sign-in
+        final interactive = await _googleSignIn.signIn();
+        if (interactive == null) return;
+        await _doExchange(interactive);
+      } else {
+        await _doExchange(googleUser);
+      }
+    } catch (_) {
+      // exchange 실패해도 access token은 이미 있으므로 계속 진행
+    }
+  }
+
+  Future<void> _doExchange(GoogleSignInAccount account) async {
+    final serverAuthCode = account.serverAuthCode;
+    if (serverAuthCode == null) return;
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      await http.post(
+        Uri.parse('$corsProxyBase/auth/exchange'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'code': serverAuthCode,
+          'redirect_uri': '',
+          'uid': uid,
+        }),
+      );
+    } catch (_) {}
+  }
+
   Future<void> signOut() async {
+    // Workers에서 refresh token 삭제
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid != null && kIsWeb) {
+      try {
+        await http.post(
+          Uri.parse('$corsProxyBase/auth/revoke'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'uid': uid}),
+        );
+      } catch (_) {}
+    }
+
     _cachedAccessToken = null;
     await _clearPersistedToken();
     if (kIsWeb) {
@@ -105,23 +194,46 @@ class AuthService {
   }
 
   Future<Map<String, String>> getAuthHeaders() async {
-    // 웹: 캐시된 토큰 사용
+    // 캐시된 토큰이 유효하면 사용
     if (_cachedAccessToken != null) {
-      return {'Authorization': 'Bearer $_cachedAccessToken'};
+      // 만료 확인
+      final prefs = await SharedPreferences.getInstance();
+      final expiryMs = prefs.getInt(_tokenExpiryKey);
+      if (expiryMs != null && DateTime.now().millisecondsSinceEpoch < expiryMs) {
+        return {'Authorization': 'Bearer $_cachedAccessToken'};
+      }
+      // 만료됨 → refresh 시도
+      _cachedAccessToken = null;
     }
 
-    // 웹: 토큰 없으면 재로그인으로 갱신
+    // 웹: Workers refresh 시도
     if (kIsWeb) {
+      final uid = _firebaseAuth.currentUser?.uid;
+      if (uid != null) {
+        final refreshed = await _refreshViaWorker(uid);
+        if (refreshed) {
+          return {'Authorization': 'Bearer $_cachedAccessToken'};
+        }
+      }
+
+      // refresh 실패 → 팝업으로 재로그인
       final provider = GoogleAuthProvider();
       for (final scope in _scopes) {
         provider.addScope(scope);
       }
+      provider.setCustomParameters({
+        'access_type': 'offline',
+        'prompt': 'consent',
+      });
       final result = await _firebaseAuth.signInWithPopup(provider);
       if (result.credential != null) {
         final oAuth = result.credential as OAuthCredential;
         _cachedAccessToken = oAuth.accessToken;
         if (oAuth.accessToken != null) {
           await _persistToken(oAuth.accessToken!);
+          if (_firebaseAuth.currentUser != null) {
+            await _exchangeForRefreshToken(result);
+          }
         }
         return {'Authorization': 'Bearer $_cachedAccessToken'};
       }
@@ -139,7 +251,7 @@ class AuthService {
 
   /// Drive 스코프 요청 (웹에서는 이미 로그인 시 포함됨)
   Future<bool> requestDriveScope() async {
-    if (kIsWeb) return true; // 이미 signIn에서 포함
+    if (kIsWeb) return true;
     return await _googleSignIn.requestScopes([
       'https://www.googleapis.com/auth/drive.readonly',
     ]);
