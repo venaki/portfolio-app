@@ -6,11 +6,12 @@ class AppSettings {
   final int refreshInterval;
   final int version;
   final double? exchangeRate;
+  final int forceRefreshWait;
 
   const AppSettings({
     this.accounts = const [], this.brokers = const [], this.baseCurrency = 'KRW',
     this.accentColor = '#0D6E6E', this.refreshInterval = 60, this.version = 1,
-    this.exchangeRate,
+    this.exchangeRate, this.forceRefreshWait = 3,
   });
 
   factory AppSettings.fromSheetRows(List<List<String>> rows) {
@@ -26,6 +27,7 @@ class AppSettings {
       refreshInterval: int.tryParse(map['refresh_interval'] ?? '60') ?? 60,
       version: int.tryParse(map['version'] ?? '1') ?? 1,
       exchangeRate: double.tryParse(map['exchange_rate'] ?? ''),
+      forceRefreshWait: int.tryParse(map['force_refresh_wait'] ?? '3') ?? 3,
     );
   }
 
@@ -38,12 +40,14 @@ class AppSettings {
       ['refresh_interval', refreshInterval.toString()],
       ['version', version.toString()],
       ['exchange_rate', '=GOOGLEFINANCE("USDKRW")'],
+      ['force_refresh_wait', forceRefreshWait.toString()],
     ];
   }
 
   AppSettings copyWith({
     List<String>? accounts, List<String>? brokers, String? baseCurrency,
     String? accentColor, int? refreshInterval, int? version, double? exchangeRate,
+    int? forceRefreshWait,
   }) {
     return AppSettings(
       accounts: accounts ?? this.accounts,
@@ -53,6 +57,7 @@ class AppSettings {
       refreshInterval: refreshInterval ?? this.refreshInterval,
       version: version ?? this.version,
       exchangeRate: exchangeRate ?? this.exchangeRate,
+      forceRefreshWait: forceRefreshWait ?? this.forceRefreshWait,
     );
   }
 }

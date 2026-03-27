@@ -366,49 +366,100 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // 4. DATA REFRESH
         _sectionLabel('DATA REFRESH'),
         _card(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
             children: [
-              const Text(
-                '자동 새로고침 간격',
-                style: TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '자동 새로고침 간격',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+                  ),
+                  PopupMenuButton<int>(
+                    onSelected: _setRefreshInterval,
+                    itemBuilder: (_) => _refreshOptions.entries
+                        .map((e) => PopupMenuItem(
+                              value: e.key,
+                              child: Text(e.value),
+                            ))
+                        .toList(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E5E5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _refreshLabel(settings.refreshInterval),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: Color(0xFF888888),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              PopupMenuButton<int>(
-                onSelected: _setRefreshInterval,
-                itemBuilder: (_) => _refreshOptions.entries
-                    .map((e) => PopupMenuItem(
-                          value: e.key,
-                          child: Text(e.value),
-                        ))
-                    .toList(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              const Divider(height: 24, color: Color(0xFFE5E5E5)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '강제 새로고침 대기',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
                   ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E5E5)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _refreshLabel(settings.refreshInterval),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF1A1A1A),
-                        ),
+                  PopupMenuButton<int>(
+                    onSelected: _setForceRefreshWait,
+                    itemBuilder: (_) => _forceRefreshWaitOptions.entries
+                        .map((e) => PopupMenuItem(
+                              value: e.key,
+                              child: Text(e.value),
+                            ))
+                        .toList(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: Color(0xFF888888),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E5E5)),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _forceRefreshWaitLabel(settings.forceRefreshWait),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: Color(0xFF888888),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -532,6 +583,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return _refreshOptions[seconds] ?? '${seconds ~/ 60}분';
   }
 
+  // --- Force refresh wait options (seconds → label) ---
+  static const _forceRefreshWaitOptions = <int, String>{
+    1: '1초',
+    3: '3초',
+    5: '5초',
+    10: '10초',
+  };
+
+  String _forceRefreshWaitLabel(int seconds) {
+    return _forceRefreshWaitOptions[seconds] ?? '$seconds초';
+  }
+
   // --- Actions ---
 
   Future<void> _signOut() async {
@@ -624,6 +687,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref
         .read(portfolioProvider.notifier)
         .updateSettings(settings.copyWith(refreshInterval: seconds));
+  }
+
+  void _setForceRefreshWait(int seconds) {
+    final settings = ref.read(portfolioProvider).settings;
+    ref
+        .read(portfolioProvider.notifier)
+        .updateSettings(settings.copyWith(forceRefreshWait: seconds));
   }
 
   void _exportCsv() {

@@ -38,6 +38,11 @@ class MockSheetsService extends SheetsService {
     );
   }
 
+  @override
+  Future<({List<StockQuote> quotes, double exchangeRate})> forceRefreshPrices({
+    int waitSeconds = 3,
+  }) async => loadPrices();
+
   // ─── CRUD no-op (로컬 state에서 처리됨) ───
 
   @override

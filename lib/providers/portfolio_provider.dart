@@ -147,7 +147,7 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
     state = state.copyWith(isLoading: true);
     try {
       final data = force
-          ? await _sheets.forceRefreshPrices()
+          ? await _sheets.forceRefreshPrices(waitSeconds: state.settings.forceRefreshWait)
           : await _sheets.loadPrices();
       final quotesMap = {for (final q in data.quotes) q.ticker: q};
       state = state.copyWith(

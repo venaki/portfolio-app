@@ -205,58 +205,121 @@ class SheetsService {
 
   // ─── 강제 시세 갱신 ───
 
-  /// GOOGLEFINANCE 수식을 변조 → 복원하여 Google Sheets 캐시를 강제 클리어
-  Future<({List<StockQuote> quotes, double exchangeRate})> forceRefreshPrices() async {
+  /// GOOGLEFINANCE 수식 셀만 변조 → 복원하여 캐시 클리어 시도 (best-effort)
+  Future<({List<StockQuote> quotes, double exchangeRate})> forceRefreshPrices({
+    int waitSeconds = 3,
+  }) async {
     _ensureId();
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
 
-    // 1. 현재 수식 읽기
+    // 1. Prices + Settings 수식을 동시 읽기
+    final ranges = [
+      'Prices!A2:H',
+      'Settings!A1:B',
+    ].map(Uri.encodeComponent).join('&ranges=');
     final res = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Prices!A2:H")}?valueRenderOption=FORMULA'),
+      Uri.parse('$_baseUrl/$_spreadsheetId/values:batchGet?valueRenderOption=FORMULA&ranges=$ranges'),
       headers: headers,
     );
-    if (res.statusCode != 200) return loadPrices(); // fallback
-    final data = jsonDecode(res.body);
-    final originalRows = _getRows(data);
-    if (originalRows.isEmpty) return loadPrices();
+    if (res.statusCode != 200) return loadPrices();
 
-    // 2. GOOGLEFINANCE 수식의 티커를 1자 잘라서 변조
-    final brokenRows = originalRows.map((row) {
-      return row.map((cell) {
-        final s = cell.toString();
-        if (s.startsWith('=') && s.contains('GOOGLEFINANCE')) {
-          return s.replaceAllMapped(
-            RegExp(r'GOOGLEFINANCE\("([^"]{2,})"'),
-            (m) {
-              final ticker = m.group(1)!;
-              return 'GOOGLEFINANCE("${ticker.substring(0, ticker.length - 1)}"';
-            },
-          );
+    final valueRanges = (jsonDecode(res.body)['valueRanges'] as List);
+    final priceRows = _getRows(valueRanges[0]);
+    final settingsRows = _getRows(valueRanges[1]);
+
+    // 2. GOOGLEFINANCE 수식 셀만 감지하여 break/restore 데이터 구성
+    final breakData = <Map<String, dynamic>>[];
+    final restoreData = <Map<String, dynamic>>[];
+
+    // Prices 시트: 수식 셀만 개별 범위로
+    for (int i = 0; i < priceRows.length; i++) {
+      for (int j = 0; j < priceRows[i].length; j++) {
+        final cell = priceRows[i][j].toString();
+        if (cell.startsWith('=') && cell.contains('GOOGLEFINANCE')) {
+          final col = String.fromCharCode('A'.codeUnitAt(0) + j);
+          final range = 'Prices!$col${i + 2}';
+          restoreData.add({'range': range, 'values': [[cell]]});
+          breakData.add({'range': range, 'values': [[_breakFormula(cell)]]});
         }
-        return s;
-      }).toList();
-    }).toList();
+      }
+    }
+
+    // Settings 시트: exchange_rate 행의 B열
+    for (int i = 0; i < settingsRows.length; i++) {
+      if (settingsRows[i].isNotEmpty &&
+          settingsRows[i][0].toString() == 'exchange_rate' &&
+          settingsRows[i].length >= 2) {
+        final cell = settingsRows[i][1].toString();
+        if (cell.startsWith('=') && cell.contains('GOOGLEFINANCE')) {
+          final range = 'Settings!B${i + 1}';
+          restoreData.add({'range': range, 'values': [[cell]]});
+          breakData.add({'range': range, 'values': [[_breakFormula(cell)]]});
+        }
+      }
+    }
+
+    // 수식 셀이 없으면 바로 loadPrices
+    if (breakData.isEmpty) return loadPrices();
+
+    final batchUrl = '$_baseUrl/$_spreadsheetId/values:batchUpdate';
 
     // 3. 변조된 수식 쓰기
-    final range = 'Prices!A2:H${originalRows.length + 1}';
-    await http.put(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=USER_ENTERED'),
+    final breakRes = await http.post(
+      Uri.parse(batchUrl),
       headers: headers,
-      body: jsonEncode({'values': brokenRows}),
+      body: jsonEncode({
+        'valueInputOption': 'USER_ENTERED',
+        'data': breakData,
+      }),
     );
+    if (breakRes.statusCode != 200) {
+      throw Exception('Force refresh break failed: ${breakRes.statusCode}');
+    }
 
-    // 4. 잠시 대기 후 원본 수식 복원
-    await Future.delayed(const Duration(seconds: 1));
-    await http.put(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=USER_ENTERED'),
+    // 4. 대기 후 원본 수식 복원
+    await Future.delayed(Duration(seconds: waitSeconds));
+    var restoreRes = await http.post(
+      Uri.parse(batchUrl),
       headers: headers,
-      body: jsonEncode({'values': originalRows}),
+      body: jsonEncode({
+        'valueInputOption': 'USER_ENTERED',
+        'data': restoreData,
+      }),
     );
+    // 복원 실패 시 1회 재시도
+    if (restoreRes.statusCode != 200) {
+      await Future.delayed(const Duration(seconds: 1));
+      restoreRes = await http.post(
+        Uri.parse(batchUrl),
+        headers: headers,
+        body: jsonEncode({
+          'valueInputOption': 'USER_ENTERED',
+          'data': restoreData,
+        }),
+      );
+      if (restoreRes.statusCode != 200) {
+        throw Exception(
+          'Force refresh restore failed: ${restoreRes.statusCode}. '
+          '수식이 변조된 상태일 수 있습니다.',
+        );
+      }
+    }
 
     // 5. 재계산 대기 후 값 읽기
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(Duration(seconds: waitSeconds));
     return loadPrices();
+  }
+
+  /// GOOGLEFINANCE 수식의 티커를 1자 잘라서 변조
+  String _breakFormula(String formula) {
+    return formula.replaceAllMapped(
+      RegExp(r'GOOGLEFINANCE\("([^"]{2,})"'),
+      (m) {
+        final ticker = m.group(1)!;
+        return 'GOOGLEFINANCE("${ticker.substring(0, ticker.length - 1)}"';
+      },
+    );
   }
 
   // ─── Transaction CRUD ───
