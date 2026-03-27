@@ -1,7 +1,12 @@
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/constants.dart';
+import 'oauth_popup_stub.dart' if (dart.library.html) 'oauth_popup_web.dart'
+    as oauth_popup;
 
 class AuthService {
   static const _scopes = [
@@ -25,34 +30,57 @@ class AuthService {
   /// 앱 시작 시 토큰 복원
   Future<void> restoreGoogleToken() async {
     if (kIsWeb) {
+      // 1. localStorage에서 캐시된 토큰 확인
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString(_tokenKey);
       final expiryMs = prefs.getInt(_tokenExpiryKey);
       if (token != null && expiryMs != null) {
-        final expiry = DateTime.fromMillisecondsSinceEpoch(expiryMs);
-        if (DateTime.now().isBefore(expiry)) {
+        if (DateTime.now().millisecondsSinceEpoch < expiryMs) {
           _cachedAccessToken = token;
-        } else {
-          await prefs.remove(_tokenKey);
-          await prefs.remove(_tokenExpiryKey);
+          return;
         }
+      }
+      // 2. localStorage 만료/없음 → Workers refresh 시도
+      final uid = _firebaseAuth.currentUser?.uid;
+      if (uid != null) {
+        await _refreshViaWorker(uid);
       }
       return;
     }
     await _googleSignIn.signInSilently();
   }
 
-  /// 웹: 토큰을 localStorage에 저장
-  Future<void> _persistToken(String token) async {
+  /// Workers /auth/refresh로 토큰 갱신
+  Future<bool> _refreshViaWorker(String uid) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$corsProxyBase/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'uid': uid}),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final token = data['access_token'] as String?;
+        final expiresIn = data['expires_in'] as int?;
+        if (token != null) {
+          _cachedAccessToken = token;
+          await _persistToken(token, expiresIn: expiresIn);
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Future<void> _persistToken(String token, {int? expiresIn}) async {
     if (!kIsWeb) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
-    // Google access token 유효기간 3600초, 1분 여유 두고 3540초
+    final duration = Duration(seconds: (expiresIn ?? 3600) - 60);
     await prefs.setInt(_tokenExpiryKey,
-        DateTime.now().add(const Duration(seconds: 3540)).millisecondsSinceEpoch);
+        DateTime.now().add(duration).millisecondsSinceEpoch);
   }
 
-  /// 웹: localStorage에서 토큰 제거
   Future<void> _clearPersistedToken() async {
     if (!kIsWeb) return;
     final prefs = await SharedPreferences.getInstance();
@@ -60,25 +88,13 @@ class AuthService {
     await prefs.remove(_tokenExpiryKey);
   }
 
+  /// 로그인
   Future<void> signIn() async {
     if (kIsWeb) {
-      await _firebaseAuth.setPersistence(Persistence.LOCAL);
-      final provider = GoogleAuthProvider();
-      for (final scope in _scopes) {
-        provider.addScope(scope);
-      }
-      final result = await _firebaseAuth.signInWithPopup(provider);
-      if (result.credential != null) {
-        final oAuth = result.credential as OAuthCredential;
-        _cachedAccessToken = oAuth.accessToken;
-        if (oAuth.accessToken != null) {
-          await _persistToken(oAuth.accessToken!);
-        }
-      }
+      await _signInViaWorkers();
     } else {
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return;
-
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -88,7 +104,63 @@ class AuthService {
     }
   }
 
+  /// 웹: Workers OAuth 팝업으로 로그인
+  Future<void> _signInViaWorkers() async {
+    // Firebase uid가 아직 없으므로 임시 uid 사용 후, Firebase 로그인 완료 후 재매핑
+    // → 간단하게: 먼저 Firebase signInWithPopup 없이 Workers로 직접 OAuth
+    // → callback에서 id_token을 받아 Firebase에 credential로 등록
+
+    final uid = _firebaseAuth.currentUser?.uid ?? 'pending';
+    final loginUrl = '$corsProxyBase/auth/login?uid=$uid';
+
+    final result = await oauth_popup.openOAuthPopup(loginUrl);
+    if (result == null) throw Exception('OAuth cancelled');
+
+    final accessToken = result['access_token'] as String?;
+    final idToken = result['id_token'] as String?;
+    final expiresIn = result['expires_in'] as int?;
+
+    if (accessToken == null) throw Exception('No access token');
+
+    // access token 캐싱
+    _cachedAccessToken = accessToken;
+    await _persistToken(accessToken, expiresIn: expiresIn);
+
+    // Firebase Auth에 Google credential로 세션 등록
+    if (idToken != null) {
+      await _firebaseAuth.setPersistence(Persistence.LOCAL);
+      final credential = GoogleAuthProvider.credential(
+        accessToken: accessToken,
+        idToken: idToken,
+      );
+      final userCred = await _firebaseAuth.signInWithCredential(credential);
+
+      // Firebase uid가 확정되면 Workers KV의 키를 pending → 실제 uid로 이동
+      final firebaseUid = userCred.user?.uid;
+      if (firebaseUid != null && uid == 'pending') {
+        try {
+          await http.post(
+            Uri.parse('$corsProxyBase/auth/migrate'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'from_uid': 'pending', 'to_uid': firebaseUid}),
+          );
+        } catch (_) {}
+      }
+    }
+  }
+
   Future<void> signOut() async {
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid != null && kIsWeb) {
+      try {
+        await http.post(
+          Uri.parse('$corsProxyBase/auth/revoke'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'uid': uid}),
+        );
+      } catch (_) {}
+    }
+
     _cachedAccessToken = null;
     await _clearPersistedToken();
     if (kIsWeb) {
@@ -103,7 +175,6 @@ class AuthService {
 
   /// 토큰 반환 (팝업 없이, 실패 시 에러)
   Future<Map<String, String>> getAuthHeaders() async {
-    // 캐시된 토큰이 유효하면 사용
     if (_cachedAccessToken != null) {
       final prefs = await SharedPreferences.getInstance();
       final expiryMs = prefs.getInt(_tokenExpiryKey);
@@ -113,12 +184,19 @@ class AuthService {
       _cachedAccessToken = null;
     }
 
-    // 웹: 팝업 없이 실패 → 호출측에서 처리
+    // 웹: Workers refresh 시도
     if (kIsWeb) {
+      final uid = _firebaseAuth.currentUser?.uid;
+      if (uid != null) {
+        final refreshed = await _refreshViaWorker(uid);
+        if (refreshed) {
+          return {'Authorization': 'Bearer $_cachedAccessToken'};
+        }
+      }
       throw Exception('Token expired - re-login required');
     }
 
-    // 네이티브: google_sign_in 사용
+    // 네이티브
     final googleUser = _googleSignIn.currentUser ??
         await _googleSignIn.signInSilently();
     if (googleUser != null) {
@@ -127,30 +205,21 @@ class AuthService {
     throw Exception('Not signed in');
   }
 
-  /// 토큰 반환 (만료 시 팝업으로 재로그인 포함)
+  /// 토큰 반환 (만료 시 Workers 팝업으로 재로그인 포함)
   Future<Map<String, String>> getAuthHeadersInteractive() async {
     try {
       return await getAuthHeaders();
     } catch (_) {
-      // 팝업으로 재로그인
-      final provider = GoogleAuthProvider();
-      for (final scope in _scopes) {
-        provider.addScope(scope);
-      }
-      final result = await _firebaseAuth.signInWithPopup(provider);
-      if (result.credential != null) {
-        final oAuth = result.credential as OAuthCredential;
-        _cachedAccessToken = oAuth.accessToken;
-        if (oAuth.accessToken != null) {
-          await _persistToken(oAuth.accessToken!);
+      if (kIsWeb) {
+        await _signInViaWorkers();
+        if (_cachedAccessToken != null) {
+          return {'Authorization': 'Bearer $_cachedAccessToken'};
         }
-        return {'Authorization': 'Bearer $_cachedAccessToken'};
       }
       throw Exception('Failed to get auth headers');
     }
   }
 
-  /// Drive 스코프 요청 (웹에서는 이미 로그인 시 포함됨)
   Future<bool> requestDriveScope() async {
     if (kIsWeb) return true;
     return await _googleSignIn.requestScopes([
