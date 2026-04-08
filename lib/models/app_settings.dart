@@ -7,12 +7,17 @@ class AppSettings {
   final int version;
   final double? exchangeRate;
   final int forceRefreshWait;
+  final List<String> holdingOrder;
 
   const AppSettings({
     this.accounts = const [], this.brokers = const [], this.baseCurrency = 'KRW',
     this.accentColor = '#0D6E6E', this.refreshInterval = 60, this.version = 1,
-    this.exchangeRate, this.forceRefreshWait = 3,
+    this.exchangeRate, this.forceRefreshWait = 3, this.holdingOrder = const [],
   });
+
+  /// Holding 고유 키 생성: ticker|account|broker
+  static String holdingKey(String ticker, String account, String broker) =>
+      '$ticker|$account|$broker';
 
   factory AppSettings.fromSheetRows(List<List<String>> rows) {
     final map = <String, String>{};
@@ -28,6 +33,7 @@ class AppSettings {
       version: int.tryParse(map['version'] ?? '1') ?? 1,
       exchangeRate: double.tryParse(map['exchange_rate'] ?? ''),
       forceRefreshWait: int.tryParse(map['force_refresh_wait'] ?? '3') ?? 3,
+      holdingOrder: (map['holding_order'] ?? '').split(',').where((s) => s.isNotEmpty).toList(),
     );
   }
 
@@ -41,13 +47,14 @@ class AppSettings {
       ['version', version.toString()],
       ['exchange_rate', '=GOOGLEFINANCE("USDKRW")'],
       ['force_refresh_wait', forceRefreshWait.toString()],
+      ['holding_order', holdingOrder.join(',')],
     ];
   }
 
   AppSettings copyWith({
     List<String>? accounts, List<String>? brokers, String? baseCurrency,
     String? accentColor, int? refreshInterval, int? version, double? exchangeRate,
-    int? forceRefreshWait,
+    int? forceRefreshWait, List<String>? holdingOrder,
   }) {
     return AppSettings(
       accounts: accounts ?? this.accounts,
@@ -58,6 +65,7 @@ class AppSettings {
       version: version ?? this.version,
       exchangeRate: exchangeRate ?? this.exchangeRate,
       forceRefreshWait: forceRefreshWait ?? this.forceRefreshWait,
+      holdingOrder: holdingOrder ?? this.holdingOrder,
     );
   }
 }

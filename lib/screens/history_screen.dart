@@ -19,7 +19,7 @@ class _TimelineItem {
   const _TimelineItem.tx(this.transaction) : asset = null, date = '';
   const _TimelineItem.oa(this.asset) : transaction = null, date = '';
 
-  String get sortDate => transaction?.date ?? asset?.date ?? '';
+  String get sortDate => transaction?.sortKey ?? asset?.sortKey ?? '';
   bool get isTransaction => transaction != null;
 }
 

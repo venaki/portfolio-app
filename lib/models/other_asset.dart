@@ -11,12 +11,16 @@ class OtherAsset {
   final Currency currency;
   final String date;
   final String memo;
+  final String time; // "HH:mm" format
 
   const OtherAsset({
     required this.id, required this.account, required this.name,
     required this.category, required this.value, required this.currency,
-    required this.date, this.memo = '',
+    required this.date, this.memo = '', this.time = '00:00',
   });
+
+  /// date + time 조합 정렬키 (e.g. "2024-03-15 14:30")
+  String get sortKey => '$date $time';
 
   factory OtherAsset.fromSheetRow(List<String> row) {
     return OtherAsset(
@@ -25,12 +29,13 @@ class OtherAsset {
       value: double.tryParse(row[4]) ?? 0,
       currency: row[5] == 'KRW' ? Currency.krw : Currency.usd,
       date: row[6], memo: row.length > 7 ? row[7] : '',
+      time: row.length > 8 ? row[8] : '00:00',
     );
   }
 
   List<String> toSheetRow() {
     return [id, account, name, category.toSheetValue(), value.toString(),
-            currency == Currency.krw ? 'KRW' : 'USD', date, memo];
+            currency == Currency.krw ? 'KRW' : 'USD', date, memo, time];
   }
 
   static AssetCategory _parseCategory(String value) {

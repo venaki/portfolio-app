@@ -147,9 +147,9 @@ class TransactionCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
 
-                  // Date
+                  // Date + Time
                   Text(
-                    tx.date,
+                    tx.time != '00:00' ? '${tx.date} ${tx.time}' : tx.date,
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,

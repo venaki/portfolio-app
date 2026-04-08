@@ -209,7 +209,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             if (isWide)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: accountMap.entries.indexed.map((e) {
+                children: _sortedAccountEntries(accountMap, portfolio.settings.accounts).indexed.map((e) {
                   final (index, entry) = e;
                   final v = entry.value;
                   final profit = v.value - v.cost;
@@ -242,7 +242,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 }).toList(),
               )
             else
-              ...accountMap.entries.indexed.map((e) {
+              ..._sortedAccountEntries(accountMap, portfolio.settings.accounts).indexed.map((e) {
                 final (index, entry) = e;
                 final v = entry.value;
                 final profit = v.value - v.cost;
@@ -278,6 +278,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  List<MapEntry<String, ({double value, double cost, double dailyChange, double yestValue, double usValue, double krValue, double otherValue})>> _sortedAccountEntries(
+    Map<String, ({double value, double cost, double dailyChange, double yestValue, double usValue, double krValue, double otherValue})> accountMap,
+    List<String> accountOrder,
+  ) {
+    return accountMap.entries.toList()
+      ..sort((a, b) {
+        final ai = accountOrder.indexOf(a.key);
+        final bi = accountOrder.indexOf(b.key);
+        final aIdx = ai == -1 ? accountOrder.length : ai;
+        final bIdx = bi == -1 ? accountOrder.length : bi;
+        return aIdx.compareTo(bIdx);
+      });
   }
 
   List<Widget> _buildTypeView(PortfolioState portfolio) {

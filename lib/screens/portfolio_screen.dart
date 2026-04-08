@@ -5,6 +5,7 @@ import '../models/holding.dart';
 import '../models/stock_quote.dart';
 import '../models/transaction.dart';
 import '../models/other_asset.dart';
+import '../models/app_settings.dart';
 import '../widgets/holding_card.dart';
 import '../widgets/asset_card.dart';
 import '../engine/calculations.dart';
@@ -22,9 +23,59 @@ class PortfolioScreen extends ConsumerStatefulWidget {
 }
 
 class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
+  List<Holding>? _editOrderHoldings;
+
+  void _enterEditMode(List<Holding> holdings) {
+    setState(() => _editOrderHoldings = List.from(holdings));
+    ref.read(portfolioEditModeProvider.notifier).state = true;
+  }
+
+  void _cancelEditMode() {
+    setState(() => _editOrderHoldings = null);
+    ref.read(portfolioEditModeProvider.notifier).state = false;
+  }
+
+  void _saveOrder() {
+    if (_editOrderHoldings == null) return;
+    final settings = ref.read(portfolioProvider).settings;
+    final order = _editOrderHoldings!
+        .map((h) => AppSettings.holdingKey(h.ticker, h.account, h.broker))
+        .toList();
+    ref.read(portfolioProvider.notifier).updateSettings(
+          settings.copyWith(holdingOrder: order),
+        );
+    setState(() => _editOrderHoldings = null);
+    ref.read(portfolioEditModeProvider.notifier).state = false;
+  }
+
+  void _reorderHoldings(int oldIndex, int newIndex) {
+    if (_editOrderHoldings == null) return;
+    setState(() {
+      if (newIndex > oldIndex) newIndex--;
+      final item = _editOrderHoldings!.removeAt(oldIndex);
+      _editOrderHoldings!.insert(newIndex, item);
+    });
+  }
+
+  /// holdingOrder에 따라 holdings 정렬
+  List<Holding> _sortHoldings(List<Holding> holdings, List<String> holdingOrder) {
+    if (holdingOrder.isEmpty) return holdings;
+    return List.from(holdings)
+      ..sort((a, b) {
+        final aKey = AppSettings.holdingKey(a.ticker, a.account, a.broker);
+        final bKey = AppSettings.holdingKey(b.ticker, b.account, b.broker);
+        final ai = holdingOrder.indexOf(aKey);
+        final bi = holdingOrder.indexOf(bKey);
+        final aIdx = ai == -1 ? holdingOrder.length : ai;
+        final bIdx = bi == -1 ? holdingOrder.length : bi;
+        return aIdx.compareTo(bIdx);
+      });
+  }
+
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
+    final isEditMode = ref.watch(portfolioEditModeProvider);
     final accentColor = Theme.of(context).colorScheme.primary;
     final accounts = ['전체', ...portfolio.settings.accounts];
     final _accountFilter = ref.watch(portfolioAccountFilter);
@@ -47,36 +98,220 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       holdings = holdings.where((h) => h.market == Market.krx || h.market == Market.kosdaq).toList();
     }
 
+    // 정상 모드: holdingOrder 순서 적용
+    if (!isEditMode) {
+      holdings = _sortHoldings(holdings, portfolio.settings.holdingOrder);
+    }
+
     final isWide = MediaQuery.of(context).size.width >= 1024;
     final hPadding = isWide ? 40.0 : 24.0;
 
     return Scaffold(
+      bottomNavigationBar: isEditMode
+          ? Container(
+              padding: const EdgeInsets.fromLTRB(21, 12, 21, 21),
+              child: SizedBox(
+                height: 52,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _cancelEditMode,
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(36),
+                            border: Border.all(color: const Color(0xFFE5E5E5)),
+                          ),
+                          child: const Text(
+                            '취소',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF888888),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: GestureDetector(
+                        onTap: _saveOrder,
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: accentColor,
+                            borderRadius: BorderRadius.circular(36),
+                          ),
+                          child: const Text(
+                            '저장',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () => ref.read(portfolioProvider.notifier).refreshPrices(),
         child: ListView(
           padding: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 24),
           children: [
             // Account filter (좌) + Market filter (우)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(child: _buildAccountFilter(accounts)),
-                _buildMarketFilter(),
-              ],
-            ),
-            const SizedBox(height: 16),
+            if (!isEditMode)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(child: _buildAccountFilter(accounts)),
+                  _buildMarketFilter(),
+                ],
+              ),
+            if (!isEditMode)
+              const SizedBox(height: 16),
             // 합계
-            if (holdings.isNotEmpty || otherAssets.isNotEmpty)
+            if (!isEditMode && (holdings.isNotEmpty || otherAssets.isNotEmpty))
               _buildSummary(holdings, otherAssets, portfolio),
 
-            // Content: PC table vs Mobile cards
-            if (isWide)
+            // Content
+            if (isEditMode)
+              _buildEditList(portfolio)
+            else if (isWide)
               _buildPCTable(holdings, otherAssets, portfolio, showOtherOnly, showStocksOnly)
             else
               _buildMobileCards(holdings, otherAssets, portfolio, showOtherOnly, showStocksOnly),
+
+            // 편집 버튼 (정상 모드에서만, 주식이 있을 때만)
+            if (!isEditMode && holdings.isNotEmpty && !showOtherOnly)
+              Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _enterEditMode(holdings),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE5E5E5)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.swap_vert, size: 16, color: Color(0xFF888888)),
+                          SizedBox(width: 6),
+                          Text(
+                            '순서 편집',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF888888),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEditList(dynamic portfolio) {
+    final items = _editOrderHoldings ?? [];
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: items.length,
+      proxyDecorator: (child, index, animation) {
+        return Material(
+          elevation: 2,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          child: child,
+        );
+      },
+      onReorder: _reorderHoldings,
+      itemBuilder: (context, index) {
+        final h = items[index];
+        final quote = portfolio.quotes[h.ticker] as StockQuote?;
+        final price = quote?.price ?? 0;
+        final isKR = h.market == Market.krx || h.market == Market.kosdaq;
+        final displayName = isKR && quote != null && quote.name.isNotEmpty
+            ? quote.name
+            : h.ticker;
+        final totalValueKRW = calcTotalValueKRW(h, price, portfolio.exchangeRate);
+
+        return Container(
+          key: ValueKey(AppSettings.holdingKey(h.ticker, h.account, h.broker)),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE5E5E5)),
+          ),
+          child: Row(
+            children: [
+              ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(Icons.drag_handle, size: 20, color: Color(0xFFCCCCCC)),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          displayName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1A1A1A),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        _marketBadge(h.account),
+                      ],
+                    ),
+                    if (!isKR || (quote != null && quote.name.isNotEmpty))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          isKR ? h.ticker : (quote?.name ?? ''),
+                          style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                formatKRW(totalValueKRW),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

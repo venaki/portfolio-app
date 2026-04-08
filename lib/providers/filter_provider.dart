@@ -11,5 +11,8 @@ final historyTypeFilter = StateProvider<String>((ref) => '전체');
 final historyBrokerFilter = StateProvider<String>((ref) => '전체');
 final historyFilterExpanded = StateProvider<bool>((ref) => false);
 
+/// Portfolio 편집 모드
+final portfolioEditModeProvider = StateProvider<bool>((ref) => false);
+
 /// Assets 화면 필터
 final assetsAccountFilter = StateProvider<String>((ref) => '전체');

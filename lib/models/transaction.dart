@@ -18,14 +18,18 @@ class Transaction {
   final double exchangeRate;
   final String broker;
   final String memo;
+  final String time; // "HH:mm" format, e.g. "14:30"
 
   const Transaction({
     required this.id, required this.date, required this.account,
     required this.type, required this.ticker, required this.market,
     required this.name, required this.shares, required this.price,
     required this.currency, required this.exchangeRate, this.broker = '',
-    this.memo = '',
+    this.memo = '', this.time = '00:00',
   });
+
+  /// date + time 조합 정렬키 (e.g. "2024-03-15 14:30")
+  String get sortKey => '$date $time';
 
   factory Transaction.fromSheetRow(List<String> row) {
     final market = _parseMarket(row[5]);
@@ -43,13 +47,14 @@ class Transaction {
       exchangeRate: double.tryParse(row[10]) ?? 0,
       memo: row.length > 11 ? row[11] : '',
       broker: row.length > 12 ? row[12] : '',
+      time: row.length > 13 ? row[13] : '00:00',
     );
   }
 
   List<String> toSheetRow() {
     return [id, date, account, type.toSheetValue(), ticker, market.toSheetValue(),
             name, shares.toString(), price.toString(),
-            currency == Currency.krw ? 'KRW' : 'USD', exchangeRate.toString(), memo, broker];
+            currency == Currency.krw ? 'KRW' : 'USD', exchangeRate.toString(), memo, broker, time];
   }
 
   static TransactionType _parseType(String value) {

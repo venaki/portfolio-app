@@ -27,6 +27,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
   final _valueController = TextEditingController();
   final _memoController = TextEditingController();
   final _dateController = TextEditingController();
+  final _timeController = TextEditingController();
 
   final _nameFocusNode = FocusNode();
   final _nameLayerLink = LayerLink();
@@ -36,12 +37,14 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
   AssetCategory _category = AssetCategory.savings;
   Currency _currency = Currency.krw;
   DateTime _date = DateTime.now();
+  TimeOfDay _time = TimeOfDay.now();
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _dateController.text = _date.toIso8601String().substring(0, 10);
+    _timeController.text = '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
     final accounts = ref.read(portfolioProvider).settings.accounts;
     if (accounts.isNotEmpty) _account = accounts.first;
     _nameFocusNode.addListener(_onNameFocusChange);
@@ -56,6 +59,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
     _valueController.dispose();
     _memoController.dispose();
     _dateController.dispose();
+    _timeController.dispose();
     super.dispose();
   }
 
@@ -73,6 +77,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
       value: double.tryParse(_valueController.text) ?? 0,
       currency: _currency,
       date: _date.toIso8601String().substring(0, 10),
+      time: '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
       memo: _memoController.text.trim(),
     );
 
@@ -216,32 +221,65 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                 ),
                 const SizedBox(height: 16),
 
-                // 날짜
-                _buildLabel('날짜'),
+                // 날짜 / 시간
+                _buildLabel('날짜 / 시간'),
                 const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _date,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setState(() {
-                        _date = picked;
-                        _dateController.text =
-                            picked.toIso8601String().substring(0, 10);
-                      });
-                    }
-                  },
-                  child: AbsorbPointer(
-                    child: _buildInput(
-                      controller: _dateController,
-                      hint: 'YYYY-MM-DD',
-                      accentColor: accentColor,
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: GestureDetector(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _date,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _date = picked;
+                              _dateController.text =
+                                  picked.toIso8601String().substring(0, 10);
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: _buildInput(
+                            controller: _dateController,
+                            hint: 'YYYY-MM-DD',
+                            accentColor: accentColor,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: GestureDetector(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: _time,
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _time = picked;
+                              _timeController.text =
+                                  '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: _buildInput(
+                            controller: _timeController,
+                            hint: 'HH:mm',
+                            accentColor: accentColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 

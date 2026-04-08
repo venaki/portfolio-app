@@ -3,7 +3,7 @@ import '../models/holding.dart';
 
 List<Holding> replayTransactions(List<Transaction> transactions) {
   final sorted = List<Transaction>.from(transactions)
-    ..sort((a, b) => a.date.compareTo(b.date));
+    ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
 
   final map = <String, Holding>{};
 

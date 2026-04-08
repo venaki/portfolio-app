@@ -70,7 +70,7 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
             && tx.account == widget.account
             && tx.broker == widget.broker)
         .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+      ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -169,7 +169,7 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
   Widget _buildRealizedPLTab(List<Transaction> allTx) {
     // 매도 거래만 추출
     final sells = allTx.where((tx) => tx.type == TransactionType.sell).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+      ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
 
     // 기간 필터 적용
     final filteredSells = _filterByPeriod(sells);
@@ -360,7 +360,7 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
   ) {
     // 시간순 정렬하여 평단가 추적
     final sorted = List<Transaction>.from(allTx)
-      ..sort((a, b) => a.date.compareTo(b.date));
+      ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
 
     double avgCost = 0;
     double avgRate = 0;

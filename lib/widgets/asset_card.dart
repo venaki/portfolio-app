@@ -65,6 +65,15 @@ class AssetCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    asset.time != '00:00' ? '${asset.date} ${asset.time}' : asset.date,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFAAAAAA),
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -84,7 +84,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
   List<Widget> _buildGroupedAssets(List<OtherAsset> assets) {
     // 날짜순 정렬 (최신 먼저)
     final sorted = List<OtherAsset>.from(assets)
-      ..sort((a, b) => b.date.compareTo(a.date));
+      ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
 
     final grouped = <String, List<OtherAsset>>{};
     for (final a in sorted) {

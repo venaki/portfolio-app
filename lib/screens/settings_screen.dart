@@ -116,40 +116,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _card(
           child: Column(
             children: [
-              ...settings.accounts.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final name = entry.value;
-                return Column(
-                  children: [
-                    if (idx > 0)
-                      const Divider(height: 1, color: Color(0xFFE5E5E5)),
-                    GestureDetector(
-                      onTap: () => _onAccountTap(name),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF1A1A1A),
+              if (settings.accounts.isNotEmpty)
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: settings.accounts.length,
+                  proxyDecorator: (child, index, animation) {
+                    return Material(
+                      elevation: 2,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      child: child,
+                    );
+                  },
+                  onReorder: _reorderAccounts,
+                  itemBuilder: (context, idx) {
+                    final name = settings.accounts[idx];
+                    return Column(
+                      key: ValueKey(name),
+                      children: [
+                        if (idx > 0)
+                          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              ReorderableDragStartListener(
+                                index: idx,
+                                child: const Padding(
+                                  padding: EdgeInsets.only(right: 12),
+                                  child: Icon(
+                                    Icons.drag_handle,
+                                    size: 18,
+                                    color: Color(0xFFCCCCCC),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const Icon(
-                              Icons.close,
-                              size: 16,
-                              color: Color(0xFFAAAAAA),
-                            ),
-                          ],
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF1A1A1A),
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _onAccountTap(name),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Color(0xFFAAAAAA),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                );
-              }),
+                      ],
+                    );
+                  },
+                ),
               if (settings.accounts.isNotEmpty)
                 const Divider(height: 1, color: Color(0xFFE5E5E5)),
               const SizedBox(height: 12),
@@ -606,6 +633,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _signOut() async {
     await ref.read(authStateProvider.notifier).signOut();
+  }
+
+  void _reorderAccounts(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) newIndex--;
+    final settings = ref.read(portfolioProvider).settings;
+    final accounts = List<String>.from(settings.accounts);
+    final item = accounts.removeAt(oldIndex);
+    accounts.insert(newIndex, item);
+    ref.read(portfolioProvider.notifier).updateSettings(
+          settings.copyWith(accounts: accounts),
+        );
   }
 
   void _addAccount() {
