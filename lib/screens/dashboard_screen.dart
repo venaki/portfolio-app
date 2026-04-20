@@ -57,10 +57,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       totalCostKRW += calcCostKRW(h);
     }
 
-    // 기타 자산 합산
-    for (final oa in portfolio.otherAssets) {
-      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
-      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
+    // 기타 자산 합산 (통합 자산 사용)
+    for (final ca in portfolio.consolidatedOtherAssets) {
+      final raw = ca.category == AssetCategory.loan ? -ca.totalValue.abs() : ca.totalValue;
+      final v = ca.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
       totalValueKRW += v;
       totalCostKRW += v;
     }
@@ -109,11 +109,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         otherValue: entry.otherValue,
       );
     }
-    for (final oa in portfolio.otherAssets) {
-      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
-      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
-      final entry = accountMap[oa.account] ?? (value: 0.0, cost: 0.0, dailyChange: 0.0, yestValue: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
-      accountMap[oa.account] = (
+    for (final ca in portfolio.consolidatedOtherAssets) {
+      final raw = ca.category == AssetCategory.loan ? -ca.totalValue.abs() : ca.totalValue;
+      final v = ca.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
+      final entry = accountMap[ca.account] ?? (value: 0.0, cost: 0.0, dailyChange: 0.0, yestValue: 0.0, usValue: 0.0, krValue: 0.0, otherValue: 0.0);
+      accountMap[ca.account] = (
         value: entry.value + v,
         cost: entry.cost + v,
         dailyChange: entry.dailyChange,
