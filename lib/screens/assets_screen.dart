@@ -70,14 +70,46 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
               ),
             ),
 
-          ...consolidated.asMap().entries.map((entry) {
-            final index = entry.key;
-            final a = entry.value;
-            return Padding(
-              padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
-              child: ConsolidatedAssetCard(asset: a),
-            );
-          }),
+          ..._buildGroupedByAccount(consolidated, portfolio.settings.accounts),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildGroupedByAccount(List<ConsolidatedAsset> assets, List<String> accountOrder) {
+    final widgets = <Widget>[];
+    for (final account in accountOrder) {
+      final accAssets = assets.where((a) => a.account == account).toList();
+      if (accAssets.isEmpty) continue;
+
+      widgets.add(_buildAccountDivider(account));
+      for (final a in accAssets) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: ConsolidatedAssetCard(asset: a),
+        ));
+      }
+    }
+    return widgets;
+  }
+
+  Widget _buildAccountDivider(String account) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            account,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF888888),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Divider(height: 1, color: Color(0xFFE5E5E5)),
+          ),
         ],
       ),
     );

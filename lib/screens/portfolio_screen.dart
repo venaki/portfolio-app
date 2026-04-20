@@ -454,20 +454,27 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
     if (!hasContent) return _buildEmptyState();
 
-    return Column(
-      children: [
-        // Table header
-        _buildTableHeader(),
-        const Divider(height: 1, color: Color(0xFFE5E5E5)),
-        // Holdings rows
-        if (!showOtherOnly)
-          ...holdings.map((h) => _buildTableRow(
-                h, portfolio.quotes[h.ticker], portfolio.exchangeRate)),
-        // Other assets rows
-        if (!showStocksOnly && consolidatedAssets.isNotEmpty)
-          ...consolidatedAssets.map((a) => _buildOtherAssetTableRow(a)),
-      ],
-    );
+    final accountOrder = portfolio.settings.accounts as List<String>;
+    final rows = <Widget>[
+      _buildTableHeader(),
+      const Divider(height: 1, color: Color(0xFFE5E5E5)),
+    ];
+
+    for (final account in accountOrder) {
+      final accHoldings = showOtherOnly ? <Holding>[] : holdings.where((h) => h.account == account).toList();
+      final accAssets = showStocksOnly ? <ConsolidatedAsset>[] : consolidatedAssets.where((a) => a.account == account).toList();
+      if (accHoldings.isEmpty && accAssets.isEmpty) continue;
+
+      rows.add(_buildAccountDivider(account));
+      for (final h in accHoldings) {
+        rows.add(_buildTableRow(h, portfolio.quotes[h.ticker], portfolio.exchangeRate));
+      }
+      for (final a in accAssets) {
+        rows.add(_buildOtherAssetTableRow(a));
+      }
+    }
+
+    return Column(children: rows);
   }
 
   Widget _buildTableHeader() {
@@ -739,44 +746,65 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
     if (!hasContent) return _buildEmptyState();
 
-    return Column(
-      children: [
-        if (!showOtherOnly)
-          ...holdings.asMap().entries.map((entry) {
-            final index = entry.key;
-            final h = entry.value;
-            return Padding(
-              padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
-              child: HoldingCard(
-                holding: h,
-                quote: portfolio.quotes[h.ticker],
-                exchangeRate: portfolio.exchangeRate,
-                onTap: () {
-                  final isKR = h.market == Market.krx || h.market == Market.kosdaq;
-                  final q = portfolio.quotes[h.ticker];
-                  final name = isKR && q != null && q.name.isNotEmpty ? q.name : h.ticker;
-                  showHoldingTransactionsDialog(context, ticker: h.ticker, displayName: name, account: h.account, broker: h.broker);
-                },
-              ),
-            );
-          }),
-        if (!showStocksOnly && consolidatedAssets.isNotEmpty) ...[
-          if (holdings.isNotEmpty && !showOtherOnly)
-            const SizedBox(height: 8),
-          ...consolidatedAssets.asMap().entries.map((entry) {
-            final index = entry.key;
-            final a = entry.value;
-            return Padding(
-              padding: EdgeInsets.only(top: index == 0 && (showOtherOnly || holdings.isEmpty) ? 0 : 8),
-              child: ConsolidatedAssetCard(asset: a),
-            );
-          }),
-        ],
-      ],
-    );
+    final accountOrder = portfolio.settings.accounts as List<String>;
+    final widgets = <Widget>[];
+
+    for (final account in accountOrder) {
+      final accHoldings = showOtherOnly ? <Holding>[] : holdings.where((h) => h.account == account).toList();
+      final accAssets = showStocksOnly ? <ConsolidatedAsset>[] : consolidatedAssets.where((a) => a.account == account).toList();
+      if (accHoldings.isEmpty && accAssets.isEmpty) continue;
+
+      widgets.add(_buildAccountDivider(account));
+      for (final h in accHoldings) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: HoldingCard(
+            holding: h,
+            quote: portfolio.quotes[h.ticker],
+            exchangeRate: portfolio.exchangeRate,
+            onTap: () {
+              final isKR = h.market == Market.krx || h.market == Market.kosdaq;
+              final q = portfolio.quotes[h.ticker];
+              final name = isKR && q != null && q.name.isNotEmpty ? q.name : h.ticker;
+              showHoldingTransactionsDialog(context, ticker: h.ticker, displayName: name, account: h.account, broker: h.broker);
+            },
+          ),
+        ));
+      }
+      for (final a in accAssets) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: ConsolidatedAssetCard(asset: a),
+        ));
+      }
+    }
+
+    return Column(children: widgets);
   }
 
   // ─── Shared widgets ──────────────────────────────────────────────
+
+  Widget _buildAccountDivider(String account) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            account,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF888888),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Divider(height: 1, color: Color(0xFFE5E5E5)),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _marketBadge(String label) {
     return Container(
