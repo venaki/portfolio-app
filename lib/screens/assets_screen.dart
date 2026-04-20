@@ -15,6 +15,8 @@ class AssetsScreen extends ConsumerStatefulWidget {
 }
 
 class _AssetsScreenState extends ConsumerState<AssetsScreen> {
+  bool _showUSD = false;
+
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
@@ -57,8 +59,15 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
                 children: [
                   const Text('합계',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
-                  Text(formatKRW(total),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A))),
+                  GestureDetector(
+                    onTap: () => setState(() => _showUSD = !_showUSD),
+                    child: Text(
+                      _showUSD && portfolio.exchangeRate > 0
+                          ? formatUSD(total / portfolio.exchangeRate)
+                          : formatKRW(total),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
+                    ),
+                  ),
                 ],
               ),
             ),

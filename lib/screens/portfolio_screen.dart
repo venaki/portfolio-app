@@ -23,6 +23,7 @@ class PortfolioScreen extends ConsumerStatefulWidget {
 }
 
 class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
+  bool _showUSD = false;
   List<Holding>? _editOrderHoldings;
 
   void _enterEditMode(List<Holding> holdings) {
@@ -375,8 +376,15 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             children: [
               const Text('합계',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
-              Text(formatKRW(totalValue),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A))),
+              GestureDetector(
+                onTap: () => setState(() => _showUSD = !_showUSD),
+                child: Text(
+                  _showUSD && portfolio.exchangeRate > 0
+                      ? formatUSD(totalValue / portfolio.exchangeRate)
+                      : formatKRW(totalValue),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 4),
