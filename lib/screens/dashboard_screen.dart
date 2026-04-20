@@ -336,27 +336,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final usHoldings = usMap.values.toList()..sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
     final krHoldings = krMap.values.toList()..sort((a, b) => b.valueKRW.compareTo(a.valueKRW));
 
-    // 기타자산을 category별로 그룹핑
+    // 기타자산을 category별로 그룹핑 (통합 자산 사용)
     final otherByCategory = <AssetCategory, List<HoldingRow>>{};
-    for (final oa in portfolio.otherAssets) {
-      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
-      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
+    for (final ca in portfolio.consolidatedOtherAssets) {
+      final raw = ca.category == AssetCategory.loan ? -ca.totalValue.abs() : ca.totalValue;
+      final v = ca.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
       final row = HoldingRow(
-        name: oa.name,
-        ticker: oa.name,
+        name: ca.name,
+        ticker: ca.name,
         valueKRW: v,
         costKRW: v,
         dailyChangeKRW: 0,
         yestValueKRW: v,
       );
-      (otherByCategory[oa.category] ??= []).add(row);
+      (otherByCategory[ca.category] ??= []).add(row);
     }
 
     final categoryLabels = {
       AssetCategory.savings: '예금',
       AssetCategory.bond: '채권',
       AssetCategory.loan: '대출',
-      AssetCategory.cash: '현금',
       AssetCategory.other: '기타',
     };
 
@@ -375,7 +374,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: TypeGroupCard(title: '한국주식', items: krHoldings),
       ));
     }
-    for (final cat in [AssetCategory.savings, AssetCategory.bond, AssetCategory.cash, AssetCategory.loan, AssetCategory.other]) {
+    for (final cat in [AssetCategory.savings, AssetCategory.bond, AssetCategory.loan, AssetCategory.other]) {
       final items = otherByCategory[cat];
       if (items != null && items.isNotEmpty) {
         cards.add(Padding(

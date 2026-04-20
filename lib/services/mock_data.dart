@@ -147,7 +147,7 @@ class MockData {
     ),
     OtherAsset(
       id: 'oa-004', account: '영희', name: 'USD 현금',
-      category: AssetCategory.cash, value: 5000,
+      category: AssetCategory.savings, value: 5000,
       currency: Currency.usd, date: '2025-09-10',
     ),
     OtherAsset(

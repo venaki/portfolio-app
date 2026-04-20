@@ -34,6 +34,7 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
   late Currency _currency;
   late DateTime _date;
   late TimeOfDay _time;
+  late bool _isPositive;
   bool _isSaving = false;
 
   @override
@@ -50,8 +51,9 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
       minute: int.tryParse(timeParts.length > 1 ? timeParts[1] : '0') ?? 0,
     );
     _timeController.text = a.time;
+    _isPositive = a.value >= 0;
     _nameController.text = a.name;
-    _valueController.text = a.value.toString();
+    _valueController.text = a.value.abs().toString();
     _memoController.text = a.memo;
     _dateController.text = a.date.substring(0, 10);
   }
@@ -71,12 +73,15 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
 
     setState(() => _isSaving = true);
 
+    final rawValue = (double.tryParse(_valueController.text) ?? 0).abs();
+    final signedValue = _isPositive ? rawValue : -rawValue;
+
     final asset = OtherAsset(
       id: widget.asset.id,
       account: _account,
       name: _nameController.text.trim(),
       category: _category,
-      value: double.tryParse(_valueController.text) ?? 0,
+      value: signedValue,
       currency: _currency,
       date: _date.toIso8601String().substring(0, 10),
       time: '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
@@ -197,6 +202,24 @@ class _EditAssetModalState extends ConsumerState<EditAssetModal> {
                         accentColor: accentColor,
                         onTap: () =>
                             setState(() => _category = AssetCategory.other)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // 방향 (입금/출금 등)
+                _buildLabel('유형'),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _buildChip(_category.positiveLabel,
+                        isActive: _isPositive,
+                        accentColor: accentColor,
+                        onTap: () => setState(() => _isPositive = true)),
+                    const SizedBox(width: 8),
+                    _buildChip(_category.negativeLabel,
+                        isActive: !_isPositive,
+                        accentColor: const Color(0xFFE07B54),
+                        onTap: () => setState(() => _isPositive = false)),
                   ],
                 ),
                 const SizedBox(height: 16),

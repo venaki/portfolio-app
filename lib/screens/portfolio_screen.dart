@@ -82,14 +82,14 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     final _marketFilter = ref.watch(portfolioMarketFilter);
 
     var holdings = portfolio.holdings;
-    var otherAssets = portfolio.otherAssets;
+    var consolidatedAssets = portfolio.consolidatedOtherAssets;
     final showOtherOnly = _marketFilter == '기타';
     final showStocksOnly = _marketFilter == '미국' || _marketFilter == '한국';
 
     // 계정 필터
     if (_accountFilter != '전체') {
       holdings = holdings.where((h) => h.account == ref.watch(portfolioAccountFilter)).toList();
-      otherAssets = otherAssets.where((a) => a.account == ref.watch(portfolioAccountFilter)).toList();
+      consolidatedAssets = consolidatedAssets.where((a) => a.account == ref.watch(portfolioAccountFilter)).toList();
     }
     // 시장 필터
     if (_marketFilter == '미국') {
@@ -178,16 +178,16 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             if (!isEditMode)
               const SizedBox(height: 16),
             // 합계
-            if (!isEditMode && (holdings.isNotEmpty || otherAssets.isNotEmpty))
-              _buildSummary(holdings, otherAssets, portfolio),
+            if (!isEditMode && (holdings.isNotEmpty || consolidatedAssets.isNotEmpty))
+              _buildSummary(holdings, consolidatedAssets, portfolio),
 
             // Content
             if (isEditMode)
               _buildEditList(portfolio)
             else if (isWide)
-              _buildPCTable(holdings, otherAssets, portfolio, showOtherOnly, showStocksOnly)
+              _buildPCTable(holdings, consolidatedAssets, portfolio, showOtherOnly, showStocksOnly)
             else
-              _buildMobileCards(holdings, otherAssets, portfolio, showOtherOnly, showStocksOnly),
+              _buildMobileCards(holdings, consolidatedAssets, portfolio, showOtherOnly, showStocksOnly),
 
             // 편집 버튼 (정상 모드에서만, 주식이 있을 때만)
             if (!isEditMode && holdings.isNotEmpty && !showOtherOnly)
@@ -346,7 +346,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     );
   }
 
-  Widget _buildSummary(List<Holding> holdings, List<OtherAsset> otherAssets, dynamic portfolio) {
+  Widget _buildSummary(List<Holding> holdings, List<ConsolidatedAsset> consolidatedAssets, dynamic portfolio) {
     double totalValue = 0;
     double totalCost = 0;
     for (final h in holdings) {
@@ -355,9 +355,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       totalValue += calcTotalValueKRW(h, price, portfolio.exchangeRate);
       totalCost += calcCostKRW(h);
     }
-    for (final oa in otherAssets) {
-      final raw = oa.category == AssetCategory.loan ? -oa.value.abs() : oa.value;
-      final v = oa.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
+    for (final ca in consolidatedAssets) {
+      // 대출: 양수 totalValue = 빚이므로 순자산에서 차감
+      final raw = ca.category == AssetCategory.loan ? -ca.totalValue.abs() : ca.totalValue;
+      final v = ca.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
       totalValue += v;
       totalCost += v;
     }
@@ -443,13 +444,13 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
   Widget _buildPCTable(
     List<Holding> holdings,
-    List<OtherAsset> otherAssets,
+    List<ConsolidatedAsset> consolidatedAssets,
     dynamic portfolio,
     bool showOtherOnly,
     bool showStocksOnly,
   ) {
     final hasContent = (!showOtherOnly && holdings.isNotEmpty) ||
-        (!showStocksOnly && otherAssets.isNotEmpty);
+        (!showStocksOnly && consolidatedAssets.isNotEmpty);
 
     if (!hasContent) return _buildEmptyState();
 
@@ -463,8 +464,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           ...holdings.map((h) => _buildTableRow(
                 h, portfolio.quotes[h.ticker], portfolio.exchangeRate)),
         // Other assets rows
-        if (!showStocksOnly && otherAssets.isNotEmpty)
-          ...otherAssets.map((a) => _buildOtherAssetTableRow(a)),
+        if (!showStocksOnly && consolidatedAssets.isNotEmpty)
+          ...consolidatedAssets.map((a) => _buildOtherAssetTableRow(a)),
       ],
     );
   }
@@ -661,10 +662,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     );
   }
 
-  Widget _buildOtherAssetTableRow(OtherAsset asset) {
+  Widget _buildOtherAssetTableRow(ConsolidatedAsset asset) {
     final isLoan = asset.category == AssetCategory.loan;
     final isUSD = asset.currency == Currency.usd;
-    final displayValue = isLoan && asset.value > 0 ? -asset.value : asset.value;
+    final displayValue = isLoan ? -asset.totalValue.abs() : asset.totalValue;
 
     return Column(
       children: [
@@ -728,13 +729,13 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
   Widget _buildMobileCards(
     List<Holding> holdings,
-    List<OtherAsset> otherAssets,
+    List<ConsolidatedAsset> consolidatedAssets,
     dynamic portfolio,
     bool showOtherOnly,
     bool showStocksOnly,
   ) {
     final hasContent = (!showOtherOnly && holdings.isNotEmpty) ||
-        (!showStocksOnly && otherAssets.isNotEmpty);
+        (!showStocksOnly && consolidatedAssets.isNotEmpty);
 
     if (!hasContent) return _buildEmptyState();
 
@@ -759,15 +760,15 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               ),
             );
           }),
-        if (!showStocksOnly && otherAssets.isNotEmpty) ...[
+        if (!showStocksOnly && consolidatedAssets.isNotEmpty) ...[
           if (holdings.isNotEmpty && !showOtherOnly)
             const SizedBox(height: 8),
-          ...otherAssets.asMap().entries.map((entry) {
+          ...consolidatedAssets.asMap().entries.map((entry) {
             final index = entry.key;
             final a = entry.value;
             return Padding(
               padding: EdgeInsets.only(top: index == 0 && (showOtherOnly || holdings.isEmpty) ? 0 : 8),
-              child: AssetCard(asset: a),
+              child: ConsolidatedAssetCard(asset: a),
             );
           }),
         ],

@@ -18,7 +18,6 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
     final _accountFilter = ref.watch(assetsAccountFilter);
-    final accentColor = Theme.of(context).colorScheme.primary;
 
     if (portfolio.isLoading && portfolio.otherAssets.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -26,17 +25,13 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
 
     final accounts = ['전체', ...portfolio.settings.accounts];
 
-    final filtered = _accountFilter == '전체'
-        ? portfolio.otherAssets
-        : portfolio.otherAssets
-            .where((a) => a.account == _accountFilter)
-            .toList();
+    var consolidated = portfolio.consolidatedOtherAssets;
+    if (_accountFilter != '전체') {
+      consolidated = consolidated.where((a) => a.account == _accountFilter).toList();
+    }
 
-    final total = filtered.fold<double>(0.0, (sum, a) {
-      final value = a.category == AssetCategory.loan && a.value > 0
-          ? -a.value
-          : a.value;
-      return sum + value;
+    final total = consolidated.fold<double>(0.0, (sum, a) {
+      return sum + (a.category == AssetCategory.loan ? -a.totalValue.abs() : a.totalValue);
     });
 
     final isWide = MediaQuery.of(context).size.width >= 1024;
@@ -52,7 +47,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
           const SizedBox(height: 24),
 
           // Total row
-          if (filtered.isNotEmpty)
+          if (consolidated.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
               child: Row(
@@ -66,7 +61,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
               ),
             ),
 
-          if (filtered.isEmpty)
+          if (consolidated.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 80),
               child: Center(
@@ -75,48 +70,17 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
               ),
             ),
 
-          ..._buildGroupedAssets(filtered),
+          ...consolidated.asMap().entries.map((entry) {
+            final index = entry.key;
+            final a = entry.value;
+            return Padding(
+              padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
+              child: ConsolidatedAssetCard(asset: a),
+            );
+          }),
         ],
       ),
     );
-  }
-
-  List<Widget> _buildGroupedAssets(List<OtherAsset> assets) {
-    // 날짜순 정렬 (최신 먼저)
-    final sorted = List<OtherAsset>.from(assets)
-      ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
-
-    final grouped = <String, List<OtherAsset>>{};
-    for (final a in sorted) {
-      final key = _monthKey(a.date);
-      (grouped[key] ??= []).add(a);
-    }
-
-    return grouped.entries.expand((entry) => [
-      Padding(
-        padding: const EdgeInsets.only(bottom: 12, top: 4),
-        child: Text(
-          entry.key,
-          style: const TextStyle(fontSize: 11, letterSpacing: 2, color: Color(0xFF888888)),
-        ),
-      ),
-      ...entry.value.map(
-        (asset) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: AssetCard(
-            asset: asset,
-          ),
-        ),
-      ),
-      const SizedBox(height: 8),
-    ]).toList();
-  }
-
-  String _monthKey(String date) {
-    if (date.length < 7) return date;
-    final year = date.substring(0, 4);
-    final month = date.substring(5, 7);
-    return '$year년 $month월';
   }
 
   Widget _buildAccountFilter(List<String> accounts) {

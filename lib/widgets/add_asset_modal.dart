@@ -38,6 +38,7 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
   Currency _currency = Currency.krw;
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
+  bool _isPositive = true; // 방향: true = 입금/매수/대출/+, false = 출금/매도/상환/-
   bool _isSaving = false;
 
   @override
@@ -69,12 +70,15 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
 
     setState(() => _isSaving = true);
 
+    final rawValue = (double.tryParse(_valueController.text) ?? 0).abs();
+    final signedValue = _isPositive ? rawValue : -rawValue;
+
     final asset = OtherAsset(
       id: const Uuid().v4(),
       account: _account,
       name: _nameController.text.trim(),
       category: _category,
-      value: double.tryParse(_valueController.text) ?? 0,
+      value: signedValue,
       currency: _currency,
       date: _date.toIso8601String().substring(0, 10),
       time: '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
@@ -180,6 +184,24 @@ class _AddAssetModalState extends ConsumerState<AddAssetModal> {
                         accentColor: accentColor,
                         onTap: () =>
                             setState(() => _category = AssetCategory.other)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // 방향 (입금/출금 등)
+                _buildLabel('유형'),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _buildChip(_category.positiveLabel,
+                        isActive: _isPositive,
+                        accentColor: accentColor,
+                        onTap: () => setState(() => _isPositive = true)),
+                    const SizedBox(width: 8),
+                    _buildChip(_category.negativeLabel,
+                        isActive: !_isPositive,
+                        accentColor: const Color(0xFFE07B54),
+                        onTap: () => setState(() => _isPositive = false)),
                   ],
                 ),
                 const SizedBox(height: 16),

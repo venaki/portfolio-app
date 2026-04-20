@@ -46,6 +46,10 @@ class PortfolioState {
     this.lastUpdated,
   });
 
+  /// name + account + category 기준 통합 자산
+  List<ConsolidatedAsset> get consolidatedOtherAssets =>
+      consolidateOtherAssets(otherAssets);
+
   PortfolioState copyWith({
     List<Transaction>? transactions,
     List<Holding>? holdings,

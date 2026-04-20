@@ -55,8 +55,8 @@ class SheetsService {
         ['ticker', 'market', 'googlefinance_key', 'price', 'name', 'changepct', 'closeyest', 'currency']
       ]),
       // 환율 행 (수식은 userEnteredValue로 별도 삽입)
-      _valueRange('OtherAssets!A1:H1', [
-        ['id', 'account', 'name', 'category', 'value', 'currency', 'date', 'memo']
+      _valueRange('OtherAssets!A1:I1', [
+        ['id', 'account', 'name', 'category', 'value', 'currency', 'date', 'memo', 'time']
       ]),
       _valueRange('Settings!A1:B7', [
         ['accounts', ''],
@@ -93,7 +93,7 @@ class SheetsService {
     final ranges = [
       'Transactions!A2:Z',
       'Prices!A2:H',
-      'OtherAssets!A2:H',
+      'OtherAssets!A2:Z',
       'Settings!A1:B',
     ].map(Uri.encodeComponent).join('&ranges=');
 
@@ -136,7 +136,7 @@ class SheetsService {
 
     // OtherAssets
     final oaRows = _getRows(valueRanges[2]);
-    final otherAssets = oaRows.map((r) => OtherAsset.fromSheetRow(_padRow(r, 8))).toList();
+    final otherAssets = oaRows.map((r) => OtherAsset.fromSheetRow(_padRow(r, 9))).toList();
 
     // Settings
     final settingsRows = _getRows(valueRanges[3]);
@@ -385,7 +385,7 @@ class SheetsService {
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
     await http.post(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/OtherAssets!A:H:append?valueInputOption=RAW'),
+      Uri.parse('$_baseUrl/$_spreadsheetId/values/OtherAssets!A:Z:append?valueInputOption=RAW'),
       headers: headers,
       body: jsonEncode({'values': [asset.toSheetRow()]}),
     );
@@ -395,7 +395,7 @@ class SheetsService {
     final rowIndex = await findRowById('OtherAssets', asset.id);
     final headers = await _getAuthHeaders();
     headers['Content-Type'] = 'application/json';
-    final range = 'OtherAssets!A${rowIndex + 2}:H${rowIndex + 2}';
+    final range = 'OtherAssets!A${rowIndex + 2}:Z${rowIndex + 2}';
     await http.put(
       Uri.parse('$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=RAW'),
       headers: headers,
