@@ -31,7 +31,8 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
     }
 
     final total = consolidated.fold<double>(0.0, (sum, a) {
-      return sum + (a.category == AssetCategory.loan ? -a.totalValue.abs() : a.totalValue);
+      final raw = a.category == AssetCategory.loan ? -a.totalValue.abs() : a.totalValue;
+      return sum + (a.currency == Currency.krw ? raw : raw * portfolio.exchangeRate);
     });
 
     final isWide = MediaQuery.of(context).size.width >= 1024;
