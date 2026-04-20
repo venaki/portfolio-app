@@ -109,6 +109,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: Color(0xFF888888),
+            height: 1.0,
           ),
         ),
       ),

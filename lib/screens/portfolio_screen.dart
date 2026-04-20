@@ -797,6 +797,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: Color(0xFF888888),
+          height: 1.0,
         ),
       ),
     );
