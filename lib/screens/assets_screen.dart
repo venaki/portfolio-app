@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/other_asset.dart';
+import '../models/transaction.dart';
 import '../providers/portfolio_provider.dart';
 import '../utils/format.dart';
 import '../widgets/asset_card.dart';
