@@ -162,11 +162,6 @@ class ConsolidatedAssetCard extends StatelessWidget {
                     runSpacing: 4,
                     children: [
                       _buildTag(
-                        asset.account,
-                        bgColor: const Color(0xFF0D6E6E).withValues(alpha: 0.12),
-                        textColor: const Color(0xFF0D6E6E),
-                      ),
-                      _buildTag(
                         asset.categoryLabel,
                         bgColor: const Color(0xFFF0F0F0),
                         textColor: const Color(0xFF888888),

@@ -561,8 +561,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        _marketBadge(holding.account),
-                        const SizedBox(width: 4),
                         _marketBadge(isKR ? '한국' : '미국'),
                         if (holding.broker.isNotEmpty) ...[
                           const SizedBox(width: 4),
