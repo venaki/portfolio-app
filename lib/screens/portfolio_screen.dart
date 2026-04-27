@@ -180,7 +180,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               const SizedBox(height: 16),
             // 합계
             if (!isEditMode && (holdings.isNotEmpty || consolidatedAssets.isNotEmpty))
-              _buildSummary(holdings, consolidatedAssets, portfolio),
+              _buildSummary(
+                showOtherOnly ? <Holding>[] : holdings,
+                showStocksOnly ? <ConsolidatedAsset>[] : consolidatedAssets,
+                portfolio,
+              ),
 
             // Content
             if (isEditMode)
