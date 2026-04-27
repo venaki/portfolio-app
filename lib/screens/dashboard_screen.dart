@@ -320,6 +320,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           costKRW: existing.costKRW + costKRW,
           dailyChangeKRW: existing.dailyChangeKRW + dailyChange,
           yestValueKRW: existing.yestValueKRW + yestValue,
+          shares: (existing.shares ?? 0) + h.shares,
         );
       } else {
         map[h.ticker] = HoldingRow(
@@ -329,6 +330,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           costKRW: costKRW,
           dailyChangeKRW: dailyChange,
           yestValueKRW: yestValue,
+          shares: h.shares,
         );
       }
     }

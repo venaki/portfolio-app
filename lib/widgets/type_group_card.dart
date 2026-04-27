@@ -10,6 +10,7 @@ class HoldingRow {
   final double costKRW;
   final double dailyChangeKRW;
   final double yestValueKRW;
+  final double? shares;
 
   const HoldingRow({
     required this.name,
@@ -18,6 +19,7 @@ class HoldingRow {
     required this.costKRW,
     required this.dailyChangeKRW,
     required this.yestValueKRW,
+    this.shares,
   });
 
   double get profitKRW => valueKRW - costKRW;
@@ -132,7 +134,12 @@ class TypeGroupCard extends StatelessWidget {
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (item.ticker != item.name)
+                if (item.shares != null)
+                  Text(
+                    '${item.ticker} x ${formatShares(item.shares!)}주',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+                  )
+                else if (item.ticker != item.name)
                   Text(
                     item.ticker,
                     style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
