@@ -17,6 +17,12 @@ const _devMode = bool.fromEnvironment('DEV_MODE');
 /// 대시보드 뷰 모드 (By Account / By Type)
 final dashboardViewModeProvider = StateProvider<String>((ref) => 'By Account');
 
+/// 대시보드 분석 탭 (현황 / 추이 / 비중)
+final dashboardAnalysisTabProvider = StateProvider<String>((ref) => '현황');
+
+/// 대시보드 비중 탭 뷰 모드 (종목별 / 유형별 / 계좌별)
+final dashboardAllocationModeProvider = StateProvider<String>((ref) => '종목별');
+
 final sheetsServiceProvider = Provider<SheetsService>((ref) {
   if (_devMode) return MockSheetsService();
   final authService = ref.read(authServiceProvider);
@@ -75,9 +81,10 @@ class PortfolioState {
   }
 }
 
-final portfolioProvider = StateNotifierProvider<PortfolioNotifier, PortfolioState>((ref) {
-  return PortfolioNotifier(ref.read(sheetsServiceProvider));
-});
+final portfolioProvider =
+    StateNotifierProvider<PortfolioNotifier, PortfolioState>((ref) {
+      return PortfolioNotifier(ref.read(sheetsServiceProvider));
+    });
 
 class PortfolioNotifier extends StateNotifier<PortfolioState> {
   final SheetsService _sheets;
@@ -151,7 +158,9 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
     state = state.copyWith(isLoading: true);
     try {
       final data = force
-          ? await _sheets.forceRefreshPrices(waitSeconds: state.settings.forceRefreshWait)
+          ? await _sheets.forceRefreshPrices(
+              waitSeconds: state.settings.forceRefreshWait,
+            )
           : await _sheets.loadPrices();
       final quotesMap = {for (final q in data.quotes) q.ticker: q};
       state = state.copyWith(
@@ -190,7 +199,9 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
   /// update transaction
   Future<void> updateTransaction(Transaction tx) async {
     await _sheets.updateTransaction(tx);
-    final newTxs = state.transactions.map((t) => t.id == tx.id ? tx : t).toList();
+    final newTxs = state.transactions
+        .map((t) => t.id == tx.id ? tx : t)
+        .toList();
     final newHoldings = replayTransactions(newTxs);
     state = state.copyWith(transactions: newTxs, holdings: newHoldings);
     refreshPrices();
@@ -213,7 +224,9 @@ class PortfolioNotifier extends StateNotifier<PortfolioState> {
 
   Future<void> updateOtherAsset(OtherAsset asset) async {
     await _sheets.updateOtherAsset(asset);
-    final newOa = state.otherAssets.map((a) => a.id == asset.id ? asset : a).toList();
+    final newOa = state.otherAssets
+        .map((a) => a.id == asset.id ? asset : a)
+        .toList();
     state = state.copyWith(otherAssets: newOa);
     refreshPrices();
   }
