@@ -1,1260 +1,830 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/transaction.dart';
-import '../models/stock_quote.dart';
-import '../models/other_asset.dart';
 import '../models/app_settings.dart';
+import '../models/other_asset.dart';
 import '../models/portfolio_snapshot.dart';
+import '../models/stock_quote.dart';
+import '../models/transaction.dart';
+import 'historical_prices.dart';
+import 'portfolio_backup.dart';
+import 'sheets_api_client.dart';
+export 'historical_prices.dart';
+export 'sheets_api_client.dart' show SheetsApiException;
 
+typedef PortfolioData = ({
+  List<Transaction> transactions,
+  List<StockQuote> quotes,
+  double exchangeRate,
+  List<OtherAsset> otherAssets,
+  AppSettings settings,
+});
+typedef PriceData = ({List<StockQuote> quotes, double exchangeRate});
+
+/// A connected instance owns one spreadsheet for its entire lifetime.
 class SheetsService {
   static const _baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets';
-  static const _snapshotsSheetName = 'Snapshots';
-  static const _backfillTempSheetName = 'BackfillTemp';
-  static const _snapshotHeaders = [
-    'id',
-    'date',
-    'totalValueKRW',
-    'totalCostKRW',
-    'profitKRW',
-    'profitPct',
-    'dailyChangeKRW',
-    'dailyChangePct',
-    'exchangeRate',
-    'source',
-    'createdAt',
-    'schemaVersion',
+  static const _priceHeaders = [
+    'ticker',
+    'market',
+    'googlefinance_key',
+    'price',
+    'name',
+    'changepct',
+    'closeyest',
+    'currency',
   ];
-
-  final Future<Map<String, String>> Function() _getAuthHeaders;
+  static const _historicalHeaders = ['date', 'ticker', 'price'];
+  final SheetsApiClient _api;
   String? _spreadsheetId;
+  String? spreadsheetName;
+  final List<String> dataIssues = [];
+  final List<String> snapshotIssues = [];
+  bool exchangeRateValid = false;
+  String? historyDirtyFrom;
+  bool _schemaReady = false;
+  Map<String, Map<String, dynamic>> _sheetProperties = {};
+  final Map<String, List<String>> _loadedRows = {};
+  Future<void> _writeTail = Future.value();
 
   SheetsService({
     required Future<Map<String, String>> Function() getAuthHeaders,
-  }) : _getAuthHeaders = getAuthHeaders;
-
+    http.Client? client,
+    String? spreadsheetId,
+    void Function()? onUnauthorized,
+  }) : _api = SheetsApiClient(
+         getAuthHeaders: getAuthHeaders,
+         client: client,
+         onUnauthorized: onUnauthorized,
+       ),
+       _spreadsheetId = spreadsheetId;
+  SheetsService._session(this._api, this._spreadsheetId);
   String? get spreadsheetId => _spreadsheetId;
+  SheetsService forSpreadsheet(String id) {
+    _validateId(id);
+    return SheetsService._session(_api, id);
+  }
 
-  void setSpreadsheetId(String id) => _spreadsheetId = id;
+  void setSpreadsheetId(String id) {
+    _validateId(id);
+    if (_spreadsheetId != null && _spreadsheetId != id) {
+      throw StateError('새 시트에는 별도의 저장소 연결이 필요합니다.');
+    }
+    _spreadsheetId = id;
+  }
 
-  // ─── Spreadsheet 생성 ───
+  void close() => _api.close();
+  static void _validateId(String id) {
+    if (!RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(id)) {
+      throw const FormatException('올바른 스프레드시트 ID를 입력해 주세요.');
+    }
+  }
 
-  /// 새 스프레드시트 생성 + 기본 시트 + 헤더 + 환율 행
+  String get _id => _spreadsheetId ?? (throw StateError('스프레드시트를 먼저 연결해 주세요.'));
+  Uri _url(String suffix, [Map<String, String>? query]) =>
+      Uri.parse('$_baseUrl/$_id$suffix').replace(queryParameters: query);
+  Future<T> _write<T>(Future<T> Function() action) {
+    final result = _writeTail.then((_) => action());
+    _writeTail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return result;
+  }
+
   Future<String> createSpreadsheet() async {
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-
-    // 1. 스프레드시트 생성
-    final createRes = await http.post(
+    final data = await _api.request(
+      'POST',
       Uri.parse(_baseUrl),
-      headers: headers,
-      body: jsonEncode({
+      body: {
         'properties': {'title': 'Portfolio DB'},
         'sheets': [
-          {
-            'properties': {'title': 'Transactions'},
-          },
-          {
-            'properties': {'title': 'Prices'},
-          },
-          {
-            'properties': {'title': 'OtherAssets'},
-          },
-          {
-            'properties': {'title': 'Settings'},
-          },
-          {
-            'properties': {'title': _snapshotsSheetName},
-          },
+          for (final title in [
+            'Transactions',
+            'Prices',
+            'OtherAssets',
+            'Settings',
+            'Snapshots',
+            'HistoricalPrices',
+          ])
+            {
+              'properties': {'title': title},
+            },
         ],
-      }),
+      },
     );
-    if (createRes.statusCode != 200) {
-      throw Exception('Failed to create spreadsheet: ${createRes.body}');
-    }
-    final created = jsonDecode(createRes.body);
-    final id = created['spreadsheetId'] as String;
-    _spreadsheetId = id;
-
-    // 2. 헤더 + 초기 데이터 삽입
-    await _batchUpdate(id, headers, [
-      _valueRange('Transactions!A1:M1', [
-        [
-          'id',
-          'date',
-          'account',
-          'type',
-          'ticker',
-          'market',
-          'name',
-          'shares',
-          'price',
-          'currency',
-          'exchangeRate',
-          'memo',
-          'broker',
-        ],
-      ]),
-      _valueRange('Prices!A1:H1', [
-        [
-          'ticker',
-          'market',
-          'googlefinance_key',
-          'price',
-          'name',
-          'changepct',
-          'closeyest',
-          'currency',
-        ],
-      ]),
-      // 환율 행 (수식은 userEnteredValue로 별도 삽입)
-      _valueRange('OtherAssets!A1:I1', [
-        [
-          'id',
-          'account',
-          'name',
-          'category',
-          'value',
-          'currency',
-          'date',
-          'memo',
-          'time',
-        ],
-      ]),
-      _valueRange('Settings!A1:B7', [
-        ['accounts', ''],
-        ['brokers', ''],
-        ['base_currency', 'KRW'],
-        ['accent_color', '#0D6E6E'],
-        ['refresh_interval', '60'],
-        ['version', '1'],
-        ['exchange_rate', ''],
-      ]),
-      _valueRange('$_snapshotsSheetName!A1:L1', [_snapshotHeaders]),
+    final id = data['spreadsheetId'] as String?;
+    if (id == null) throw const SheetsApiException('새 시트의 ID를 확인할 수 없습니다.');
+    final session = forSpreadsheet(id);
+    await session._batchValues([
+      _values('Transactions!A1', [Transaction.sheetHeaders]),
+      _values('Prices!A1', [_priceHeaders]),
+      _values('OtherAssets!A1', [OtherAsset.sheetHeaders]),
+      _values(
+        'Settings!A1',
+        const AppSettings()
+            .toSheetRows()
+            .where((r) => r.first != 'exchange_rate')
+            .toList(),
+      ),
+      _values('Snapshots!A1', [PortfolioSnapshot.sheetHeaders]),
+      _values('HistoricalPrices!A1', [_historicalHeaders]),
     ]);
-
-    // 3. Prices 시트에 환율 GOOGLEFINANCE 수식 삽입
-    await _insertPriceFormula(
-      id,
-      headers,
-      'USDKRW',
-      'FX',
-      'CURRENCY:USDKRW',
-      'KRW',
+    await session.addPriceRow('USDKRW', 'FX', 'KRW');
+    await session._saveSettingValues(
+      {'exchange_rate': '=GOOGLEFINANCE("CURRENCY:USDKRW")'},
+      formulaKeys: {'exchange_rate'},
     );
-
-    // 4. Settings 시트에 환율 GOOGLEFINANCE 수식 삽입
-    await _insertSettingsExchangeRate(id, headers);
-
     return id;
   }
 
-  // ─── BatchGet (초기 로드) ───
-
-  /// 4개 시트를 한 번에 읽기
-  Future<
-    ({
-      List<Transaction> transactions,
-      List<StockQuote> quotes,
-      double exchangeRate,
-      List<OtherAsset> otherAssets,
-      AppSettings settings,
-    })
-  >
-  loadAll() async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    final ranges = [
-      'Transactions!A2:Z',
-      'Prices!A2:H',
-      'OtherAssets!A2:Z',
-      'Settings!A1:B',
-    ].map(Uri.encodeComponent).join('&ranges=');
-
-    final res = await http.get(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&ranges=$ranges',
-      ),
-      headers: headers,
+  Future<void> _inspect() async {
+    final meta = await _api.request(
+      'GET',
+      _url('', {'fields': 'properties.title,sheets.properties'}),
     );
-    if (res.statusCode != 200) throw Exception('batchGet failed: ${res.body}');
-
-    final data = jsonDecode(res.body);
-    final valueRanges = data['valueRanges'] as List;
-
-    // Transactions
-    final txRows = _getRows(valueRanges[0]);
-    final transactions = txRows
-        .map((r) => Transaction.fromSheetRow(_padRow(r, 13)))
-        .toList();
-
-    // Prices → quotes + exchangeRate
-    final priceRows = _getRows(valueRanges[1]);
-    final quotes = <StockQuote>[];
-    double exchangeRate = 1450;
-    bool hasFxRow = false;
-    for (final row in priceRows) {
-      final padded = _padRow(row, 8);
-      if (padded[1] == 'FX') {
-        hasFxRow = true;
-        exchangeRate = double.tryParse(padded[3]) ?? 1450;
-      } else {
-        quotes.add(StockQuote.fromSheetRow(padded));
+    spreadsheetName = (meta['properties'] as Map?)?['title'] as String?;
+    _sheetProperties = {
+      for (final sheet in (meta['sheets'] as List? ?? []))
+        sheet['properties']['title'] as String: Map<String, dynamic>.from(
+          sheet['properties'] as Map,
+        ),
+    };
+    for (final name in ['Transactions', 'Prices', 'OtherAssets', 'Settings']) {
+      if (!_sheetProperties.containsKey(name)) {
+        throw FormatException('Portfolio 형식의 시트가 아닙니다: $name 시트가 없습니다.');
       }
     }
+  }
 
-    // FX 행이 없으면 자동 삽입
-    if (!hasFxRow) {
-      final authHeaders = await _getAuthHeaders();
-      authHeaders['Content-Type'] = 'application/json';
-      await _insertPriceFormula(
-        _spreadsheetId!,
-        authHeaders,
-        'USDKRW',
-        'FX',
-        'CURRENCY:USDKRW',
-        'KRW',
-      );
+  Future<void> _ensureSchema() async {
+    if (_schemaReady) return;
+    await _inspect();
+    for (final entry in {
+      'Snapshots': PortfolioSnapshot.sheetHeaders,
+      'HistoricalPrices': _historicalHeaders,
+    }.entries) {
+      if (!_sheetProperties.containsKey(entry.key)) {
+        final result = await _api.request(
+          'POST',
+          _url(':batchUpdate'),
+          body: {
+            'requests': [
+              {
+                'addSheet': {
+                  'properties': {'title': entry.key},
+                },
+              },
+            ],
+          },
+        );
+        final props = result['replies']?[0]?['addSheet']?['properties'];
+        if (props is Map) {
+          _sheetProperties[entry.key] = Map<String, dynamic>.from(props);
+        }
+        await _putValues('${entry.key}!A1', [entry.value]);
+      }
     }
+    _schemaReady = true;
+  }
 
-    // OtherAssets
-    final oaRows = _getRows(valueRanges[2]);
-    final otherAssets = oaRows
-        .map((r) => OtherAsset.fromSheetRow(_padRow(r, 9)))
-        .toList();
-
-    // Settings
-    final settingsRows = _getRows(valueRanges[3]);
-    final settings = AppSettings.fromSheetRows(
-      settingsRows.map((r) => _padRow(r, 2)).toList(),
+  Future<PortfolioData> loadAll() async {
+    final ranges = await _batchGet([
+      'Transactions!A1:Z',
+      'Prices!A1:H',
+      'OtherAssets!A1:Z',
+      'Settings!A1:B',
+    ]);
+    dataIssues.clear();
+    _loadedRows.clear();
+    _validateHeader(
+      ranges[0],
+      Transaction.sheetHeaders,
+      'Transactions',
+      minColumns: 11,
     );
-
-    // Settings의 환율 우선, 없으면 Prices FX 행 fallback
-    final finalExchangeRate = settings.exchangeRate ?? exchangeRate;
-
-    // 기존 시트에 Settings exchange_rate가 없으면 자동 추가
-    if (settings.exchangeRate == null) {
-      final authHeaders = await _getAuthHeaders();
-      authHeaders['Content-Type'] = 'application/json';
-      await _insertSettingsExchangeRate(_spreadsheetId!, authHeaders);
-    }
-
-    await _ensureSnapshotsSheet();
-
+    _validateHeader(ranges[1], _priceHeaders, 'Prices');
+    _validateHeader(
+      ranges[2],
+      OtherAsset.sheetHeaders,
+      'OtherAssets',
+      minColumns: 7,
+    );
+    final transactions = _parseRows(
+      ranges[0].skip(1),
+      'Transactions',
+      Transaction.fromSheetRow,
+    );
+    final assets = _parseRows(
+      ranges[2].skip(1),
+      'OtherAssets',
+      OtherAsset.fromSheetRow,
+    );
+    final settings = AppSettings.fromSheetRows(ranges[3]);
+    historyDirtyFrom = _setting(ranges[3], 'history_dirty_from');
+    final prices = _parsePrices(ranges[1].skip(1), settings);
+    await _inspect();
     return (
       transactions: transactions,
-      quotes: quotes,
-      exchangeRate: finalExchangeRate,
-      otherAssets: otherAssets,
+      quotes: prices.quotes,
+      exchangeRate: prices.exchangeRate,
+      otherAssets: assets,
       settings: settings,
     );
   }
 
-  // ─── Prices 시트 읽기 (시세 갱신용) ───
-
-  Future<({List<StockQuote> quotes, double exchangeRate})> loadPrices() async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    final ranges = [
-      'Prices!A2:H',
-      'Settings!A1:B',
-    ].map(Uri.encodeComponent).join('&ranges=');
-
-    final res = await http.get(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&ranges=$ranges',
-      ),
-      headers: headers,
-    );
-    if (res.statusCode != 200) {
-      throw Exception('loadPrices failed: ${res.body}');
+  static void _validateHeader(
+    List<List<String>> rows,
+    List<String> expected,
+    String sheet, {
+    int? minColumns,
+  }) {
+    final count = minColumns ?? expected.length;
+    if (rows.isEmpty || rows.first.length < count) {
+      throw FormatException('$sheet 헤더를 확인해 주세요.');
     }
+    final present = rows.first.length < expected.length
+        ? rows.first.length
+        : expected.length;
+    for (var i = 0; i < present; i++) {
+      if (rows.first[i].trim() != expected[i]) {
+        throw FormatException('$sheet ${i + 1}번째 열은 ${expected[i]}이어야 합니다.');
+      }
+    }
+  }
 
-    final data = jsonDecode(res.body);
-    final valueRanges = data['valueRanges'] as List;
-
-    // Prices → quotes + FX fallback
-    final rows = _getRows(valueRanges[0]);
-    final quotes = <StockQuote>[];
-    double exchangeRate = 1450;
+  List<T> _parseRows<T>(
+    Iterable<List<String>> rows,
+    String sheet,
+    T Function(List<String>) parse, {
+    List<String>? issues,
+  }) {
+    final errors = issues ?? dataIssues;
+    final result = <T>[];
+    final seen = <String>{};
+    var rowNumber = 1;
     for (final row in rows) {
-      final padded = _padRow(row, 8);
-      if (padded[1] == 'FX') {
-        exchangeRate = double.tryParse(padded[3]) ?? 1450;
+      rowNumber++;
+      if (row.every((c) => c.trim().isEmpty)) continue;
+      try {
+        if (row.isEmpty || row.first.isEmpty || !seen.add(row.first)) {
+          throw const FormatException('ID가 없거나 중복되어 있습니다.');
+        }
+        result.add(parse(row));
+        _loadedRows['$sheet/${row.first}'] = [...row];
+      } on FormatException catch (e) {
+        errors.add('$sheet $rowNumber행: ${e.message}');
+      } on RangeError {
+        errors.add('$sheet $rowNumber행: 필수 열이 누락되었습니다.');
+      }
+    }
+    return result;
+  }
+
+  PriceData _parsePrices(Iterable<List<String>> rows, AppSettings settings) {
+    final quotes = <StockQuote>[];
+    var rate = settings.exchangeRate;
+    for (final raw in rows) {
+      if (raw.every((c) => c.isEmpty)) continue;
+      final row = _pad(raw, 8);
+      if (row[1] == 'FX') {
+        rate ??= double.tryParse(row[3]);
       } else {
-        quotes.add(StockQuote.fromSheetRow(padded));
+        quotes.add(StockQuote.fromSheetRow(row));
       }
     }
-
-    // Settings에서 환율 읽기 (우선)
-    final settingsRows = _getRows(valueRanges[1]);
-    final settings = AppSettings.fromSheetRows(
-      settingsRows.map((r) => _padRow(r, 2)).toList(),
-    );
-    if (settings.exchangeRate != null) {
-      exchangeRate = settings.exchangeRate!;
-    }
-
-    return (quotes: quotes, exchangeRate: exchangeRate);
+    exchangeRateValid = rate != null && rate.isFinite && rate > 0;
+    return (quotes: quotes, exchangeRate: exchangeRateValid ? rate! : 0);
   }
 
-  // ─── 강제 시세 갱신 ───
+  Future<PriceData> loadPrices() async {
+    final ranges = await _batchGet(['Prices!A2:H', 'Settings!A1:B']);
+    return _parsePrices(ranges[0], AppSettings.fromSheetRows(ranges[1]));
+  }
 
-  /// GOOGLEFINANCE 수식 셀만 변조 → 복원하여 캐시 클리어 시도 (best-effort)
-  Future<({List<StockQuote> quotes, double exchangeRate})> forceRefreshPrices({
-    int waitSeconds = 3,
-  }) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
+  /// Refresh never intentionally edits or breaks source formulas.
+  Future<PriceData> forceRefreshPrices({int waitSeconds = 3}) => loadPrices();
 
-    // 1. Prices + Settings 수식을 동시 읽기
-    final ranges = [
-      'Prices!A2:H',
-      'Settings!A1:B',
-    ].map(Uri.encodeComponent).join('&ranges=');
-    final res = await http.get(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values:batchGet?valueRenderOption=FORMULA&ranges=$ranges',
-      ),
-      headers: headers,
-    );
-    if (res.statusCode != 200) return loadPrices();
-
-    final valueRanges = (jsonDecode(res.body)['valueRanges'] as List);
-    final priceRows = _getRows(valueRanges[0]);
-    final settingsRows = _getRows(valueRanges[1]);
-
-    // 2. GOOGLEFINANCE 수식 셀만 감지하여 break/restore 데이터 구성
-    final breakData = <Map<String, dynamic>>[];
-    final restoreData = <Map<String, dynamic>>[];
-
-    // Prices 시트: 수식 셀만 개별 범위로
-    for (int i = 0; i < priceRows.length; i++) {
-      for (int j = 0; j < priceRows[i].length; j++) {
-        final cell = priceRows[i][j].toString();
-        if (cell.startsWith('=') && cell.contains('GOOGLEFINANCE')) {
-          final col = String.fromCharCode('A'.codeUnitAt(0) + j);
-          final range = 'Prices!$col${i + 2}';
-          restoreData.add({
-            'range': range,
-            'values': [
-              [cell],
-            ],
-          });
-          breakData.add({
-            'range': range,
-            'values': [
-              [_breakFormula(cell)],
-            ],
-          });
-        }
+  Future<void> addTransaction(Transaction tx) => _write(() async {
+    Transaction.fromSheetRow(tx.toSheetRow());
+    await _appendUnique('Transactions', tx.id, tx.toSheetRow());
+  });
+  Future<void> updateTransaction(Transaction tx) => _write(() async {
+    Transaction.fromSheetRow(tx.toSheetRow());
+    await _updateRecord('Transactions', tx.id, tx.toSheetRow());
+  });
+  Future<void> deleteTransaction(String id) =>
+      _write(() => _deleteRecord('Transactions', id));
+  Future<void> addOtherAsset(OtherAsset asset) => _write(() async {
+    OtherAsset.fromSheetRow(asset.toSheetRow());
+    await _appendUnique('OtherAssets', asset.id, asset.toSheetRow());
+  });
+  Future<void> updateOtherAsset(OtherAsset asset) => _write(() async {
+    OtherAsset.fromSheetRow(asset.toSheetRow());
+    await _updateRecord('OtherAssets', asset.id, asset.toSheetRow());
+  });
+  Future<void> deleteOtherAsset(String id) =>
+      _write(() => _deleteRecord('OtherAssets', id));
+  Future<void> _appendUnique(String sheet, String id, List<String> row) async {
+    final rows = await _getValues('$sheet!A2:Z');
+    final existing = rows.where((r) => r.isNotEmpty && r.first == id).toList();
+    if (existing.isNotEmpty) {
+      if (existing.length == 1 && _sameRow(existing.single, row)) {
+        _loadedRows['$sheet/$id'] = [...row];
+        return;
       }
+      throw const SheetsApiException('같은 ID의 다른 데이터가 있습니다. 다시 불러와 주세요.');
     }
-
-    // Settings 시트: exchange_rate 행의 B열
-    for (int i = 0; i < settingsRows.length; i++) {
-      if (settingsRows[i].isNotEmpty &&
-          settingsRows[i][0].toString() == 'exchange_rate' &&
-          settingsRows[i].length >= 2) {
-        final cell = settingsRows[i][1].toString();
-        if (cell.startsWith('=') && cell.contains('GOOGLEFINANCE')) {
-          final range = 'Settings!B${i + 1}';
-          restoreData.add({
-            'range': range,
-            'values': [
-              [cell],
-            ],
-          });
-          breakData.add({
-            'range': range,
-            'values': [
-              [_breakFormula(cell)],
-            ],
-          });
-        }
-      }
-    }
-
-    // 수식 셀이 없으면 바로 loadPrices
-    if (breakData.isEmpty) return loadPrices();
-
-    final batchUrl = '$_baseUrl/$_spreadsheetId/values:batchUpdate';
-
-    // 3. 변조된 수식 쓰기
-    final breakRes = await http.post(
-      Uri.parse(batchUrl),
-      headers: headers,
-      body: jsonEncode({'valueInputOption': 'USER_ENTERED', 'data': breakData}),
-    );
-    if (breakRes.statusCode != 200) {
-      throw Exception('Force refresh break failed: ${breakRes.statusCode}');
-    }
-
-    // 4. 대기 후 원본 수식 복원
-    await Future.delayed(Duration(seconds: waitSeconds));
-    var restoreRes = await http.post(
-      Uri.parse(batchUrl),
-      headers: headers,
-      body: jsonEncode({
-        'valueInputOption': 'USER_ENTERED',
-        'data': restoreData,
-      }),
-    );
-    // 복원 실패 시 1회 재시도
-    if (restoreRes.statusCode != 200) {
-      await Future.delayed(const Duration(seconds: 1));
-      restoreRes = await http.post(
-        Uri.parse(batchUrl),
-        headers: headers,
-        body: jsonEncode({
-          'valueInputOption': 'USER_ENTERED',
-          'data': restoreData,
-        }),
-      );
-      if (restoreRes.statusCode != 200) {
-        throw Exception(
-          'Force refresh restore failed: ${restoreRes.statusCode}. '
-          '수식이 변조된 상태일 수 있습니다.',
-        );
-      }
-    }
-
-    // 5. 재계산 대기 후 값 읽기
-    await Future.delayed(Duration(seconds: waitSeconds));
-    return loadPrices();
+    await _appendValues('$sheet!A:Z', [row]);
+    _loadedRows['$sheet/$id'] = [...row];
   }
 
-  /// GOOGLEFINANCE 수식의 티커를 1자 잘라서 변조
-  String _breakFormula(String formula) {
-    return formula.replaceAllMapped(RegExp(r'GOOGLEFINANCE\("([^"]{2,})"'), (
-      m,
-    ) {
-      final ticker = m.group(1)!;
-      return 'GOOGLEFINANCE("${ticker.substring(0, ticker.length - 1)}"';
-    });
-  }
-
-  // ─── Transaction CRUD ───
-
-  Future<void> addTransaction(Transaction tx) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    await http.post(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/Transactions!A:Z:append?valueInputOption=RAW',
-      ),
-      headers: headers,
-      body: jsonEncode({
-        'values': [tx.toSheetRow()],
-      }),
-    );
-  }
-
-  Future<void> updateTransaction(Transaction tx) async {
-    final rowIndex = await findRowById('Transactions', tx.id);
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    final range = 'Transactions!A${rowIndex + 2}:Z${rowIndex + 2}';
-    await http.put(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=RAW',
-      ),
-      headers: headers,
-      body: jsonEncode({
-        'values': [tx.toSheetRow()],
-      }),
-    );
-  }
-
-  Future<void> deleteTransaction(String id) async {
-    final rowIndex = await findRowById('Transactions', id);
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    final metaRes = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId?fields=sheets.properties'),
-      headers: headers,
-    );
-    final meta = jsonDecode(metaRes.body);
-    final sheets = meta['sheets'] as List;
-    final txSheetId = (sheets.firstWhere(
-      (s) => s['properties']['title'] == 'Transactions',
-    ))['properties']['sheetId'];
-    await http.post(
-      Uri.parse('$_baseUrl/$_spreadsheetId:batchUpdate'),
-      headers: headers,
-      body: jsonEncode({
-        'requests': [
-          {
-            'deleteDimension': {
-              'range': {
-                'sheetId': txSheetId,
-                'dimension': 'ROWS',
-                'startIndex': rowIndex + 1,
-                'endIndex': rowIndex + 2,
-              },
-            },
-          },
-        ],
-      }),
-    );
-  }
-
-  // ─── OtherAsset CRUD ───
-
-  Future<void> addOtherAsset(OtherAsset asset) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    await http.post(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/OtherAssets!A:Z:append?valueInputOption=RAW',
-      ),
-      headers: headers,
-      body: jsonEncode({
-        'values': [asset.toSheetRow()],
-      }),
-    );
-  }
-
-  Future<void> updateOtherAsset(OtherAsset asset) async {
-    final rowIndex = await findRowById('OtherAssets', asset.id);
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    final range = 'OtherAssets!A${rowIndex + 2}:Z${rowIndex + 2}';
-    await http.put(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent(range)}?valueInputOption=RAW',
-      ),
-      headers: headers,
-      body: jsonEncode({
-        'values': [asset.toSheetRow()],
-      }),
-    );
-  }
-
-  Future<void> deleteOtherAsset(String id) async {
-    final rowIndex = await findRowById('OtherAssets', id);
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    final metaRes = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId?fields=sheets.properties'),
-      headers: headers,
-    );
-    final meta = jsonDecode(metaRes.body);
-    final sheets = meta['sheets'] as List;
-    final oaSheetId = (sheets.firstWhere(
-      (s) => s['properties']['title'] == 'OtherAssets',
-    ))['properties']['sheetId'];
-    await http.post(
-      Uri.parse('$_baseUrl/$_spreadsheetId:batchUpdate'),
-      headers: headers,
-      body: jsonEncode({
-        'requests': [
-          {
-            'deleteDimension': {
-              'range': {
-                'sheetId': oaSheetId,
-                'dimension': 'ROWS',
-                'startIndex': rowIndex + 1,
-                'endIndex': rowIndex + 2,
-              },
-            },
-          },
-        ],
-      }),
-    );
-  }
-
-  // ─── Prices 시트에 GOOGLEFINANCE 수식 행 추가 ───
-
-  Future<void> addPriceRow(
-    String ticker,
-    String market,
-    String currency,
+  Future<({int index, List<String> row})> _findRecord(
+    String sheet,
+    String id,
   ) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-
-    // 한국 주식: 6자리 정규화 + IFERROR로 KRX/KOSDAQ 둘 다 시도
-    final isKorean = market == 'KRX' || market == 'KOSDAQ';
-    if (isKorean && RegExp(r'^\d+$').hasMatch(ticker) && ticker.length < 6) {
-      ticker = ticker.padLeft(6, '0');
+    final rows = await _getValues('$sheet!A2:Z');
+    final matches = rows.indexed
+        .where((e) => e.$2.isNotEmpty && e.$2.first == id)
+        .toList();
+    if (matches.length != 1) {
+      throw const SheetsApiException('대상 데이터가 삭제되었거나 중복되었습니다. 다시 불러와 주세요.');
     }
-    final gfKey = isKorean ? 'KRX:$ticker' : ticker;
+    final entry = matches.single, expected = _loadedRows['$sheet/$id'];
+    if (expected != null && !_sameRow(expected, entry.$2)) {
+      throw const SheetsApiException('다른 곳에서 수정한 데이터입니다. 다시 불러온 뒤 수정해 주세요.');
+    }
+    return (index: entry.$1, row: entry.$2);
+  }
 
-    await _insertPriceFormula(
-      _spreadsheetId!,
-      headers,
-      ticker,
+  Future<void> _updateRecord(String sheet, String id, List<String> row) async {
+    final found = await _findRecord(sheet, id);
+    final range = '$sheet!A${found.index + 2}:Z${found.index + 2}';
+    final latest = await _getValues(range);
+    if (latest.length != 1 || !_sameRow(latest.single, found.row)) {
+      throw const SheetsApiException('행 위치가 변경되었습니다. 다시 불러와 주세요.');
+    }
+    await _putValues(range, [_pad(row, 26)]);
+    _loadedRows['$sheet/$id'] = [...row];
+  }
+
+  Future<void> _deleteRecord(String sheet, String id) async {
+    final found = await _findRecord(sheet, id);
+    final range = '$sheet!A${found.index + 2}:Z${found.index + 2}';
+    final latest = await _getValues(range);
+    if (latest.length != 1 || !_sameRow(latest.single, found.row)) {
+      throw const SheetsApiException('행 위치가 변경되었습니다. 다시 불러와 주세요.');
+    }
+    // A tombstone does not shift other clients' row numbers.
+    await _putValues(range, [List.filled(26, '')]);
+    _loadedRows.remove('$sheet/$id');
+  }
+
+  Future<int> findRowById(String sheetName, String id) async =>
+      (await _findRecord(sheetName, id)).index;
+
+  Future<void> addPriceRow(String ticker, String market, String currency) =>
+      _write(() async {
+        final row = _priceRow(ticker, market, currency);
+        final existing = await _getValues('Prices!A2:H');
+        if (existing.any(
+          (r) =>
+              r.length >= 2 &&
+              _normalizeTicker(r[0], r[1]) == ticker &&
+              r[1] == market,
+        )) {
+          return;
+        }
+        await _appendValues('Prices!A:H', [row], userEntered: true);
+      });
+  static String _normalizeTicker(String ticker, String market) =>
+      (market == 'KRX' || market == 'KOSDAQ') &&
+          RegExp(r'^\d+$').hasMatch(ticker)
+      ? ticker.padLeft(6, '0')
+      : ticker;
+  static List<String> _priceRow(String ticker, String market, String currency) {
+    final korean = market == 'KRX' || market == 'KOSDAQ';
+    if ((korean && !RegExp(r'^\d{6}$').hasMatch(ticker)) ||
+        (!korean && !RegExp(r'^[A-Z0-9.^:=-]{1,30}$').hasMatch(ticker))) {
+      throw const FormatException('종목 코드 형식이 올바르지 않습니다.');
+    }
+    if (!['US', 'KRX', 'KOSDAQ', 'FX'].contains(market)) {
+      throw const FormatException('지원하지 않는 시장입니다.');
+    }
+    if (market == 'FX') {
+      return [
+        'USDKRW',
+        'FX',
+        'CURRENCY:USDKRW',
+        '=GOOGLEFINANCE("CURRENCY:USDKRW")',
+        '',
+        '',
+        '',
+        'KRW',
+      ];
+    }
+    final key = korean ? '$market:$ticker' : ticker;
+    String formula(String attribute) => '=GOOGLEFINANCE("$key","$attribute")';
+    return [
+      korean ? "'$ticker" : ticker,
       market,
-      gfKey,
+      key,
+      formula('price'),
+      formula('name'),
+      formula('changepct'),
+      formula('closeyest'),
       currency,
-      isKorean: isKorean,
-    );
+    ];
   }
 
-  // ─── Settings 업데이트 ───
-
-  Future<void> saveSettings(AppSettings settings) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-
-    // USER_ENTERED로 쓰기 (GOOGLEFINANCE 수식 보존)
+  Future<void> saveSettings(AppSettings settings) => _write(() async {
     final rows = settings.toSheetRows();
-    final endRow = rows.length;
-    await http.put(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("Settings!A1:B$endRow")}?valueInputOption=USER_ENTERED',
-      ),
-      headers: headers,
-      body: jsonEncode({'values': rows}),
-    );
-  }
-
-  // ─── Snapshots ───
-
-  Future<List<PortfolioSnapshot>> loadSnapshots() async {
-    _ensureId();
-    await _ensureSnapshotsSheet();
-
-    final headers = await _getAuthHeaders();
-    final range = Uri.encodeComponent('$_snapshotsSheetName!A2:L');
-    final res = await http.get(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/$range?valueRenderOption=UNFORMATTED_VALUE',
-      ),
-      headers: headers,
-    );
-    if (res.statusCode != 200) {
-      throw Exception('loadSnapshots failed: ${res.body}');
-    }
-
-    final data = jsonDecode(res.body);
-    final rows = _getRows(data);
-    final snapshots =
-        rows
-            .map((row) => PortfolioSnapshot.fromSheetRow(_padRow(row, 12)))
-            .where((snapshot) => snapshot.date.isNotEmpty)
-            .toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
-    return snapshots;
-  }
-
-  Future<void> upsertSnapshot(PortfolioSnapshot snapshot) async {
-    _ensureId();
-    await _ensureSnapshotsSheet();
-
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    final rowIndex = await _findSnapshotRowByDate(snapshot.date);
-    final appendRange = Uri.encodeComponent('$_snapshotsSheetName!A:L');
-    final methodUrl = rowIndex == null
-        ? '$_baseUrl/$_spreadsheetId/values/$appendRange:append?valueInputOption=RAW'
-        : '$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("$_snapshotsSheetName!A$rowIndex:L$rowIndex")}?valueInputOption=RAW';
-    final body = jsonEncode({
-      'values': [snapshot.toSheetRow()],
+    AppSettings.fromSheetRows(rows);
+    await _saveSettingValues({
+      for (final r in rows)
+        if (r.first != 'exchange_rate') r[0]: r[1],
     });
-
-    final res = rowIndex == null
-        ? await http.post(Uri.parse(methodUrl), headers: headers, body: body)
-        : await http.put(Uri.parse(methodUrl), headers: headers, body: body);
-    if (res.statusCode != 200) {
-      throw Exception('upsertSnapshot failed: ${res.body}');
-    }
-  }
-
-  Future<void> upsertSnapshots(List<PortfolioSnapshot> snapshots) async {
-    if (snapshots.isEmpty) return;
-    _ensureId();
-    await _ensureSnapshotsSheet();
-
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    final existingRowsByDate = await _snapshotRowsByDate(headers);
-    final updates = <Map<String, dynamic>>[];
-    final appends = <List<String>>[];
-
-    for (final snapshot in snapshots) {
-      final row = existingRowsByDate[snapshot.date];
-      if (row == null) {
-        appends.add(snapshot.toSheetRow());
+  });
+  Future<void> setHistoryDirtyFrom(String? date) => _write(() async {
+    await _saveSettingValues({'history_dirty_from': date ?? ''});
+    historyDirtyFrom = date;
+  });
+  Future<void> _saveSettingValues(
+    Map<String, String> values, {
+    Set<String> formulaKeys = const {},
+  }) async {
+    final rows = await _getValues('Settings!A1:B');
+    AppSettings.fromSheetRows(rows);
+    final updates = <Map<String, dynamic>>[], appends = <List<String>>[];
+    for (final entry in values.entries) {
+      final i = rows.indexWhere((r) => r.isNotEmpty && r.first == entry.key);
+      if (i < 0) {
+        appends.add([entry.key, entry.value]);
       } else {
         updates.add(
-          _valueRange('$_snapshotsSheetName!A$row:L$row', [
-            snapshot.toSheetRow(),
+          _values('Settings!A${i + 1}:B${i + 1}', [
+            [entry.key, entry.value],
           ]),
         );
       }
     }
-
-    for (var i = 0; i < updates.length; i += 100) {
-      final chunk = updates.sublist(
-        i,
-        i + 100 > updates.length ? updates.length : i + 100,
-      );
-      await _batchUpdate(_spreadsheetId!, headers, chunk);
-    }
-
     if (appends.isNotEmpty) {
-      final appendRange = Uri.encodeComponent('$_snapshotsSheetName!A:L');
-      final res = await http.post(
-        Uri.parse(
-          '$_baseUrl/$_spreadsheetId/values/$appendRange:append?valueInputOption=RAW',
+      updates.add(
+        _values(
+          'Settings!A${rows.length + 1}:B${rows.length + appends.length}',
+          appends,
         ),
-        headers: headers,
-        body: jsonEncode({'values': appends}),
       );
-      if (res.statusCode != 200) {
-        throw Exception('upsertSnapshots append failed: ${res.body}');
-      }
+    }
+    if (updates.isNotEmpty) await _batchValues(updates);
+    // Only application-owned formulas use USER_ENTERED; names always use RAW.
+    if (formulaKeys.isNotEmpty) {
+      final current = await _getValues('Settings!A1:B');
+      await _batchValues([
+        for (final key in formulaKeys)
+          _values(
+            'Settings!B${current.indexWhere((r) => r.isNotEmpty && r.first == key) + 1}',
+            [
+              [values[key]!],
+            ],
+          ),
+      ], userEntered: true);
     }
   }
 
+  Future<List<PortfolioSnapshot>> loadSnapshots() async {
+    await _ensureSchema();
+    snapshotIssues.clear();
+    final rows = await _getValues('Snapshots!A1:L');
+    _validateHeader(
+      rows,
+      PortfolioSnapshot.sheetHeaders,
+      'Snapshots',
+      minColumns: 9,
+    );
+    final snapshots = _parseRows(
+      rows.skip(1).toList(),
+      'Snapshots',
+      PortfolioSnapshot.fromSheetRow,
+      issues: snapshotIssues,
+    );
+    final byDate = <String, PortfolioSnapshot>{};
+    for (final snapshot in snapshots) {
+      final previous = byDate[snapshot.date];
+      if (previous == null ||
+          (previous.source != 'live' && snapshot.source == 'live') ||
+          (previous.source == snapshot.source &&
+              snapshot.createdAt.compareTo(previous.createdAt) > 0)) {
+        byDate[snapshot.date] = snapshot;
+      }
+    }
+    return byDate.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  Future<void> upsertSnapshot(PortfolioSnapshot snapshot) =>
+      upsertSnapshots([snapshot]);
+  Future<void> upsertSnapshots(List<PortfolioSnapshot> snapshots) =>
+      _write(() async {
+        if (snapshots.isEmpty) return;
+        await _ensureSchema();
+        final existing = await _getValues('Snapshots!A2:L');
+        final updates = <Map<String, dynamic>>[], appends = <List<String>>[];
+        for (final snapshot in snapshots) {
+          PortfolioSnapshot.fromSheetRow(snapshot.toSheetRow());
+          final matches = existing.indexed
+              .where((r) => r.$2.length > 1 && r.$2[1] == snapshot.date)
+              .toList();
+          if (snapshot.source != 'live' &&
+              matches.any((r) => r.$2.length > 9 && r.$2[9] == 'live')) {
+            continue;
+          }
+          if (matches.isEmpty) {
+            appends.add(snapshot.toSheetRow());
+          } else {
+            updates.add(
+              _values(
+                'Snapshots!A${matches.first.$1 + 2}:L${matches.first.$1 + 2}',
+                [snapshot.toSheetRow()],
+              ),
+            );
+            for (final duplicate in matches.skip(1)) {
+              updates.add(
+                _values('Snapshots!A${duplicate.$1 + 2}:L${duplicate.$1 + 2}', [
+                  List.filled(12, ''),
+                ]),
+              );
+            }
+          }
+        }
+        if (updates.isNotEmpty) await _batchValues(updates);
+        if (appends.isNotEmpty) await _appendValues('Snapshots!A:L', appends);
+      });
+  Future<HistoricalPriceImport> loadHistoricalPrices() async {
+    await _ensureSchema();
+    final rows = await _getValues('HistoricalPrices!A1:C');
+    _validateHeader(
+      rows,
+      _historicalHeaders,
+      'HistoricalPrices',
+      minColumns: 3,
+    );
+    return HistoricalPriceImport.fromRows(rows.skip(1).toList());
+  }
+
+  Future<void> saveHistoricalPrices(HistoricalPriceImport imported) =>
+      _write(() async {
+        final merged = (await loadHistoricalPrices()).merge(imported);
+        await _replaceSheets({
+          'HistoricalPrices': [_historicalHeaders, ...merged.toRows()],
+        });
+      });
+
+  /// Historical GOOGLEFINANCE arrays cannot be read by the Sheets API.
   Future<BackfillPriceData> loadBackfillPriceData({
     required List<BackfillPriceRequest> requests,
     required DateTime start,
     required DateTime end,
     int waitSeconds = 20,
-  }) async {
-    _ensureId();
-    await _ensureBackfillTempSheet();
-
-    final uniqueRequests = <String, BackfillPriceRequest>{};
-    for (final request in requests) {
-      uniqueRequests[request.ticker] = request;
-    }
-    final orderedRequests = uniqueRequests.values.toList()
-      ..sort((a, b) => a.ticker.compareTo(b.ticker));
-
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    await _clearBackfillTemp(headers);
-
-    final formulaRows = _buildBackfillFormulaRows(orderedRequests, start, end);
-    await _batchUpdate(_spreadsheetId!, headers, [
-      _valueRange(
-        '$_backfillTempSheetName!A1:${_columnName(formulaRows.first.length)}2',
-        formulaRows,
-      ),
-    ], valueInputOption: 'USER_ENTERED');
-
-    final endColumn = _columnName(formulaRows.first.length);
-    BackfillPriceData? latest;
-    for (var attempt = 0; attempt < 12; attempt++) {
-      await Future.delayed(Duration(seconds: waitSeconds));
-      final rawRows = await _readBackfillTempRows(headers, endColumn);
-      latest = _parseBackfillRows(orderedRequests, rawRows);
-      final criticalFailures = latest.failedSymbols.where(
-        (symbol) =>
-            symbol == 'USDKRW' ||
-            orderedRequests.any((r) => r.ticker == symbol),
+  }) async => (await loadHistoricalPrices()).toBackfillData(requests);
+  Future<PortfolioBackup> createBackup() async {
+    final data = await loadAll(), snapshots = await loadSnapshots();
+    if (dataIssues.isNotEmpty || snapshotIssues.isNotEmpty) {
+      throw const FormatException(
+        '잘못된 행이 있어 완전한 백업을 만들 수 없습니다. 시트 원본을 먼저 내려받아 주세요.',
       );
-      if (criticalFailures.isEmpty) return latest;
     }
-    return latest ??
-        const BackfillPriceData(
-          pricesByTicker: {},
-          exchangeRates: {},
-          failedSymbols: ['unknown'],
-        );
+    final rawSettings = await _getValues(
+      'Settings!A1:B',
+      renderOption: 'FORMULA',
+    );
+    final knownKeys = data.settings.toSheetRows().map((r) => r.first).toSet();
+    final backup = PortfolioBackup(
+      transactions: data.transactions,
+      otherAssets: data.otherAssets,
+      settings: data.settings,
+      snapshots: snapshots,
+      historicalPrices: await loadHistoricalPrices(),
+      exchangeRateSource:
+          _setting(rawSettings, 'exchange_rate') ??
+          '=GOOGLEFINANCE("CURRENCY:USDKRW")',
+      extraSettings: {
+        for (final row in rawSettings)
+          if (row.length >= 2 && !knownKeys.contains(row.first))
+            row.first: row[1],
+      },
+    );
+    backup.validate();
+    return backup;
   }
 
-  /// ID로 시트에서 행 번호 찾기 (0-based data index)
-  Future<int> findRowById(String sheetName, String id) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    final range = Uri.encodeComponent('$sheetName!A2:A');
-    final res = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/$range'),
-      headers: headers,
-    );
-    if (res.statusCode != 200) {
-      throw Exception('findRowById failed: ${res.body}');
+  Future<void> restoreBackup(PortfolioBackup backup) => _write(() async {
+    backup.validate();
+    await _ensureSchema();
+    final tickers = <String, Transaction>{};
+    for (final tx in backup.transactions) {
+      tickers['${tx.market.name}/${tx.ticker}'] = tx;
     }
-    final data = jsonDecode(res.body);
-    final rows = (data['values'] as List?)?.cast<List<dynamic>>() ?? [];
-    for (int i = 0; i < rows.length; i++) {
-      if (rows[i].isNotEmpty && rows[i][0].toString() == id) return i;
-    }
-    throw Exception('Row with id "$id" not found in $sheetName');
-  }
+    await _replaceSheets({
+      'Transactions': [
+        Transaction.sheetHeaders,
+        ...backup.transactions.map((t) => t.toSheetRow()),
+      ],
+      'OtherAssets': [
+        OtherAsset.sheetHeaders,
+        ...backup.otherAssets.map((a) => a.toSheetRow()),
+      ],
+      'Settings': backup.settingsRows,
+      'Snapshots': [
+        PortfolioSnapshot.sheetHeaders,
+        ...backup.snapshots.map((s) => s.toSheetRow()),
+      ],
+      'HistoricalPrices': [
+        _historicalHeaders,
+        ...backup.historicalPrices.toRows(),
+      ],
+      'Prices': [
+        _priceHeaders,
+        _priceRow('USDKRW', 'FX', 'KRW'),
+        for (final tx in tickers.values)
+          _priceRow(
+            tx.ticker,
+            tx.market.toSheetValue(),
+            tx.currency == Currency.krw ? 'KRW' : 'USD',
+          ),
+      ],
+    }, formulas: true);
+    _loadedRows.clear();
+  });
 
-  // ─── Private helpers ───
-
-  void _ensureId() {
-    if (_spreadsheetId == null) throw Exception('Spreadsheet ID not set');
-  }
-
-  Future<void> _ensureSnapshotsSheet() async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-
-    final metaRes = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId?fields=sheets.properties.title'),
-      headers: headers,
-    );
-    if (metaRes.statusCode != 200) {
-      throw Exception('Failed to inspect spreadsheet: ${metaRes.body}');
-    }
-
-    final meta = jsonDecode(metaRes.body);
-    final sheets = (meta['sheets'] as List?) ?? [];
-    final exists = sheets.any(
-      (s) => s['properties']?['title'] == _snapshotsSheetName,
-    );
-    if (!exists) {
-      final createRes = await http.post(
-        Uri.parse('$_baseUrl/$_spreadsheetId:batchUpdate'),
-        headers: headers,
-        body: jsonEncode({
-          'requests': [
-            {
-              'addSheet': {
-                'properties': {'title': _snapshotsSheetName},
+  /// One atomic Sheets batch; no preliminary clear can leave a partial restore.
+  Future<void> _replaceSheets(
+    Map<String, List<List<String>>> sheets, {
+    bool formulas = false,
+  }) async {
+    await _inspect();
+    final requests = <Map<String, dynamic>>[];
+    for (final entry in sheets.entries) {
+      final props = _sheetProperties[entry.key];
+      if (props == null) throw FormatException('${entry.key} 시트를 찾을 수 없습니다.');
+      final sheetId = props['sheetId'],
+          grid = props['gridProperties'] as Map? ?? {};
+      final oldRows = (grid['rowCount'] as int?) ?? 1000,
+          oldCols = (grid['columnCount'] as int?) ?? 26;
+      final width = entry.value.fold<int>(
+            1,
+            (v, r) => r.length > v ? r.length : v,
+          ),
+          height = entry.value.isEmpty ? 1 : entry.value.length;
+      if (height > oldRows || width > oldCols) {
+        requests.add({
+          'updateSheetProperties': {
+            'properties': {
+              'sheetId': sheetId,
+              'gridProperties': {
+                'rowCount': height > oldRows ? height : oldRows,
+                'columnCount': width > oldCols ? width : oldCols,
               },
             },
-          ],
-        }),
-      );
-      if (createRes.statusCode != 200) {
-        throw Exception('Failed to create Snapshots sheet: ${createRes.body}');
-      }
-    }
-
-    final headerRes = await http.put(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("$_snapshotsSheetName!A1:L1")}?valueInputOption=RAW',
-      ),
-      headers: headers,
-      body: jsonEncode({
-        'values': [_snapshotHeaders],
-      }),
-    );
-    if (headerRes.statusCode != 200) {
-      throw Exception('Failed to write Snapshots header: ${headerRes.body}');
-    }
-  }
-
-  Future<void> _ensureBackfillTempSheet() async {
-    await _ensureSheet(_backfillTempSheetName);
-  }
-
-  Future<void> _ensureSheet(String sheetName) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-
-    final metaRes = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId?fields=sheets.properties.title'),
-      headers: headers,
-    );
-    if (metaRes.statusCode != 200) {
-      throw Exception('Failed to inspect spreadsheet: ${metaRes.body}');
-    }
-
-    final meta = jsonDecode(metaRes.body);
-    final sheets = (meta['sheets'] as List?) ?? [];
-    final exists = sheets.any((s) => s['properties']?['title'] == sheetName);
-    if (exists) return;
-
-    final createRes = await http.post(
-      Uri.parse('$_baseUrl/$_spreadsheetId:batchUpdate'),
-      headers: headers,
-      body: jsonEncode({
-        'requests': [
-          {
-            'addSheet': {
-              'properties': {'title': sheetName},
-            },
+            'fields': 'gridProperties(rowCount,columnCount)',
           },
-        ],
-      }),
-    );
-    if (createRes.statusCode != 200) {
-      throw Exception('Failed to create $sheetName sheet: ${createRes.body}');
+        });
+      }
+      requests.add({
+        'updateCells': {
+          'range': {
+            'sheetId': sheetId,
+            'startRowIndex': 0,
+            'startColumnIndex': 0,
+            'endRowIndex': height > oldRows ? height : oldRows,
+            'endColumnIndex': width,
+          },
+          'rows': [
+            for (final row in entry.value)
+              {
+                'values': [
+                  for (var col = 0; col < row.length; col++)
+                    {
+                      'userEnteredValue': _cellValue(
+                        entry.key,
+                        row,
+                        col,
+                        formulas,
+                      ),
+                    },
+                ],
+              },
+          ],
+          'fields': 'userEnteredValue',
+        },
+      });
     }
+    await _api.request(
+      'POST',
+      _url(':batchUpdate'),
+      body: {'requests': requests},
+    );
   }
 
-  Future<int?> _findSnapshotRowByDate(String date) async {
-    _ensureId();
-    final headers = await _getAuthHeaders();
-    final range = Uri.encodeComponent('$_snapshotsSheetName!B2:B');
-    final res = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/$range'),
-      headers: headers,
+  static Map<String, String> _cellValue(
+    String sheet,
+    List<String> row,
+    int col,
+    bool formulas,
+  ) {
+    final value = row[col];
+    final formula =
+        formulas &&
+        value.startsWith('=') &&
+        ((sheet == 'Prices' && col >= 3 && col <= 6) ||
+            (sheet == 'Settings' && row.first == 'exchange_rate' && col == 1));
+    return {
+      formula ? 'formulaValue' : 'stringValue':
+          sheet == 'Prices' && col == 0 && value.startsWith("'")
+          ? value.substring(1)
+          : value,
+    };
+  }
+
+  Future<List<List<List<String>>>> _batchGet(List<String> ranges) async {
+    final query =
+        'valueRenderOption=UNFORMATTED_VALUE&${ranges.map((r) => 'ranges=${Uri.encodeComponent(r)}').join('&')}';
+    final result = await _api.request(
+      'GET',
+      Uri.parse('$_baseUrl/$_id/values:batchGet?$query'),
     );
-    if (res.statusCode != 200) {
-      throw Exception('findSnapshotRowByDate failed: ${res.body}');
+    final values = result['valueRanges'] as List?;
+    if (values == null || values.length != ranges.length) {
+      throw const SheetsApiException('일부 시트의 응답이 누락되었습니다.');
     }
-    final data = jsonDecode(res.body);
-    final rows = _getRows(data);
-    for (var i = 0; i < rows.length; i++) {
-      if (rows[i].isNotEmpty && rows[i][0].toString() == date) {
-        return i + 2;
+    return values.map((v) => _rows(v as Map)).toList();
+  }
+
+  Future<List<List<String>>> _getValues(
+    String range, {
+    String renderOption = 'UNFORMATTED_VALUE',
+  }) async => _rows(
+    await _api.request(
+      'GET',
+      _url('/values/${Uri.encodeComponent(range)}', {
+        'valueRenderOption': renderOption,
+      }),
+    ),
+  );
+  Future<void> _putValues(String range, List<List<String>> rows) async {
+    await _api.request(
+      'PUT',
+      _url('/values/${Uri.encodeComponent(range)}', {
+        'valueInputOption': 'RAW',
+      }),
+      body: {'values': rows},
+    );
+  }
+
+  Future<void> _appendValues(
+    String range,
+    List<List<String>> rows, {
+    bool userEntered = false,
+  }) async {
+    await _api.request(
+      'POST',
+      _url('/values/${Uri.encodeComponent(range)}:append', {
+        'valueInputOption': userEntered ? 'USER_ENTERED' : 'RAW',
+      }),
+      body: {'values': rows},
+    );
+  }
+
+  Future<void> _batchValues(
+    List<Map<String, dynamic>> values, {
+    bool userEntered = false,
+  }) async {
+    await _api.request(
+      'POST',
+      _url('/values:batchUpdate'),
+      body: {
+        'valueInputOption': userEntered ? 'USER_ENTERED' : 'RAW',
+        'data': values,
+      },
+    );
+  }
+
+  static Map<String, dynamic> _values(String range, List<List<String>> rows) =>
+      {'range': range, 'values': rows};
+  static List<List<String>> _rows(Map data) => ((data['values'] as List?) ?? [])
+      .map((row) => (row as List).map((cell) => cell.toString()).toList())
+      .toList();
+  static List<String> _pad(List<String> row, int length) => List.generate(
+    row.length > length ? row.length : length,
+    (i) => i < row.length ? row[i] : '',
+  );
+  static bool _sameRow(List<String> a, List<String> b) =>
+      jsonEncode(_pad(a, a.length > b.length ? a.length : b.length)) ==
+      jsonEncode(_pad(b, a.length > b.length ? a.length : b.length));
+  static String? _setting(List<List<String>> rows, String key) {
+    for (final row in rows) {
+      if (row.length > 1 && row.first == key && row[1].isNotEmpty) {
+        return row[1];
       }
     }
     return null;
   }
-
-  Future<Map<String, int>> _snapshotRowsByDate(
-    Map<String, String> headers,
-  ) async {
-    final range = Uri.encodeComponent('$_snapshotsSheetName!B2:B');
-    final res = await http.get(
-      Uri.parse('$_baseUrl/$_spreadsheetId/values/$range'),
-      headers: headers,
-    );
-    if (res.statusCode != 200) {
-      throw Exception('snapshotRowsByDate failed: ${res.body}');
-    }
-    final rows = _getRows(jsonDecode(res.body));
-    final map = <String, int>{};
-    for (var i = 0; i < rows.length; i++) {
-      if (rows[i].isNotEmpty) {
-        map[rows[i][0].toString()] = i + 2;
-      }
-    }
-    return map;
-  }
-
-  Future<void> _clearBackfillTemp(Map<String, String> headers) async {
-    final res = await http.post(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/${Uri.encodeComponent("$_backfillTempSheetName!A:ZZ")}:clear',
-      ),
-      headers: headers,
-      body: jsonEncode({}),
-    );
-    if (res.statusCode != 200) {
-      throw Exception('Failed to clear BackfillTemp: ${res.body}');
-    }
-  }
-
-  List<List<String>> _buildBackfillFormulaRows(
-    List<BackfillPriceRequest> requests,
-    DateTime start,
-    DateTime end,
-  ) {
-    final columns = (requests.length + 1) * 3;
-    final labels = List.filled(columns, '');
-    final formulas = List.filled(columns, '');
-
-    for (var i = 0; i < requests.length; i++) {
-      final col = i * 3;
-      final request = requests[i];
-      labels[col] = request.ticker;
-      formulas[col] = _historicalPriceFormula(request, start, end);
-    }
-
-    final fxCol = requests.length * 3;
-    labels[fxCol] = 'USDKRW';
-    formulas[fxCol] = _historicalFxFormula(start, end);
-
-    return [labels, formulas];
-  }
-
-  String _historicalPriceFormula(
-    BackfillPriceRequest request,
-    DateTime start,
-    DateTime end,
-  ) {
-    final startDate = _dateFormula(start);
-    final endDate = _dateFormula(end);
-    if (request.market == 'KRX' || request.market == 'KOSDAQ') {
-      final ticker = request.ticker.padLeft(6, '0');
-      return '=IFERROR(GOOGLEFINANCE("KRX:$ticker","price",$startDate,$endDate,"DAILY"),GOOGLEFINANCE("KOSDAQ:$ticker","price",$startDate,$endDate,"DAILY"))';
-    }
-    return '=GOOGLEFINANCE("${request.ticker}","price",$startDate,$endDate,"DAILY")';
-  }
-
-  String _historicalFxFormula(DateTime start, DateTime end) {
-    return '=GOOGLEFINANCE("CURRENCY:USDKRW","price",${_dateFormula(start)},${_dateFormula(end)},"DAILY")';
-  }
-
-  String _dateFormula(DateTime date) =>
-      'DATE(${date.year},${date.month},${date.day})';
-
-  Future<List<List<dynamic>>> _readBackfillTempRows(
-    Map<String, String> headers,
-    String endColumn,
-  ) async {
-    final range = Uri.encodeComponent(
-      '$_backfillTempSheetName!A1:${endColumn}500',
-    );
-    final res = await http.get(
-      Uri.parse(
-        '$_baseUrl/$_spreadsheetId/values/$range?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER',
-      ),
-      headers: headers,
-    );
-    if (res.statusCode != 200) {
-      throw Exception('Failed to read BackfillTemp: ${res.body}');
-    }
-    return _getRows(jsonDecode(res.body));
-  }
-
-  BackfillPriceData _parseBackfillRows(
-    List<BackfillPriceRequest> requests,
-    List<List<dynamic>> rows,
-  ) {
-    final prices = <String, Map<String, double>>{};
-    final failed = <String>[];
-
-    for (var i = 0; i < requests.length; i++) {
-      final col = i * 3;
-      final ticker = requests[i].ticker;
-      final series = _parseBackfillSeries(rows, col);
-      if (series.isEmpty) failed.add(ticker);
-      prices[ticker] = series;
-    }
-
-    final fxSeries = _parseBackfillSeries(rows, requests.length * 3);
-    if (fxSeries.isEmpty) failed.add('USDKRW');
-
-    return BackfillPriceData(
-      pricesByTicker: prices,
-      exchangeRates: fxSeries,
-      failedSymbols: failed,
-    );
-  }
-
-  Map<String, double> _parseBackfillSeries(List<List<dynamic>> rows, int col) {
-    final series = <String, double>{};
-    for (final row in rows.skip(2)) {
-      if (row.length <= col + 1) continue;
-      final date = _parseBackfillDate(row[col]);
-      final value = double.tryParse(row[col + 1].toString());
-      if (date == null || value == null || value <= 0) continue;
-      series[_dateKey(date)] = value;
-    }
-    return series;
-  }
-
-  DateTime? _parseBackfillDate(dynamic value) {
-    if (value == null) return null;
-    if (value is num) {
-      return DateTime(1899, 12, 30).add(Duration(days: value.floor()));
-    }
-    final text = value.toString().trim();
-    final iso = DateTime.tryParse(text);
-    if (iso != null) return iso;
-    final normalized = text
-        .replaceAll(RegExp(r'\s+'), '')
-        .replaceAll('오전', '')
-        .replaceAll('오후', '');
-    final dotted = RegExp(
-      r'^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})\.?$',
-    ).firstMatch(normalized);
-    if (dotted != null) {
-      return DateTime(
-        int.parse(dotted.group(1)!),
-        int.parse(dotted.group(2)!),
-        int.parse(dotted.group(3)!),
-      );
-    }
-    final slash = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(text);
-    if (slash != null) {
-      return DateTime(
-        int.parse(slash.group(3)!),
-        int.parse(slash.group(1)!),
-        int.parse(slash.group(2)!),
-      );
-    }
-    final slashWithTime = RegExp(
-      r'^(\d{1,2})/(\d{1,2})/(\d{4})\s+\d{1,2}:\d{2}:\d{2}$',
-    ).firstMatch(text);
-    if (slashWithTime != null) {
-      return DateTime(
-        int.parse(slashWithTime.group(3)!),
-        int.parse(slashWithTime.group(1)!),
-        int.parse(slashWithTime.group(2)!),
-      );
-    }
-    return null;
-  }
-
-  String _dateKey(DateTime date) {
-    final y = date.year.toString().padLeft(4, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
-  }
-
-  Future<void> _insertPriceFormula(
-    String ssId,
-    Map<String, String> headers,
-    String ticker,
-    String market,
-    String gfKey,
-    String currency, {
-    bool isKorean = false,
-  }) async {
-    // 한국 주식: IFERROR(KRX, KOSDAQ)로 양쪽 거래소 모두 시도
-    String priceFormula, nameFormula, changePctFormula, closeYestFormula;
-    if (isKorean) {
-      final krx = 'KRX:$ticker';
-      final kosdaq = 'KOSDAQ:$ticker';
-      priceFormula =
-          '=IFERROR(GOOGLEFINANCE("$krx","price"),GOOGLEFINANCE("$kosdaq","price"))';
-      nameFormula =
-          '=IFERROR(GOOGLEFINANCE("$krx","name"),GOOGLEFINANCE("$kosdaq","name"))';
-      changePctFormula =
-          '=IFERROR(GOOGLEFINANCE("$krx","changepct"),GOOGLEFINANCE("$kosdaq","changepct"))';
-      closeYestFormula =
-          '=IFERROR(GOOGLEFINANCE("$krx","closeyest"),GOOGLEFINANCE("$kosdaq","closeyest"))';
-    } else if (market == 'FX') {
-      // 환율: 속성 없이 호출해야 정상 작동
-      priceFormula = '=GOOGLEFINANCE("$gfKey")';
-      nameFormula = '';
-      changePctFormula = '';
-      closeYestFormula = '';
-    } else {
-      priceFormula = '=GOOGLEFINANCE("$gfKey","price")';
-      nameFormula = '=GOOGLEFINANCE("$gfKey","name")';
-      changePctFormula = '=GOOGLEFINANCE("$gfKey","changepct")';
-      closeYestFormula = '=GOOGLEFINANCE("$gfKey","closeyest")';
-    }
-
-    // 한국 종목코드: 앞자리 0 보존을 위해 텍스트 접두사(') 추가
-    final tickerValue = isKorean ? "'$ticker" : ticker;
-
-    await http.post(
-      Uri.parse(
-        '$_baseUrl/$ssId/values/Prices!A:H:append?valueInputOption=USER_ENTERED',
-      ),
-      headers: headers,
-      body: jsonEncode({
-        'values': [
-          [
-            tickerValue,
-            market,
-            gfKey,
-            priceFormula,
-            nameFormula,
-            changePctFormula,
-            closeYestFormula,
-            currency,
-          ],
-        ],
-      }),
-    );
-  }
-
-  /// Settings 시트에 환율 GOOGLEFINANCE 수식 삽입 (마이그레이션용)
-  Future<void> _insertSettingsExchangeRate(
-    String ssId,
-    Map<String, String> headers,
-  ) async {
-    // Settings에서 기존 행을 읽어 exchange_rate 행 위치를 찾거나 append
-    final res = await http.get(
-      Uri.parse(
-        '$_baseUrl/$ssId/values/${Uri.encodeComponent("Settings!A1:B")}',
-      ),
-      headers: headers,
-    );
-    if (res.statusCode != 200) return;
-
-    final data = jsonDecode(res.body);
-    final rows = _getRows(data);
-
-    // exchange_rate 행이 이미 있는지 확인
-    int existingRow = -1;
-    for (int i = 0; i < rows.length; i++) {
-      if (rows[i].isNotEmpty && rows[i][0].toString() == 'exchange_rate') {
-        existingRow = i;
-        break;
-      }
-    }
-
-    if (existingRow >= 0) {
-      // 기존 행에 수식 덮어쓰기
-      final row = existingRow + 1; // 1-based
-      await http.put(
-        Uri.parse(
-          '$_baseUrl/$ssId/values/${Uri.encodeComponent("Settings!A$row:B$row")}?valueInputOption=USER_ENTERED',
-        ),
-        headers: headers,
-        body: jsonEncode({
-          'values': [
-            ['exchange_rate', '=GOOGLEFINANCE("USDKRW")'],
-          ],
-        }),
-      );
-    } else {
-      // 새 행 추가
-      await http.post(
-        Uri.parse(
-          '$_baseUrl/$ssId/values/Settings!A:B:append?valueInputOption=USER_ENTERED',
-        ),
-        headers: headers,
-        body: jsonEncode({
-          'values': [
-            ['exchange_rate', '=GOOGLEFINANCE("USDKRW")'],
-          ],
-        }),
-      );
-    }
-  }
-
-  Future<void> _batchUpdate(
-    String ssId,
-    Map<String, String> headers,
-    List<Map<String, dynamic>> data, {
-    String valueInputOption = 'RAW',
-  }) async {
-    await http.post(
-      Uri.parse('$_baseUrl/$ssId/values:batchUpdate'),
-      headers: headers,
-      body: jsonEncode({'valueInputOption': valueInputOption, 'data': data}),
-    );
-  }
-
-  Map<String, dynamic> _valueRange(String range, List<List<String>> values) {
-    return {'range': range, 'values': values};
-  }
-
-  List<List<dynamic>> _getRows(dynamic valueRange) {
-    return (valueRange['values'] as List?)?.cast<List<dynamic>>() ?? [];
-  }
-
-  List<String> _padRow(List<dynamic> row, int length) {
-    return List.generate(
-      length,
-      (i) => i < row.length ? row[i].toString() : '',
-    );
-  }
-
-  String _columnName(int oneBasedIndex) {
-    var index = oneBasedIndex;
-    final chars = <String>[];
-    while (index > 0) {
-      index--;
-      chars.add(String.fromCharCode('A'.codeUnitAt(0) + index % 26));
-      index ~/= 26;
-    }
-    return chars.reversed.join();
-  }
-}
-
-class BackfillPriceRequest {
-  final String ticker;
-  final String market;
-
-  const BackfillPriceRequest({required this.ticker, required this.market});
-}
-
-class BackfillPriceData {
-  final Map<String, Map<String, double>> pricesByTicker;
-  final Map<String, double> exchangeRates;
-  final List<String> failedSymbols;
-
-  const BackfillPriceData({
-    required this.pricesByTicker,
-    required this.exchangeRates,
-    required this.failedSymbols,
-  });
 }

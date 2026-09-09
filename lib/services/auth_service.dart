@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -5,225 +6,391 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
-import 'oauth_popup_stub.dart' if (dart.library.html) 'oauth_popup_web.dart'
+import 'oauth_popup_stub.dart'
+    if (dart.library.html) 'oauth_popup_web.dart'
     as oauth_popup;
+
+class AuthException implements Exception {
+  final String code;
+  const AuthException(this.code);
+
+  bool get requiresReauthentication => const {
+    'relogin_required',
+    'invalid_identity_token',
+    'identity_token_required',
+    'consent_required',
+    'session_changed',
+  }.contains(code);
+
+  @override
+  String toString() => switch (code) {
+    'cancelled' => '로그인을 취소했습니다.',
+    'session_changed' => '로그인 계정이 변경되었습니다. 다시 시도해주세요.',
+    'network_error' ||
+    'upstream_unavailable' => '인증 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
+    'consent_required' => '스프레드시트와 파일 목록 접근 권한을 허용해주세요.',
+    'origin_not_allowed' => '이 주소에서는 로그인을 사용할 수 없습니다.',
+    _ => '로그인이 만료되었거나 완료되지 않았습니다. 다시 로그인해주세요.',
+  };
+}
 
 class AuthService {
   static const _scopes = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/drive.metadata.readonly',
   ];
+  static const _timeout = Duration(seconds: 20);
 
-  static const _tokenKey = 'google_access_token';
-  static const _tokenExpiryKey = 'google_token_expiry';
-
-  // 네이티브 전용
-  final _googleSignIn = GoogleSignIn(scopes: _scopes);
-
-  FirebaseAuth get _firebaseAuth => FirebaseAuth.instance;
-
+  final FirebaseAuth? _providedAuth;
+  GoogleSignIn? _google;
+  final http.Client _client;
+  final bool _isWeb;
+  final Future<Map<String, dynamic>?> Function(String) _openPopup;
+  bool _disposed = false;
+  String? _sessionUid;
+  int _generation = 0;
+  int _loginCancellation = 0;
   String? _cachedAccessToken;
+  DateTime? _tokenExpiry;
+  Future<void>? _loginFuture;
+  Future<void>? _refreshFuture;
+  String? _refreshUid;
+  int? _refreshGeneration;
 
+  AuthService({
+    FirebaseAuth? firebaseAuth,
+    GoogleSignIn? googleSignIn,
+    http.Client? client,
+    bool? isWeb,
+    Future<Map<String, dynamic>?> Function(String)? openPopup,
+  }) : _providedAuth = firebaseAuth,
+       _google = googleSignIn,
+       _client = client ?? http.Client(),
+       _isWeb = isWeb ?? kIsWeb,
+       _openPopup = openPopup ?? oauth_popup.openOAuthPopup;
+
+  FirebaseAuth get _firebaseAuth => _providedAuth ?? FirebaseAuth.instance;
+  GoogleSignIn get _googleSignIn => _google ??= GoogleSignIn(scopes: _scopes);
   User? get currentUser => _firebaseAuth.currentUser;
-  bool get isSignedIn => _firebaseAuth.currentUser != null;
+  bool get isSignedIn => currentUser != null;
+  bool get isSigningIn => _loginFuture != null;
+  Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
-  /// 앱 시작 시 토큰 복원
+  Future<void> waitForSignIn() async {
+    final pending = _loginFuture;
+    if (pending != null) await pending;
+  }
+
+  /// Called before exposing a Firebase user to portfolio providers.
+  void synchronizeUser(User? user) {
+    if (_sessionUid == user?.uid) return;
+    _sessionUid = user?.uid;
+    _generation++;
+    _clearMemoryToken();
+  }
+
+  void _checkSession(String? uid, int generation) {
+    if (_disposed || currentUser?.uid != uid || _generation != generation) {
+      throw const AuthException('session_changed');
+    }
+  }
+
+  void _clearMemoryToken() {
+    _cachedAccessToken = null;
+    _tokenExpiry = null;
+  }
+
+  /// A Google API 401 may invalidate an access token before its advertised expiry.
+  void invalidateGoogleToken() {
+    _generation++;
+    _clearMemoryToken();
+  }
+
+  /// Legacy unbound localStorage tokens are never reused. New tokens stay in memory.
+  Future<void> _removeLegacyTokens() async {
+    if (!_isWeb) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('google_access_token');
+    await prefs.remove('google_token_expiry');
+  }
+
   Future<void> restoreGoogleToken() async {
-    if (kIsWeb) {
-      // 1. localStorage에서 캐시된 토큰 확인
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(_tokenKey);
-      final expiryMs = prefs.getInt(_tokenExpiryKey);
-      if (token != null && expiryMs != null) {
-        if (DateTime.now().millisecondsSinceEpoch < expiryMs) {
-          _cachedAccessToken = token;
-          return;
-        }
+    await _removeLegacyTokens();
+    await getAuthHeaders();
+  }
+
+  Future<void> signIn() {
+    if (_disposed) return Future.error(const AuthException('session_changed'));
+    final running = _loginFuture;
+    if (running != null) return running;
+    late final Future<void> operation;
+    operation = _signIn().whenComplete(() {
+      if (identical(_loginFuture, operation)) _loginFuture = null;
+    });
+    _loginFuture = operation;
+    return operation;
+  }
+
+  Future<void> _signIn() async {
+    synchronizeUser(currentUser);
+    final startUid = _sessionUid;
+    final startGeneration = _generation;
+    final cancellation = _loginCancellation;
+    if (_isWeb) {
+      final result = await _openPopup('$corsProxyBase/auth/login');
+      if (result == null || result['type'] == 'auth-error') {
+        throw const AuthException('cancelled');
       }
-      // 2. localStorage 만료/없음 → Workers refresh 시도
-      final uid = _firebaseAuth.currentUser?.uid;
-      if (uid != null) {
-        await _refreshViaWorker(uid);
+      _checkSession(startUid, startGeneration);
+      if (cancellation != _loginCancellation) {
+        throw const AuthException('cancelled');
       }
-      return;
-    }
-    await _googleSignIn.signInSilently();
-  }
-
-  /// Workers /auth/refresh로 토큰 갱신
-  Future<bool> _refreshViaWorker(String uid) async {
-    try {
-      final res = await http.post(
-        Uri.parse('$corsProxyBase/auth/refresh'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'uid': uid}),
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final token = data['access_token'] as String?;
-        final expiresIn = data['expires_in'] as int?;
-        if (token != null) {
-          _cachedAccessToken = token;
-          await _persistToken(token, expiresIn: expiresIn);
-          return true;
-        }
+      final state = result['state'];
+      final verifier = result['verifier'];
+      final code = result['code'];
+      if (state is! String || verifier is! String || code is! String) {
+        throw const AuthException('invalid_response');
       }
-    } catch (_) {}
-    return false;
-  }
-
-  Future<void> _persistToken(String token, {int? expiresIn}) async {
-    if (!kIsWeb) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
-    final duration = Duration(seconds: (expiresIn ?? 3600) - 60);
-    await prefs.setInt(_tokenExpiryKey,
-        DateTime.now().add(duration).millisecondsSinceEpoch);
-  }
-
-  Future<void> _clearPersistedToken() async {
-    if (!kIsWeb) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_tokenExpiryKey);
-  }
-
-  /// 로그인
-  Future<void> signIn() async {
-    if (kIsWeb) {
-      await _signInViaWorkers();
-    } else {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return;
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      await _firebaseAuth.signInWithCredential(credential);
-    }
-  }
-
-  /// 웹: Workers OAuth 팝업으로 로그인
-  Future<void> _signInViaWorkers() async {
-    // Firebase uid가 아직 없으므로 임시 uid 사용 후, Firebase 로그인 완료 후 재매핑
-    // → 간단하게: 먼저 Firebase signInWithPopup 없이 Workers로 직접 OAuth
-    // → callback에서 id_token을 받아 Firebase에 credential로 등록
-
-    final uid = _firebaseAuth.currentUser?.uid ?? 'pending';
-    final loginUrl = '$corsProxyBase/auth/login?uid=$uid';
-
-    final result = await oauth_popup.openOAuthPopup(loginUrl);
-    if (result == null) throw Exception('OAuth cancelled');
-
-    final accessToken = result['access_token'] as String?;
-    final idToken = result['id_token'] as String?;
-    final expiresIn = result['expires_in'] as int?;
-
-    if (accessToken == null) throw Exception('No access token');
-
-    // access token 캐싱
-    _cachedAccessToken = accessToken;
-    await _persistToken(accessToken, expiresIn: expiresIn);
-
-    // Firebase Auth에 Google credential로 세션 등록
-    if (idToken != null) {
+      final tokens = await _post('/auth/exchange', {
+        'state': state,
+        'verifier': verifier,
+        'code': code,
+      });
+      _checkSession(startUid, startGeneration);
+      if (cancellation != _loginCancellation) {
+        throw const AuthException('cancelled');
+      }
+      final accessToken = tokens['access_token'];
+      final idToken = tokens['id_token'];
+      if (accessToken is! String || idToken is! String) {
+        throw const AuthException('invalid_response');
+      }
       await _firebaseAuth.setPersistence(Persistence.LOCAL);
+      _checkSession(startUid, startGeneration);
       final credential = GoogleAuthProvider.credential(
         accessToken: accessToken,
         idToken: idToken,
       );
-      final userCred = await _firebaseAuth.signInWithCredential(credential);
-
-      // Firebase uid가 확정되면 Workers KV의 키를 pending → 실제 uid로 이동
-      final firebaseUid = userCred.user?.uid;
-      if (firebaseUid != null && uid == 'pending') {
-        try {
-          await http.post(
-            Uri.parse('$corsProxyBase/auth/migrate'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'from_uid': 'pending', 'to_uid': firebaseUid}),
-          );
-        } catch (_) {}
+      final userCredential = await _firebaseAuth.signInWithCredential(
+        credential,
+      );
+      final user = userCredential.user;
+      if (user == null) throw const AuthException('invalid_response');
+      if (cancellation != _loginCancellation || _disposed) {
+        if (currentUser?.uid == user.uid) await _firebaseAuth.signOut();
+        throw const AuthException('cancelled');
       }
+      synchronizeUser(currentUser);
+      final generation = _generation;
+      try {
+        _checkSession(user.uid, generation);
+        final firebaseToken = await _firebaseToken(user);
+        _checkSession(user.uid, generation);
+        await _post('/auth/complete', {
+          'state': state,
+          'verifier': verifier,
+        }, firebaseToken: firebaseToken);
+        _checkSession(user.uid, generation);
+        _cacheTokens(tokens);
+        await _removeLegacyTokens();
+      } catch (_) {
+        _clearMemoryToken();
+        // Do not expose a half-completed login or sign out a newer account.
+        if (currentUser?.uid == user.uid && _generation == generation) {
+          await _firebaseAuth.signOut();
+        }
+        rethrow;
+      }
+    } else {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) throw const AuthException('cancelled');
+      final googleAuth = await googleUser.authentication;
+      if (cancellation != _loginCancellation) {
+        throw const AuthException('cancelled');
+      }
+      await _firebaseAuth.signInWithCredential(
+        GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        ),
+      );
+      synchronizeUser(currentUser);
     }
   }
 
   Future<void> signOut() async {
-    final uid = _firebaseAuth.currentUser?.uid;
-    if (uid != null && kIsWeb) {
-      try {
-        await http.post(
-          Uri.parse('$corsProxyBase/auth/revoke'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'uid': uid}),
-        );
-      } catch (_) {}
-    }
+    final user = currentUser;
+    _loginCancellation++;
+    _generation++;
+    _clearMemoryToken();
+    oauth_popup.cancelActiveOAuthPopup();
+    // Start remote cleanup with the captured user, but clear the local session immediately.
+    final revoke = _isWeb && user != null
+        ? _revokeUser(user)
+        : Future<void>.value();
+    await _firebaseAuth.signOut();
+    synchronizeUser(null);
+    if (!_isWeb) await _googleSignIn.signOut();
+    await _removeLegacyTokens();
+    await revoke;
+  }
 
-    _cachedAccessToken = null;
-    await _clearPersistedToken();
-    if (kIsWeb) {
-      await _firebaseAuth.signOut();
-    } else {
-      await Future.wait([
-        _firebaseAuth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
+  Future<void> _revokeUser(User user) async {
+    try {
+      final token = await _firebaseToken(user);
+      await _post('/auth/revoke', {}, firebaseToken: token);
+    } catch (_) {
+      // Offline logout still clears the local session. No API response can restore it.
     }
   }
 
-  /// 토큰 반환 (팝업 없이, 실패 시 에러)
   Future<Map<String, String>> getAuthHeaders() async {
-    if (_cachedAccessToken != null) {
-      final prefs = await SharedPreferences.getInstance();
-      final expiryMs = prefs.getInt(_tokenExpiryKey);
-      if (expiryMs != null && DateTime.now().millisecondsSinceEpoch < expiryMs) {
-        return {'Authorization': 'Bearer $_cachedAccessToken'};
-      }
-      _cachedAccessToken = null;
+    final login = _loginFuture;
+    if (login != null) await login;
+    synchronizeUser(currentUser);
+    final uid = _sessionUid;
+    final generation = _generation;
+    if (uid == null) throw const AuthException('relogin_required');
+    _checkSession(uid, generation);
+    if (!_isWeb) {
+      final user =
+          _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+      _checkSession(uid, generation);
+      if (user == null) throw const AuthException('relogin_required');
+      final headers = await user.authHeaders;
+      _checkSession(uid, generation);
+      return headers;
     }
-
-    // 웹: Workers refresh 시도
-    if (kIsWeb) {
-      final uid = _firebaseAuth.currentUser?.uid;
-      if (uid != null) {
-        final refreshed = await _refreshViaWorker(uid);
-        if (refreshed) {
-          return {'Authorization': 'Bearer $_cachedAccessToken'};
+    if (_cachedAccessToken == null ||
+        _tokenExpiry == null ||
+        !DateTime.now().isBefore(_tokenExpiry!)) {
+      if (_refreshFuture != null &&
+          _refreshUid == uid &&
+          _refreshGeneration == generation) {
+        await _refreshFuture;
+      } else {
+        final operation = _refresh(uid, generation);
+        _refreshFuture = operation;
+        _refreshUid = uid;
+        _refreshGeneration = generation;
+        try {
+          await operation;
+        } finally {
+          if (identical(_refreshFuture, operation)) _refreshFuture = null;
         }
       }
-      throw Exception('Token expired - re-login required');
     }
-
-    // 네이티브
-    final googleUser = _googleSignIn.currentUser ??
-        await _googleSignIn.signInSilently();
-    if (googleUser != null) {
-      return await googleUser.authHeaders;
+    _checkSession(uid, generation);
+    if (_cachedAccessToken == null) {
+      throw const AuthException('relogin_required');
     }
-    throw Exception('Not signed in');
+    return {'Authorization': 'Bearer $_cachedAccessToken'};
   }
 
-  /// 토큰 반환 (만료 시 Workers 팝업으로 재로그인 포함)
+  Future<void> _refresh(String uid, int generation) async {
+    final user = currentUser;
+    if (user == null) throw const AuthException('relogin_required');
+    final token = await _firebaseToken(user);
+    _checkSession(uid, generation);
+    final data = await _post('/auth/refresh', {}, firebaseToken: token);
+    _checkSession(uid, generation);
+    _cacheTokens(data);
+  }
+
+  void _cacheTokens(Map<String, dynamic> data) {
+    final accessToken = data['access_token'];
+    final expiresIn = data['expires_in'];
+    if (accessToken is! String ||
+        accessToken.isEmpty ||
+        expiresIn is! num ||
+        !expiresIn.isFinite ||
+        expiresIn <= 60) {
+      throw const AuthException('invalid_response');
+    }
+    _cachedAccessToken = accessToken;
+    _tokenExpiry = DateTime.now().add(
+      Duration(seconds: expiresIn.toInt() - 60),
+    );
+  }
+
+  Future<String> _firebaseToken(User user) async {
+    try {
+      final token = await user.getIdToken().timeout(_timeout);
+      if (token == null || token.isEmpty) {
+        throw const AuthException('invalid_identity_token');
+      }
+      return token;
+    } on TimeoutException {
+      throw const AuthException('network_error');
+    } on FirebaseAuthException catch (error) {
+      throw AuthException(
+        error.code == 'network-request-failed'
+            ? 'network_error'
+            : 'invalid_identity_token',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> _post(
+    String path,
+    Map<String, dynamic> body, {
+    String? firebaseToken,
+  }) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$corsProxyBase$path'),
+            headers: {
+              'Content-Type': 'application/json',
+              if (firebaseToken != null)
+                'Authorization': 'Bearer $firebaseToken',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout);
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        throw const AuthException('invalid_response');
+      }
+      if (response.statusCode != 200) {
+        throw AuthException(
+          data['error'] is String
+              ? data['error'] as String
+              : 'upstream_unavailable',
+        );
+      }
+      return data;
+    } on TimeoutException {
+      throw const AuthException('network_error');
+    } on http.ClientException {
+      throw const AuthException('network_error');
+    }
+  }
+
   Future<Map<String, String>> getAuthHeadersInteractive() async {
     try {
       return await getAuthHeaders();
-    } catch (_) {
-      if (kIsWeb) {
-        await _signInViaWorkers();
-        if (_cachedAccessToken != null) {
-          return {'Authorization': 'Bearer $_cachedAccessToken'};
-        }
-      }
-      throw Exception('Failed to get auth headers');
+    } on AuthException catch (error) {
+      if (!_isWeb || !error.requiresReauthentication) rethrow;
+      await signIn();
+      return getAuthHeaders();
     }
   }
 
   Future<bool> requestDriveScope() async {
-    if (kIsWeb) return true;
-    return await _googleSignIn.requestScopes([
-      'https://www.googleapis.com/auth/drive.readonly',
-    ]);
+    // The Worker checks the granted scope before completing every web login.
+    if (_isWeb) return true;
+    return _googleSignIn.requestScopes([_scopes[1]]);
+  }
+
+  void dispose() {
+    _disposed = true;
+    _loginCancellation++;
+    _generation++;
+    _clearMemoryToken();
+    oauth_popup.cancelActiveOAuthPopup();
+    _client.close();
   }
 }

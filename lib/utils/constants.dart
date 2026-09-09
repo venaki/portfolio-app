@@ -36,8 +36,8 @@ const corsProxyBase = 'https://portfolio-cors-proxy.venaki.workers.dev';
 const defaultAccentColorHex = '#0D6E6E';
 
 Color hexToColor(String hex) {
-  final buffer = StringBuffer();
-  if (hex.length == 7) buffer.write('FF');
-  buffer.write(hex.replaceFirst('#', ''));
-  return Color(int.parse(buffer.toString(), radix: 16));
+  if (!RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(hex)) {
+    return const Color(0xFF0D6E6E);
+  }
+  return Color(0xFF000000 | int.parse(hex.substring(1), radix: 16));
 }

@@ -7,6 +7,7 @@ class LoginScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authStateProvider);
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: Center(
@@ -33,16 +34,23 @@ class LoginScreen extends ConsumerWidget {
                     SizedBox(height: 12),
                     Text(
                       '자산 관리 앱',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF888888),
-                      ),
+                      style: TextStyle(fontSize: 14, color: Color(0xFF888888)),
                     ),
                   ],
                 ),
 
                 const SizedBox(height: 48),
 
+                if (auth.hasError)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      '로그인 실패: ${auth.error}',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
                 // Login card
                 Container(
                   width: double.infinity,
@@ -65,7 +73,10 @@ class LoginScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       GestureDetector(
-                        onTap: () => ref.read(authStateProvider.notifier).signIn(),
+                        onTap: auth.isLoading
+                            ? null
+                            : () =>
+                                  ref.read(authStateProvider.notifier).signIn(),
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -99,10 +110,7 @@ class LoginScreen extends ConsumerWidget {
                 // Footer
                 const Text(
                   '개인 자산 관리 · 데이터는 Google Sheets에 저장됩니다',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFFAAAAAA),
-                  ),
+                  style: TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
                   textAlign: TextAlign.center,
                 ),
               ],

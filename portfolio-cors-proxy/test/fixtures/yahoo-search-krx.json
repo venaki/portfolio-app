@@ -1,0 +1,55 @@
+{
+  "source": "https://query2.finance.yahoo.com/v1/finance/search?q=005930&quotesCount=10&newsCount=0",
+  "capturedAt": "2026-09-09T00:55:50.272Z",
+  "body": {
+    "explains": [],
+    "count": 2,
+    "quotes": [
+      {
+        "exchange": "KSC",
+        "shortname": "SamsungElec",
+        "quoteType": "EQUITY",
+        "symbol": "005930.KS",
+        "index": "quotes",
+        "score": 20055,
+        "typeDisp": "Equity",
+        "longname": "Samsung Electronics Co., Ltd.",
+        "exchDisp": "Korea",
+        "sector": "Technology",
+        "sectorDisp": "Technology",
+        "industry": "Consumer Electronics",
+        "industryDisp": "Consumer Electronics",
+        "isYahooFinance": true
+      },
+      {
+        "exchange": "CCC",
+        "shortname": "Samsung Electronics Co Ltd (Derivatives) USD",
+        "quoteType": "CRYPTOCURRENCY",
+        "symbol": "005930-USD",
+        "index": "quotes",
+        "score": 20000,
+        "typeDisp": "Cryptocurrency",
+        "longname": "Samsung Electronics Co Ltd (Derivatives) USD",
+        "exchDisp": "CCC",
+        "isYahooFinance": true
+      }
+    ],
+    "news": [],
+    "nav": [],
+    "lists": [],
+    "researchReports": [],
+    "screenerFieldResults": [],
+    "totalTime": 18,
+    "timeTakenForQuotes": 413,
+    "timeTakenForNews": 0,
+    "timeTakenForAlgowatchlist": 400,
+    "timeTakenForPredefinedScreener": 400,
+    "timeTakenForCrunchbase": 0,
+    "timeTakenForNav": 400,
+    "timeTakenForResearchReports": 0,
+    "timeTakenForQuestions": 0,
+    "timeTakenForScreenerField": 0,
+    "timeTakenForCulturalAssets": 0,
+    "timeTakenForSearchLists": 0
+  }
+}

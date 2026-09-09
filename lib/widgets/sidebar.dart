@@ -28,22 +28,25 @@ class Sidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Logo
-          GestureDetector(
+          InkWell(
             onTap: () => onTap(0),
-            behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
               child: Row(
                 children: [
                   Icon(Icons.show_chart, size: 20, color: accentColor),
                   const SizedBox(width: 10),
-                  const Text(
-                    'Portfolio',
-                    style: TextStyle(
-                      fontFamily: 'Newsreader',
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF1A1A1A),
+                  const Expanded(
+                    child: Text(
+                      'Portfolio',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Newsreader',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1A1A1A),
+                      ),
                     ),
                   ),
                 ],
@@ -55,11 +58,13 @@ class Sidebar extends StatelessWidget {
             final isActive = i == currentIndex;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-              child: GestureDetector(
+              child: InkWell(
                 onTap: () => onTap(i),
-                behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: isActive ? accentColor : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
@@ -69,7 +74,9 @@ class Sidebar extends StatelessWidget {
                       Icon(
                         _items[i].icon,
                         size: 18,
-                        color: isActive ? Colors.white : const Color(0xFF888888),
+                        color: isActive
+                            ? Colors.white
+                            : const Color(0xFF888888),
                       ),
                       const SizedBox(width: 10),
                       Text(
@@ -77,7 +84,9 @@ class Sidebar extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: isActive ? Colors.white : const Color(0xFF666666),
+                          color: isActive
+                              ? Colors.white
+                              : const Color(0xFF666666),
                         ),
                       ),
                     ],

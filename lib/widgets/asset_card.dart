@@ -8,11 +8,7 @@ class AssetCard extends StatelessWidget {
   final OtherAsset asset;
   final VoidCallback? onTap;
 
-  const AssetCard({
-    super.key,
-    required this.asset,
-    this.onTap,
-  });
+  const AssetCard({super.key, required this.asset, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +49,9 @@ class AssetCard extends StatelessWidget {
                     children: [
                       _buildTag(
                         asset.account,
-                        bgColor: const Color(0xFF0D6E6E).withValues(alpha: 0.12),
+                        bgColor: const Color(
+                          0xFF0D6E6E,
+                        ).withValues(alpha: 0.12),
                         textColor: const Color(0xFF0D6E6E),
                       ),
                       _buildTag(
@@ -70,7 +68,9 @@ class AssetCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    asset.time != '00:00' ? '${asset.date} ${asset.time}' : asset.date,
+                    asset.time != '00:00'
+                        ? '${asset.date} ${asset.time}'
+                        : asset.date,
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
@@ -86,7 +86,9 @@ class AssetCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: isDisplayNegative ? const Color(0xFFE07B54) : const Color(0xFF1A1A1A),
+                color: isDisplayNegative
+                    ? const Color(0xFFE07B54)
+                    : const Color(0xFF1A1A1A),
               ),
             ),
           ],
@@ -95,7 +97,11 @@ class AssetCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTag(String label, {required Color bgColor, required Color textColor}) {
+  Widget _buildTag(
+    String label, {
+    required Color bgColor,
+    required Color textColor,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -119,18 +125,14 @@ class ConsolidatedAssetCard extends StatelessWidget {
   final ConsolidatedAsset asset;
   final VoidCallback? onTap;
 
-  const ConsolidatedAssetCard({
-    super.key,
-    required this.asset,
-    this.onTap,
-  });
+  const ConsolidatedAssetCard({super.key, required this.asset, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final isLoan = asset.category == AssetCategory.loan;
     final isUSD = asset.currency == Currency.usd;
     // 대출: 양수 = 빚이므로 음수 표시
-    final displayValue = isLoan ? -asset.totalValue.abs() : asset.totalValue;
+    final displayValue = asset.signedValue;
 
     return GestureDetector(
       onTap: onTap,
@@ -182,7 +184,9 @@ class ConsolidatedAssetCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: isLoan ? const Color(0xFFE07B54) : const Color(0xFF1A1A1A),
+                color: isLoan
+                    ? const Color(0xFFE07B54)
+                    : const Color(0xFF1A1A1A),
               ),
             ),
           ],
@@ -191,7 +195,11 @@ class ConsolidatedAssetCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTag(String label, {required Color bgColor, required Color textColor}) {
+  Widget _buildTag(
+    String label, {
+    required Color bgColor,
+    required Color textColor,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

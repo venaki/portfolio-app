@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_flutter/models/other_asset.dart';
+import 'package:portfolio_flutter/engine/portfolio_valuation.dart';
 import 'package:portfolio_flutter/models/transaction.dart';
 
 void main() {
@@ -34,13 +35,14 @@ void main() {
   ];
 
   double calcTotal(List<OtherAsset> list, String filter) {
-    return list
-        .where((a) => filter == '전체' || a.account == filter)
-        .fold(0.0, (sum, a) {
-      final value =
-          a.category == AssetCategory.loan && a.value > 0 ? -a.value : a.value;
-      return sum + value;
-    });
+    return evaluatePortfolio(
+      holdings: [],
+      otherAssets: consolidateOtherAssets(
+        list.where((a) => filter == '전체' || a.account == filter).toList(),
+      ),
+      quotes: {},
+      exchangeRate: 1500,
+    ).total.valueKRW;
   }
 
   test('전체 합계: 예금 + 채권 - 대출', () {

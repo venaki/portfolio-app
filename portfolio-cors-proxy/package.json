@@ -1,8 +1,22 @@
 {
   "name": "portfolio-cors-proxy",
   "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "check": "npm run typecheck && npm test",
+    "build": "wrangler deploy --dry-run --outdir dist"
+  },
+  "dependencies": { "jose": "6.2.12" },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260908.1",
+    "@types/node": "22.19.0",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "wrangler": "4.129.1"
   }
 }

@@ -9,14 +9,19 @@ import '../models/app_settings.dart';
 import '../widgets/holding_card.dart';
 import '../widgets/asset_card.dart';
 import '../engine/calculations.dart';
+import '../engine/portfolio_valuation.dart';
+import '../widgets/realized_trades_modal.dart';
 import '../utils/format.dart';
 import '../utils/constants.dart';
 import '../widgets/holding_transactions_modal.dart';
 import '../widgets/change_row.dart';
 import '../providers/filter_provider.dart';
+import 'portfolio_filters.dart';
+import '../widgets/asset_transactions_modal.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
-  const PortfolioScreen({super.key});
+  const PortfolioScreen({super.key, this.onEditModeChanged});
+  final ValueChanged<bool>? onEditModeChanged;
 
   @override
   ConsumerState<PortfolioScreen> createState() => _PortfolioScreenState();
@@ -28,25 +33,41 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
   void _enterEditMode(List<Holding> holdings) {
     setState(() => _editOrderHoldings = List.from(holdings));
-    ref.read(portfolioEditModeProvider.notifier).state = true;
+    widget.onEditModeChanged?.call(true);
   }
 
   void _cancelEditMode() {
     setState(() => _editOrderHoldings = null);
-    ref.read(portfolioEditModeProvider.notifier).state = false;
+    widget.onEditModeChanged?.call(false);
   }
 
-  void _saveOrder() {
-    if (_editOrderHoldings == null) return;
-    final settings = ref.read(portfolioProvider).settings;
-    final order = _editOrderHoldings!
-        .map((h) => AppSettings.holdingKey(h.ticker, h.account, h.broker))
-        .toList();
-    ref.read(portfolioProvider.notifier).updateSettings(
-          settings.copyWith(holdingOrder: order),
-        );
-    setState(() => _editOrderHoldings = null);
-    ref.read(portfolioEditModeProvider.notifier).state = false;
+  bool _savingOrder = false;
+  Future<void> _saveOrder() async {
+    if (_editOrderHoldings == null || _savingOrder) return;
+    setState(() => _savingOrder = true);
+    final state = ref.read(portfolioProvider);
+    final order = mergeHoldingOrder(
+      _sortHoldings(
+        state.holdings,
+        state.settings.holdingOrder,
+      ).map(AppSettings.holdingKeyFor).toList(),
+      state.holdings.map((h) => AppSettings.holdingKeyFor(h)).toList(),
+      _editOrderHoldings!.map((h) => AppSettings.holdingKeyFor(h)).toList(),
+    );
+    try {
+      await ref
+          .read(portfolioProvider.notifier)
+          .updateSettings(state.settings.copyWith(holdingOrder: order));
+      if (mounted) _cancelEditMode();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('순서 저장 실패: $error')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingOrder = false);
+    }
   }
 
   void _reorderHoldings(int oldIndex, int newIndex) {
@@ -59,44 +80,59 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
   }
 
   /// holdingOrder에 따라 holdings 정렬
-  List<Holding> _sortHoldings(List<Holding> holdings, List<String> holdingOrder) {
+  List<Holding> _sortHoldings(
+    List<Holding> holdings,
+    List<String> holdingOrder,
+  ) {
     if (holdingOrder.isEmpty) return holdings;
-    return List.from(holdings)
-      ..sort((a, b) {
-        final aKey = AppSettings.holdingKey(a.ticker, a.account, a.broker);
-        final bKey = AppSettings.holdingKey(b.ticker, b.account, b.broker);
-        final ai = holdingOrder.indexOf(aKey);
-        final bi = holdingOrder.indexOf(bKey);
-        final aIdx = ai == -1 ? holdingOrder.length : ai;
-        final bIdx = bi == -1 ? holdingOrder.length : bi;
-        return aIdx.compareTo(bIdx);
-      });
+    return List.from(holdings)..sort((a, b) {
+      final ai = AppSettings(holdingOrder: holdingOrder).holdingOrderIndex(a);
+      final bi = AppSettings(holdingOrder: holdingOrder).holdingOrderIndex(b);
+      final aIdx = ai == -1 ? holdingOrder.length : ai;
+      final bIdx = bi == -1 ? holdingOrder.length : bi;
+      return aIdx.compareTo(bIdx);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
-    final isEditMode = ref.watch(portfolioEditModeProvider);
+    final isEditMode = _editOrderHoldings != null;
     final accentColor = Theme.of(context).colorScheme.primary;
-    final accounts = ['전체', ...portfolio.settings.accounts];
-    final _accountFilter = ref.watch(portfolioAccountFilter);
-    final _marketFilter = ref.watch(portfolioMarketFilter);
+    final accounts = <String>{
+      '전체',
+      ...portfolio.settings.accounts,
+      ...portfolio.holdings.map((h) => h.account),
+      ...portfolio.otherAssets.map((a) => a.account),
+    }.toList();
+    final marketFilter = ref.watch(portfolioMarketFilter);
+
+    final selectedAccount = ref.watch(portfolioAccountFilter);
+    final accountFilter = accounts.contains(selectedAccount)
+        ? selectedAccount
+        : '전체';
 
     var holdings = portfolio.holdings;
     var consolidatedAssets = portfolio.consolidatedOtherAssets;
-    final showOtherOnly = _marketFilter == '기타';
-    final showStocksOnly = _marketFilter == '미국' || _marketFilter == '한국';
+    final showOtherOnly = marketFilter == '기타';
+    final showStocksOnly = marketFilter == '미국' || marketFilter == '한국';
 
     // 계정 필터
-    if (_accountFilter != '전체') {
-      holdings = holdings.where((h) => h.account == ref.watch(portfolioAccountFilter)).toList();
-      consolidatedAssets = consolidatedAssets.where((a) => a.account == ref.watch(portfolioAccountFilter)).toList();
+    if (accountFilter != '전체') {
+      holdings = holdings
+          .where((h) => h.account == ref.watch(portfolioAccountFilter))
+          .toList();
+      consolidatedAssets = consolidatedAssets
+          .where((a) => a.account == ref.watch(portfolioAccountFilter))
+          .toList();
     }
     // 시장 필터
-    if (_marketFilter == '미국') {
+    if (marketFilter == '미국') {
       holdings = holdings.where((h) => h.market == Market.us).toList();
-    } else if (_marketFilter == '한국') {
-      holdings = holdings.where((h) => h.market == Market.krx || h.market == Market.kosdaq).toList();
+    } else if (marketFilter == '한국') {
+      holdings = holdings
+          .where((h) => h.market == Market.krx || h.market == Market.kosdaq)
+          .toList();
     }
 
     // 정상 모드: holdingOrder 순서 적용
@@ -117,7 +153,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: _cancelEditMode,
+                        onTap: _savingOrder ? null : _cancelEditMode,
                         child: Container(
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
@@ -139,7 +175,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                     Expanded(
                       flex: 2,
                       child: GestureDetector(
-                        onTap: _saveOrder,
+                        onTap: _savingOrder ? null : _saveOrder,
                         child: Container(
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
@@ -172,14 +208,23 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Flexible(child: _buildAccountFilter(accounts)),
+                  Flexible(child: _buildAccountFilter(accounts, accountFilter)),
                   _buildMarketFilter(),
                 ],
               ),
-            if (!isEditMode)
-              const SizedBox(height: 16),
+            if (!isEditMode) const SizedBox(height: 16),
             // 합계
-            if (!isEditMode && (holdings.isNotEmpty || consolidatedAssets.isNotEmpty))
+            if (!isEditMode)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => showRealizedTradesDialog(context),
+                  icon: const Icon(Icons.receipt_long),
+                  label: const Text('전체 실현손익 · 매도 완료 종목'),
+                ),
+              ),
+            if (!isEditMode &&
+                (holdings.isNotEmpty || consolidatedAssets.isNotEmpty))
               _buildSummary(
                 showOtherOnly ? <Holding>[] : holdings,
                 showStocksOnly ? <ConsolidatedAsset>[] : consolidatedAssets,
@@ -190,9 +235,21 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             if (isEditMode)
               _buildEditList(portfolio)
             else if (isWide)
-              _buildPCTable(holdings, consolidatedAssets, portfolio, showOtherOnly, showStocksOnly)
+              _buildPCTable(
+                holdings,
+                consolidatedAssets,
+                portfolio,
+                showOtherOnly,
+                showStocksOnly,
+              )
             else
-              _buildMobileCards(holdings, consolidatedAssets, portfolio, showOtherOnly, showStocksOnly),
+              _buildMobileCards(
+                holdings,
+                consolidatedAssets,
+                portfolio,
+                showOtherOnly,
+                showStocksOnly,
+              ),
 
             // 편집 버튼 (정상 모드에서만, 주식이 있을 때만)
             if (!isEditMode && holdings.isNotEmpty && !showOtherOnly)
@@ -202,7 +259,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   child: GestureDetector(
                     onTap: () => _enterEditMode(holdings),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: const Color(0xFFE5E5E5)),
@@ -210,7 +270,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.swap_vert, size: 16, color: Color(0xFF888888)),
+                          Icon(
+                            Icons.swap_vert,
+                            size: 16,
+                            color: Color(0xFF888888),
+                          ),
                           SizedBox(width: 6),
                           Text(
                             '순서 편집',
@@ -232,7 +296,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     );
   }
 
-  Widget _buildEditList(dynamic portfolio) {
+  Widget _buildEditList(PortfolioState portfolio) {
     final items = _editOrderHoldings ?? [];
     return ReorderableListView.builder(
       shrinkWrap: true,
@@ -250,16 +314,20 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       onReorder: _reorderHoldings,
       itemBuilder: (context, index) {
         final h = items[index];
-        final quote = portfolio.quotes[h.ticker] as StockQuote?;
+        final quote = portfolio.quotes[h.ticker];
         final price = quote?.price ?? 0;
         final isKR = h.market == Market.krx || h.market == Market.kosdaq;
         final displayName = isKR && quote != null && quote.name.isNotEmpty
             ? quote.name
             : h.ticker;
-        final totalValueKRW = calcTotalValueKRW(h, price, portfolio.exchangeRate);
+        final totalValueKRW = calcTotalValueKRW(
+          h,
+          price,
+          portfolio.exchangeRate,
+        );
 
         return Container(
-          key: ValueKey(AppSettings.holdingKey(h.ticker, h.account, h.broker)),
+          key: ValueKey(AppSettings.holdingKeyFor(h)),
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           decoration: BoxDecoration(
@@ -273,7 +341,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                 index: index,
                 child: const Padding(
                   padding: EdgeInsets.only(right: 12),
-                  child: Icon(Icons.drag_handle, size: 20, color: Color(0xFFCCCCCC)),
+                  child: Icon(
+                    Icons.drag_handle,
+                    size: 20,
+                    color: Color(0xFFCCCCCC),
+                  ),
                 ),
               ),
               Expanded(
@@ -299,7 +371,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           isKR ? h.ticker : (quote?.name ?? ''),
-                          style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFAAAAAA),
+                          ),
                         ),
                       ),
                   ],
@@ -320,55 +395,36 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     );
   }
 
-  Widget _buildAccountFilter(List<String> accounts) {
-    final accentColor = Theme.of(context).colorScheme.primary;
-    return Wrap(
-      spacing: 0,
-      runSpacing: 6,
-      children: accounts.map((account) {
-        final isSelected = account == ref.watch(portfolioAccountFilter);
-        return GestureDetector(
-          onTap: () => ref.read(portfolioAccountFilter.notifier).state = account,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(
-              color: isSelected ? accentColor : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-              border: isSelected ? null : Border.all(color: const Color(0xFFE5E5E5)),
-            ),
-            child: Text(
-              account,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? Colors.white : const Color(0xFF888888),
-              ),
-            ),
+  Widget _buildAccountFilter(List<String> accounts, String selected) => Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    children: accounts
+        .map(
+          (account) => ChoiceChip(
+            label: Text(account),
+            selected: account == selected,
+            onSelected: (_) =>
+                ref.read(portfolioAccountFilter.notifier).state = account,
           ),
-        );
-      }).toList(),
-    );
-  }
+        )
+        .toList(),
+  );
 
-  Widget _buildSummary(List<Holding> holdings, List<ConsolidatedAsset> consolidatedAssets, dynamic portfolio) {
-    double totalValue = 0;
-    double totalCost = 0;
-    for (final h in holdings) {
-      final quote = portfolio.quotes[h.ticker] as StockQuote?;
-      final price = quote?.price ?? 0;
-      totalValue += calcTotalValueKRW(h, price, portfolio.exchangeRate);
-      totalCost += calcCostKRW(h);
-    }
-    for (final ca in consolidatedAssets) {
-      // 대출: 양수 totalValue = 빚이므로 순자산에서 차감
-      final raw = ca.category == AssetCategory.loan ? -ca.totalValue.abs() : ca.totalValue;
-      final v = ca.currency == Currency.krw ? raw : raw * portfolio.exchangeRate;
-      totalValue += v;
-      totalCost += v;
-    }
-    final profit = totalValue - totalCost;
-    final profitPct = totalCost > 0 ? (profit / totalCost) * 100 : 0.0;
+  Widget _buildSummary(
+    List<Holding> holdings,
+    List<ConsolidatedAsset> consolidatedAssets,
+    PortfolioState portfolio,
+  ) {
+    final valuation = evaluatePortfolio(
+      holdings: holdings,
+      otherAssets: consolidatedAssets,
+      quotes: portfolio.quotes,
+      exchangeRate: portfolio.exchangeRate,
+    );
+    final totalValue = valuation.total.valueKRW;
+    final totalCost = valuation.total.costKRW;
+    final profit = valuation.total.profitKRW;
+    final profitPct = valuation.total.profitPct;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
@@ -378,15 +434,25 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('합계',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+              Text(
+                valuation.isComplete ? '합계' : '확인된 평가금액',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
               GestureDetector(
                 onTap: () => setState(() => _showUSD = !_showUSD),
                 child: Text(
                   _showUSD && portfolio.exchangeRate > 0
                       ? formatUSD(totalValue / portfolio.exchangeRate)
                       : formatKRW(totalValue),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
                 ),
               ),
             ],
@@ -398,16 +464,28 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             children: [
               Row(
                 children: [
-                  const Text('원금 ', style: TextStyle(fontSize: 12, color: Color(0xFF888888))),
-                  Text(formatKRW(totalCost),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF888888))),
+                  const Text(
+                    '원금 ',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
+                  ),
+                  Text(
+                    formatKRW(totalCost),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF888888),
+                    ),
+                  ),
                 ],
               ),
-              ChangeRow(
-                changeKRW: profit,
-                changePct: profitPct,
-                label: '',
-              ),
+              if (!valuation.isComplete)
+                const Text('시세 확인 필요')
+              else
+                ChangeRow(
+                  changeKRW: profit,
+                  changePct: profitPct,
+                  label: '평가손익',
+                ),
             ],
           ),
         ],
@@ -420,35 +498,42 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: options.map((option) {
-        final isSelected = option == ref.watch(portfolioMarketFilter);
-        return GestureDetector(
-          onTap: () => ref.read(portfolioMarketFilter.notifier).state = option,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Column(
-              children: [
-                Text(
-                  option,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFFAAAAAA),
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: options.map((option) {
+          final isSelected = option == ref.watch(portfolioMarketFilter);
+          return GestureDetector(
+            onTap: () =>
+                ref.read(portfolioMarketFilter.notifier).state = option,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Column(
+                children: [
+                  Text(
+                    option,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: isSelected
+                          ? const Color(0xFF1A1A1A)
+                          : const Color(0xFFAAAAAA),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Container(
-                  height: 2,
-                  width: 20,
-                  color: isSelected ? const Color(0xFF1A1A1A) : Colors.transparent,
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Container(
+                    height: 2,
+                    width: 20,
+                    color: isSelected
+                        ? const Color(0xFF1A1A1A)
+                        : Colors.transparent,
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      }).toList(),
-    ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -457,32 +542,48 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
   Widget _buildPCTable(
     List<Holding> holdings,
     List<ConsolidatedAsset> consolidatedAssets,
-    dynamic portfolio,
+    PortfolioState portfolio,
     bool showOtherOnly,
     bool showStocksOnly,
   ) {
-    final hasContent = (!showOtherOnly && holdings.isNotEmpty) ||
+    final hasContent =
+        (!showOtherOnly && holdings.isNotEmpty) ||
         (!showStocksOnly && consolidatedAssets.isNotEmpty);
 
     if (!hasContent) return _buildEmptyState();
 
-    final accountOrder = portfolio.settings.accounts as List<String>;
+    final accountOrder = <String>{
+      ...portfolio.settings.accounts,
+      ...holdings.map((h) => h.account),
+      ...consolidatedAssets.map((a) => a.account),
+    };
     final rows = <Widget>[
       _buildTableHeader(),
       const Divider(height: 1, color: Color(0xFFE5E5E5)),
     ];
 
     for (final account in accountOrder) {
-      final accHoldings = showOtherOnly ? <Holding>[] : holdings.where((h) => h.account == account).toList();
-      final accAssets = showStocksOnly ? <ConsolidatedAsset>[] : consolidatedAssets.where((a) => a.account == account).toList();
+      final accHoldings = showOtherOnly
+          ? <Holding>[]
+          : holdings.where((h) => h.account == account).toList();
+      final accAssets = showStocksOnly
+          ? <ConsolidatedAsset>[]
+          : consolidatedAssets.where((a) => a.account == account).toList();
       if (accHoldings.isEmpty && accAssets.isEmpty) continue;
 
       rows.add(_buildAccountDivider(account));
       for (final h in accHoldings) {
-        rows.add(_buildTableRow(h, portfolio.quotes[h.ticker], portfolio.exchangeRate));
+        rows.add(
+          _buildTableRow(h, portfolio.quotes[h.ticker], portfolio.exchangeRate),
+        );
       }
       for (final a in accAssets) {
-        rows.add(_buildOtherAssetTableRow(a));
+        rows.add(
+          InkWell(
+            onTap: () => showAssetTransactionsDialog(context, a),
+            child: _buildOtherAssetTableRow(a),
+          ),
+        );
       }
     }
 
@@ -494,34 +595,73 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       child: Row(
         children: [
-          SizedBox(
-            width: 180,
-            child: Text('종목',
-                style: _headerStyle()),
+          SizedBox(width: 180, child: Text('종목', style: _headerStyle())),
+          Expanded(
+            child: Text(
+              '현재가',
+              style: _headerStyle(),
+              textAlign: TextAlign.right,
+            ),
           ),
-          Expanded(child: Text('현재가', style: _headerStyle(), textAlign: TextAlign.right)),
-          Expanded(child: Text('수익', style: _headerStyle(), textAlign: TextAlign.right)),
-          Expanded(child: Text('평단가', style: _headerStyle(), textAlign: TextAlign.right)),
-          SizedBox(width: 80, child: Text('수량', style: _headerStyle(), textAlign: TextAlign.right)),
-          Expanded(child: Text('평가금액', style: _headerStyle(), textAlign: TextAlign.right)),
-          SizedBox(width: 80, child: Text('매입환율', style: _headerStyle(), textAlign: TextAlign.right)),
+          Expanded(
+            child: Text(
+              '평가손익',
+              style: _headerStyle(),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '평단가',
+              style: _headerStyle(),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          SizedBox(
+            width: 80,
+            child: Text(
+              '수량',
+              style: _headerStyle(),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '평가금액',
+              style: _headerStyle(),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          SizedBox(
+            width: 80,
+            child: Text(
+              '매입환율',
+              style: _headerStyle(),
+              textAlign: TextAlign.right,
+            ),
+          ),
         ],
       ),
     );
   }
 
   TextStyle _headerStyle() => const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: Color(0xFF888888),
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: Color(0xFF888888),
+  );
 
-  Widget _buildTableRow(Holding holding, StockQuote? quote, double exchangeRate) {
+  Widget _buildTableRow(
+    Holding holding,
+    StockQuote? quote,
+    double exchangeRate,
+  ) {
     final price = quote?.price ?? 0;
     final changePct = quote?.changePct ?? 0;
     final isKRW = holding.currency == Currency.krw;
-    final isKR = holding.market == Market.krx || holding.market == Market.kosdaq;
-    final hasQuote = quote != null && price > 0;
+    final isKR =
+        holding.market == Market.krx || holding.market == Market.kosdaq;
+    final hasQuote = quote != null && quote.hasValidPrice && !quote.isStale;
 
     final totalValueKRW = calcTotalValueKRW(holding, price, exchangeRate);
     final costKRW = calcCostKRW(holding);
@@ -547,6 +687,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             displayName: displayTicker,
             account: holding.account,
             broker: holding.broker,
+            market: holding.market,
+            currency: holding.currency,
           ),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -558,121 +700,155 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                    Row(
-                      children: [
-                        Flexible(
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayTicker,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _marketBadge(isKR ? '한국' : '미국'),
+                          if (holding.broker.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            _marketBadge(holding.broker),
+                          ],
+                        ],
+                      ),
+                      if (displayName.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            displayTicker,
+                            displayName,
                             style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A1A),
+                              fontSize: 11,
+                              color: Color(0xFFAAAAAA),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        _marketBadge(isKR ? '한국' : '미국'),
-                        if (holding.broker.isNotEmpty) ...[
-                          const SizedBox(width: 4),
-                          _marketBadge(holding.broker),
-                        ],
-                      ],
-                    ),
-                    if (displayName.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          displayName,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                ),
+                // 현재가
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        hasQuote ? fmtPrice(price) : '-',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1A1A1A),
                         ),
                       ),
-                  ],
+                      if (hasQuote)
+                        Text(
+                          formatPercent(changePct),
+                          style: TextStyle(fontSize: 11, color: dailyColor),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              // 현재가
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      hasQuote ? fmtPrice(price) : '-',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A)),
-                    ),
-                    if (hasQuote)
+                // 수익
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
                       Text(
-                        formatPercent(changePct),
-                        style: TextStyle(fontSize: 11, color: dailyColor),
+                        hasQuote
+                            ? '${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}'
+                            : '-',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: hasQuote
+                              ? profitColor
+                              : const Color(0xFF1A1A1A),
+                        ),
                       ),
-                  ],
+                      if (hasQuote)
+                        Text(
+                          formatPercent(profitPct),
+                          style: TextStyle(fontSize: 11, color: profitColor),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              // 수익
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      hasQuote ? '${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}' : '-',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: hasQuote ? profitColor : const Color(0xFF1A1A1A)),
+                // 평단가
+                Expanded(
+                  child: Text(
+                    fmtPrice(holding.avgCost),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1A1A1A),
                     ),
-                    if (hasQuote)
-                      Text(
-                        formatPercent(profitPct),
-                        style: TextStyle(fontSize: 11, color: profitColor),
-                      ),
-                  ],
+                    textAlign: TextAlign.right,
+                  ),
                 ),
-              ),
-              // 평단가
-              Expanded(
-                child: Text(
-                  fmtPrice(holding.avgCost),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A)),
-                  textAlign: TextAlign.right,
-                ),
-              ),
-              // 수량
-              SizedBox(
-                width: 80,
-                child: Text(
-                  formatShares(holding.shares),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A)),
-                  textAlign: TextAlign.right,
-                ),
-              ),
-              // 평가금액
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      hasQuote ? formatKRW(totalValueKRW) : '-',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A)),
+                // 수량
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    formatShares(holding.shares),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1A1A1A),
                     ),
-                    if (hasQuote)
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                // 평가금액
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
                       Text(
-                        formatKRW(costKRW),
-                        style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+                        hasQuote ? formatKRW(totalValueKRW) : '-',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1A1A1A),
+                        ),
                       ),
-                  ],
+                      if (hasQuote)
+                        Text(
+                          formatKRW(costKRW),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFAAAAAA),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              // 매입환율
-              SizedBox(
-                width: 80,
-                child: Text(
-                  !isKRW ? formatKRW(holding.avgExchangeRate) : '-',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A)),
-                  textAlign: TextAlign.right,
+                // 매입환율
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    !isKRW ? formatKRW(holding.avgExchangeRate) : '-',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
         const Divider(height: 1, color: Color(0xFFF0F0F0)),
       ],
@@ -682,7 +858,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
   Widget _buildOtherAssetTableRow(ConsolidatedAsset asset) {
     final isLoan = asset.category == AssetCategory.loan;
     final isUSD = asset.currency == Currency.usd;
-    final displayValue = isLoan ? -asset.totalValue.abs() : asset.totalValue;
+    final displayValue = asset.signedValue;
 
     return Column(
       children: [
@@ -713,13 +889,50 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                 ),
               ),
               // 현재가 - empty
-              Expanded(child: Text('-', style: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)), textAlign: TextAlign.right)),
+              Expanded(
+                child: Text(
+                  '-',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFAAAAAA),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
               // 수익 - empty
-              Expanded(child: Text('-', style: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)), textAlign: TextAlign.right)),
+              Expanded(
+                child: Text(
+                  '-',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFAAAAAA),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
               // 평단가 - empty
-              Expanded(child: Text('-', style: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)), textAlign: TextAlign.right)),
+              Expanded(
+                child: Text(
+                  '-',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFAAAAAA),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
               // 수량 - empty
-              SizedBox(width: 80, child: Text('-', style: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)), textAlign: TextAlign.right)),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  '-',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFAAAAAA),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
               // 평가금액 - shows value
               Expanded(
                 child: Text(
@@ -733,7 +946,17 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                 ),
               ),
               // 매입환율 - empty
-              SizedBox(width: 80, child: Text('-', style: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)), textAlign: TextAlign.right)),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  '-',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFAAAAAA),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ],
           ),
         ),
@@ -747,45 +970,72 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
   Widget _buildMobileCards(
     List<Holding> holdings,
     List<ConsolidatedAsset> consolidatedAssets,
-    dynamic portfolio,
+    PortfolioState portfolio,
     bool showOtherOnly,
     bool showStocksOnly,
   ) {
-    final hasContent = (!showOtherOnly && holdings.isNotEmpty) ||
+    final hasContent =
+        (!showOtherOnly && holdings.isNotEmpty) ||
         (!showStocksOnly && consolidatedAssets.isNotEmpty);
 
     if (!hasContent) return _buildEmptyState();
 
-    final accountOrder = portfolio.settings.accounts as List<String>;
+    final accountOrder = <String>{
+      ...portfolio.settings.accounts,
+      ...holdings.map((h) => h.account),
+      ...consolidatedAssets.map((a) => a.account),
+    };
     final widgets = <Widget>[];
 
     for (final account in accountOrder) {
-      final accHoldings = showOtherOnly ? <Holding>[] : holdings.where((h) => h.account == account).toList();
-      final accAssets = showStocksOnly ? <ConsolidatedAsset>[] : consolidatedAssets.where((a) => a.account == account).toList();
+      final accHoldings = showOtherOnly
+          ? <Holding>[]
+          : holdings.where((h) => h.account == account).toList();
+      final accAssets = showStocksOnly
+          ? <ConsolidatedAsset>[]
+          : consolidatedAssets.where((a) => a.account == account).toList();
       if (accHoldings.isEmpty && accAssets.isEmpty) continue;
 
       widgets.add(_buildAccountDivider(account));
       for (final h in accHoldings) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: HoldingCard(
-            holding: h,
-            quote: portfolio.quotes[h.ticker],
-            exchangeRate: portfolio.exchangeRate,
-            onTap: () {
-              final isKR = h.market == Market.krx || h.market == Market.kosdaq;
-              final q = portfolio.quotes[h.ticker];
-              final name = isKR && q != null && q.name.isNotEmpty ? q.name : h.ticker;
-              showHoldingTransactionsDialog(context, ticker: h.ticker, displayName: name, account: h.account, broker: h.broker);
-            },
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: HoldingCard(
+              holding: h,
+              quote: portfolio.quotes[h.ticker],
+              exchangeRate: portfolio.exchangeRate,
+              onTap: () {
+                final isKR =
+                    h.market == Market.krx || h.market == Market.kosdaq;
+                final q = portfolio.quotes[h.ticker];
+                final name = isKR && q != null && q.name.isNotEmpty
+                    ? q.name
+                    : h.ticker;
+                showHoldingTransactionsDialog(
+                  context,
+                  ticker: h.ticker,
+                  displayName: name,
+                  account: h.account,
+                  broker: h.broker,
+                  market: h.market,
+                  currency: h.currency,
+                );
+              },
+            ),
           ),
-        ));
+        );
       }
       for (final a in accAssets) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: ConsolidatedAssetCard(asset: a),
-        ));
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: ConsolidatedAssetCard(
+              asset: a,
+              onTap: () => showAssetTransactionsDialog(context, a),
+            ),
+          ),
+        );
       }
     }
 

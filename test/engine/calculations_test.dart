@@ -5,13 +5,23 @@ import 'package:portfolio_flutter/models/transaction.dart';
 
 void main() {
   final usdHolding = Holding(
-    account: '본석', ticker: 'TSLA', market: Market.us,
-    currency: Currency.usd, shares: 10, avgCost: 300, avgExchangeRate: 1400,
+    account: '본석',
+    ticker: 'TSLA',
+    market: Market.us,
+    currency: Currency.usd,
+    shares: 10,
+    avgCost: 300,
+    avgExchangeRate: 1400,
   );
 
   final krwHolding = Holding(
-    account: '본석', ticker: '005930', market: Market.krx,
-    currency: Currency.krw, shares: 100, avgCost: 70000, avgExchangeRate: 0,
+    account: '본석',
+    ticker: '005930',
+    market: Market.krx,
+    currency: Currency.krw,
+    shares: 100,
+    avgCost: 70000,
+    avgExchangeRate: 0,
   );
 
   group('calcProfitUSD', () {
@@ -20,17 +30,33 @@ void main() {
   });
 
   group('calcProfitPercentUSD', () {
-    test('positive', () => expect(calcProfitPercentUSD(usdHolding, 350), closeTo(16.67, 0.01)));
+    test(
+      'positive',
+      () => expect(calcProfitPercentUSD(usdHolding, 350), closeTo(16.67, 0.01)),
+    );
     test('zero avgCost returns 0', () {
-      final h = Holding(account: 'x', ticker: 'X', market: Market.us,
-        currency: Currency.usd, shares: 10, avgCost: 0, avgExchangeRate: 0);
+      final h = Holding(
+        account: 'x',
+        ticker: 'X',
+        market: Market.us,
+        currency: Currency.usd,
+        shares: 10,
+        avgCost: 0,
+        avgExchangeRate: 0,
+      );
       expect(calcProfitPercentUSD(h, 100), 0);
     });
   });
 
   group('calcTotalValueKRW', () {
-    test('USD holding', () => expect(calcTotalValueKRW(usdHolding, 350, 1500), 5250000));
-    test('KRW holding', () => expect(calcTotalValueKRW(krwHolding, 80000, 1500), 8000000));
+    test(
+      'USD holding',
+      () => expect(calcTotalValueKRW(usdHolding, 350, 1500), 5250000),
+    );
+    test(
+      'KRW holding',
+      () => expect(calcTotalValueKRW(krwHolding, 80000, 1500), 8000000),
+    );
   });
 
   group('calcCostKRW', () {
@@ -39,21 +65,40 @@ void main() {
   });
 
   group('calcProfitKRW', () {
-    test('positive', () => expect(calcProfitKRW(usdHolding, 350, 1500), 1050000));
+    test(
+      'positive',
+      () => expect(calcProfitKRW(usdHolding, 350, 1500), 1050000),
+    );
   });
 
   group('calcProfitPercentKRW', () {
-    test('positive', () => expect(calcProfitPercentKRW(usdHolding, 350, 1500), 25.0));
+    test(
+      'positive',
+      () => expect(calcProfitPercentKRW(usdHolding, 350, 1500), 25.0),
+    );
     test('zero cost returns 0', () {
-      final h = Holding(account: 'x', ticker: 'X', market: Market.us,
-        currency: Currency.usd, shares: 0, avgCost: 0, avgExchangeRate: 0);
+      final h = Holding(
+        account: 'x',
+        ticker: 'X',
+        market: Market.us,
+        currency: Currency.usd,
+        shares: 0,
+        avgCost: 0,
+        avgExchangeRate: 0,
+      );
       expect(calcProfitPercentKRW(h, 100, 1500), 0);
     });
   });
 
   group('calcDailyChangeKRW', () {
-    test('USD holding', () => expect(calcDailyChangeKRW(usdHolding, 350, 340, 1500), 150000));
-    test('KRW holding', () => expect(calcDailyChangeKRW(krwHolding, 80000, 78000, 1500), 200000));
+    test(
+      'USD holding',
+      () => expect(calcDailyChangeKRW(usdHolding, 350, 340, 1500), 150000),
+    );
+    test(
+      'KRW holding',
+      () => expect(calcDailyChangeKRW(krwHolding, 80000, 78000, 1500), 200000),
+    );
   });
 
   group('calcRealizedPL', () {

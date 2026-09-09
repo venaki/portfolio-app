@@ -25,8 +25,9 @@ class HoldingCard extends StatelessWidget {
     final price = quote?.price ?? 0;
     final changePct = quote?.changePct ?? 0;
     final isKRW = holding.currency == Currency.krw;
-    final isKR = holding.market == Market.krx || holding.market == Market.kosdaq;
-    final hasQuote = quote != null && price > 0;
+    final isKR =
+        holding.market == Market.krx || holding.market == Market.kosdaq;
+    final hasQuote = quote != null && quote!.hasValidPrice && !quote!.isStale;
 
     final totalValueKRW = calcTotalValueKRW(holding, price, exchangeRate);
     final profitKRW = calcProfitKRW(holding, price, exchangeRate);
@@ -47,61 +48,47 @@ class HoldingCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E5E5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: ticker + badge | current price
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left: ticker + badge
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            displayTicker,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A1A),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0F0F0),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isKR ? '한국' : '미국',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF888888),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E5E5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row 1: ticker + badge | current price
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left: ticker + badge
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayTicker,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                        if (holding.broker.isNotEmpty) ...[
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 5),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 2,
+                              horizontal: 5,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF0F0F0),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              holding.broker,
+                              isKR ? '한국' : '미국',
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
@@ -109,98 +96,130 @@ class HoldingCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (holding.broker.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 2,
+                                horizontal: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F0F0),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                holding.broker,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF888888),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
+                      if (displayName.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFAAAAAA),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // Right: current price + daily change
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      hasQuote ? fmtPrice(price) : '-',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                      ),
                     ),
-                    if (displayName.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          displayName,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    if (hasQuote)
+                      Text(
+                        formatPercent(changePct),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: dailyColor,
                         ),
                       ),
                   ],
                 ),
-              ),
-              // Right: current price + daily change
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    hasQuote ? fmtPrice(price) : '-',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  if (hasQuote)
-                    Text(
-                      formatPercent(changePct),
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: dailyColor),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Row 2: profit amount + percent
-          Row(
-            children: [
-              Text(
-                hasQuote ? '${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}' : '-',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: hasQuote ? profitColor : const Color(0xFF1A1A1A),
-                ),
-              ),
-              if (hasQuote) ...[
-                const SizedBox(width: 6),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Row 2: profit amount + percent
+            Row(
+              children: [
                 Text(
-                  formatPercent(profitPct),
+                  hasQuote
+                      ? '${profitKRW >= 0 ? '+' : ''}${formatKRW(profitKRW)}'
+                      : '-',
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: profitColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: hasQuote ? profitColor : const Color(0xFF1A1A1A),
                   ),
                 ),
+                if (hasQuote) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    formatPercent(profitPct),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: profitColor,
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-          const SizedBox(height: 4),
-          // Row 3: 평단가 x 수량
-          Text(
-            '${fmtPrice(holding.avgCost)}  x  ${formatShares(holding.shares)}주',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
-          ),
-          const SizedBox(height: 8),
-          // Row 4: 평가금액 + 매입환율
-          Row(
-            children: [
-              Text(
-                hasQuote ? formatKRW(totalValueKRW) : '-',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF1A1A1A),
-                ),
-              ),
-              if (!isKRW) ...[
-                const SizedBox(width: 12),
+            ),
+            const SizedBox(height: 4),
+            // Row 3: 평단가 x 수량
+            Text(
+              '${fmtPrice(holding.avgCost)}  x  ${formatShares(holding.shares)}주',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
+            ),
+            const SizedBox(height: 8),
+            // Row 4: 평가금액 + 매입환율
+            Row(
+              children: [
                 Text(
-                  formatKRW(holding.avgExchangeRate),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
+                  hasQuote ? formatKRW(totalValueKRW) : '-',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1A1A1A),
+                  ),
                 ),
+                if (!isKRW) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    formatKRW(holding.avgExchangeRate),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFAAAAAA),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

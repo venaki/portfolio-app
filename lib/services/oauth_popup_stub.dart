@@ -2,3 +2,5 @@
 Future<Map<String, dynamic>?> openOAuthPopup(String url) async {
   return null;
 }
+
+void cancelActiveOAuthPopup() {}

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../utils/format.dart';
-import '../utils/constants.dart';
 
 class TransactionCard extends StatelessWidget {
   final Transaction transaction;
@@ -60,7 +59,10 @@ class TransactionCard extends StatelessWidget {
                     children: [
                       // Type badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: badge.bg,
                           borderRadius: BorderRadius.circular(4),
@@ -85,7 +87,10 @@ class TransactionCard extends StatelessWidget {
                       ),
                       // Owner badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0F0F0),
                           borderRadius: BorderRadius.circular(4),
@@ -101,7 +106,10 @@ class TransactionCard extends StatelessWidget {
                       ),
                       // Country badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0F0F0),
                           borderRadius: BorderRadius.circular(4),
@@ -118,7 +126,10 @@ class TransactionCard extends StatelessWidget {
                       // Broker badge
                       if (tx.broker.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF0F0F0),
                             borderRadius: BorderRadius.circular(4),
@@ -200,7 +211,11 @@ class TransactionCard extends StatelessWidget {
         return _BadgeConfig(
           bg: const Color(0xFFE3F2FD),
           color: const Color(0xFF1976D2),
-          label: type == TransactionType.buy ? '매수' : type == TransactionType.openingBalance ? '초기' : '조정',
+          label: type == TransactionType.buy
+              ? '매수'
+              : type == TransactionType.openingBalance
+              ? '초기'
+              : '조정',
         );
       case TransactionType.sell:
         return _BadgeConfig(
@@ -216,5 +231,9 @@ class _BadgeConfig {
   final Color bg;
   final Color color;
   final String label;
-  const _BadgeConfig({required this.bg, required this.color, required this.label});
+  const _BadgeConfig({
+    required this.bg,
+    required this.color,
+    required this.label,
+  });
 }

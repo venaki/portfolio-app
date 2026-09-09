@@ -1,17 +1,97 @@
-# portfolio_flutter
+# Portfolio
 
-A new Flutter project.
+Flutter 웹으로 만든 개인 자산 원장입니다. Google 로그인 후 본인의 Google Sheets에 주식 거래, 기타자산, 설정과 일별 평가 기록을 저장합니다. Cloudflare Worker는 Google OAuth와 종목 검색을 담당합니다.
 
-## Getting Started
+## 실행
 
-This project is a starting point for a Flutter application.
+검증 환경은 Flutter **3.41.5 / Dart 3.11.3**, Worker는 Node.js **22.19.0**입니다.
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+flutter pub get --enforce-lockfile
+flutter run -d chrome --web-port 8080 --dart-define=DEV_MODE=true
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+개발 모드는 네트워크 인증 없이 메모리 원장으로 실행합니다. 추가·수정·삭제·백업을 시험할 수 있으며 브라우저를 새로고침하면 샘플 데이터로 돌아갑니다. 개발 모드가 실제 Sheets로 폴백하지는 않습니다.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+실제 연결은 `--dart-define=DEV_MODE=true`를 제외하고 실행합니다. Firebase Google 로그인, Sheets/Drive API, Worker OAuth 설정이 필요합니다. [Worker 설정과 전환 가이드](portfolio-cors-proxy/README.md)를 먼저 확인합니다. 연결 성공 후에만 사용자별 시트 ID를 저장합니다.
+
+## 구조
+
+| 경로 | 책임 |
+|---|---|
+| `lib/models/` | 원장 형식, 열 스키마, 입력 검증, 식별자 |
+| `lib/engine/` | 거래 재생, 평균 원가, 평가액, 실현손익, 스냅샷 계산 |
+| `lib/services/sheets_api_client.dart` | 인증 헤더, HTTP 상태 검사, 시간 제한 |
+| `lib/services/sheets_service.dart` | 특정 시트에 고정된 저장소, CRUD와 원자적 복원 |
+| `lib/providers/portfolio_provider.dart` | 사용자·시트 수명, 저장 직렬화, 갱신과 오류 상태 |
+| `lib/screens/dashboard/` | 현황·배분·추이 화면 |
+| `lib/widgets/transaction_form.dart`, `asset_form.dart` | 추가·수정이 공유하는 입력과 검증 |
+| `portfolio-cors-proxy/` | Firebase JWT 검증, OAuth 시도 격리, 토큰 저장, 검색 |
+
+기존 `Transactions`, `Prices`, `OtherAssets`, `Settings`를 읽고 필요한 경우 `Snapshots`, `HistoricalPrices`를 추가합니다. 거래는 14열(마지막 열 `time`), 기타자산은 9열, 스냅샷은 12열입니다. 잘못된 행은 위치와 오류를 표시하며 원장 수정이 끝날 때까지 앱 저장을 막습니다. 기존 시트에 없는 시간은 `00:00`, 이전 설정의 쉼표 목록은 계속 읽을 수 있습니다. 새 설정 목록은 JSON 배열입니다.
+
+## 계산 기준
+
+- 같은 날짜·시각의 거래는 원장에 기록된 순서를 유지합니다. 보유 수량보다 큰 매도, 중복 ID, 잘못된 날짜, 음수 매수가와 유효하지 않은 숫자는 거절합니다.
+- 원화 매입 원가는 매수별 `수량 × 가격 × 당시 환율`을 누적합니다. 외화 평균 원가와 평균 환율을 곱해 원화 원가를 재구성하지 않습니다.
+- 부분 매도는 이동평균 원가를 배분합니다. 전량 매도한 종목도 실현손익 내역에서 볼 수 있습니다.
+- 대출은 양수로 등록하고 상환을 음수로 기록합니다. 총 상환이 원금을 넘을 수 없습니다. 기타자산은 명의·이름·분류·통화별로 합산합니다.
+- 일간 등락은 **현재 보유 수량의 가격 변동을 현재 환율로 환산한 값**입니다. 전일 환율 변동, 장중 현금 흐름을 보정한 수익률은 아닙니다. 기타자산을 포함하는 화면은 같은 분모를 사용합니다.
+- 매도 대금의 현금 자동 정산, 배당, 세금, 수수료, 분할·합병, TWR/IRR은 현재 원장의 기능 범위에 포함되지 않습니다. 자산 추이의 증감과 투자 성과는 구분해서 봐야 합니다.
+
+## 시세와 과거 기록
+
+시세 갱신은 Sheets가 계산한 현재 값을 다시 읽습니다. 앱이 GOOGLEFINANCE의 계산 시점을 강제로 바꾸거나 수식을 잠시 깨뜨리지 않습니다. 조회 성공 시간은 거래소 시세의 생성 시간이 아닙니다. 누락·비정상 시세는 이전 정상값과 오래된 값 표시를 유지하며 새 평가 기록으로 저장하지 않습니다.
+
+GOOGLEFINANCE의 과거 배열은 [Sheets API에서 읽을 수 없습니다](https://support.google.com/docs/answer/3093281?hl=en). 따라서 과거 추이는 검증된 가격·환율 파일을 가져와 복원합니다. 외부 서비스 가입이나 API 키가 필요하지 않습니다.
+
+설정 → **과거 가격·환율 가져오기**에서 CSV 또는 JSON을 선택합니다. CSV 예:
+
+```csv
+date,ticker,price
+2026-01-01,XYZ,100
+2026-01-02,XYZ,110
+2026-01-01,USDKRW,1450
+2026-01-02,USDKRW,1440
+```
+
+JSON은 `[{"date":"2026-01-02","ticker":"XYZ","price":110}]` 또는 같은 배열을 담은 `{"prices":[...]}`를 지원합니다. 한국 종목 코드는 `005930`처럼 선행 0을 유지합니다. 가격은 해당 종목의 거래 통화, 환율은 달러당 원화입니다. 파일당 20MB, 최대 100,000행이며 같은 날짜·종목의 상충하는 중복값은 거절합니다. 기존 저장 자료와 같은 키를 다시 가져오면 미리보기 후 새 값으로 교체합니다.
+
+가져온 뒤 추이 화면의 복원을 실행합니다. 최대 최근 1년 범위에서 기록이 있는 날 또는 직전 7일 이내 관측값을 사용하며 미래 가격과 현재 환율을 과거에 대입하지 않습니다. 첫날 등락을 계산하려면 그 이전 종가도 필요합니다. 자료가 부족한 날짜는 오류를 알리고 생략합니다. 실제 관측(`live`)은 복원(`backfill`)으로 덮어쓰지 않습니다. 과거 거래를 바꾸면 영향 시작일을 표시하며, 보존된 관측값까지 재계산됐다고 표시하지 않습니다.
+
+## 백업·복원
+
+설정에서 전체 JSON 백업을 내려받고 가져올 수 있습니다. 거래 CSV는 거래 내역용이며 전체 백업을 대신하지 않습니다.
+
+전체 백업에는 거래, 기타자산, 설정, 수동 환율 또는 기본 환율 수식, 재계산 필요일, 스냅샷과 가져온 과거 가격이 포함됩니다. 검증에 실패하는 원장은 불완전한 백업으로 내보내지 않으므로 먼저 Google Sheets의 원본 다운로드를 이용합니다. 사용자 지정 환율 수식은 원본 시트 백업이 필요합니다. 앱이 관리하지 않는 추가 탭과 셀 서식은 JSON 백업 대상이 아닙니다.
+
+가져오기는 파일 검증 → 건수 미리보기 → 교체 확인 순서입니다. 복원은 기존 원장을 교체하므로 필요한 백업을 먼저 내려받습니다. 여섯 탭의 데이터 교체는 단일 Sheets `batchUpdate`로 수행합니다. 텍스트는 수식으로 실행되지 않으며 앱이 생성하는 시세·환율 수식만 허용합니다. 이전 `schemaVersion: 1` 거래 백업을 지원하되 현금 거래나 알 수 없는 데이터 컬렉션은 누락시키지 않고 가져오기를 거절합니다.
+
+Sheets에는 여러 기기의 원장 전체를 잠그는 트랜잭션이 없습니다. 수정 전 원본 행 비교로 변경 충돌을 감지하지만 마지막 비교와 저장 사이의 수동 변경까지 원자적으로 막지는 못합니다. 여러 창이나 시트 편집기에서 같은 원장을 동시에 수정하는 작업은 피해야 합니다. 시간 초과는 저장 요청이 서버에 도달했을 수 있으므로 다시 불러와 결과를 확인한 뒤 재시도합니다.
+
+## 검증과 빌드
+
+```sh
+flutter analyze
+flutter test --no-pub
+bash scripts/build_web.sh
+```
+
+Worker 검증:
+
+```sh
+cd portfolio-cors-proxy
+npm ci
+npm run check
+npm run build
+```
+
+`build_web.sh`는 Firebase(`/`)와 GitHub Pages(`/portfolio-app/`)를 별도 디렉터리에 빌드하고 배포하지 않습니다. 상세 절차는 [배포 가이드](release/deploy.md)에 있습니다. CI는 분석, 테스트와 양쪽 웹 빌드를 실행합니다.
+
+## 기존 버전 전환
+
+이번 인증 프로토콜은 이전 Worker와 호환되지 않으므로 Worker와 앱을 함께 반영해야 합니다. 검증되지 않은 기존 KV 토큰은 가져오지 않으며 사용자는 다시 로그인해야 합니다. 시트 연결 ID도 Firebase UID별로 분리하므로 이전 전역 ID를 쓰던 사용자는 처음 한 번 시트를 다시 선택합니다. 원장 파일을 자동 교체하지 않습니다.
+
+기존 스냅샷은 그대로 읽되 이전 계산 버전임을 표시합니다. 새 기록은 계산 스키마 2를 사용합니다. 기존 대출이 음수 원금 등 새 검증을 통과하지 못하면 원본의 의미를 확인해 정정해야 하며 앱이 자동으로 부호를 바꾸지 않습니다.
+
+공개 저장소의 `_backup/save/`에 기존에 추적된 파일이 있습니다. 실제 개인정보인지 확인되기 전까지 이 리팩토링에서는 삭제하거나 Git 기록을 변경하지 않았습니다. 새로운 로컬 백업은 저장소 밖에 보관하세요. 프로젝트 루트의 `portfolio-backup-*.json`과 `_backup/save/`의 새 JSON은 Git에서 제외하며 이미 추적된 파일은 그대로 둡니다.

@@ -6,9 +6,19 @@ void main() {
   group('replayTransactions', () {
     test('single buy creates holding', () {
       final txs = [
-        Transaction(id: '1', date: '2025-01-01', account: '본석',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 300, currency: Currency.usd, exchangeRate: 1400),
+        Transaction(
+          id: '1',
+          date: '2025-01-01',
+          account: '본석',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 300,
+          currency: Currency.usd,
+          exchangeRate: 1400,
+        ),
       ];
       final holdings = replayTransactions(txs);
       expect(holdings.length, 1);
@@ -19,28 +29,69 @@ void main() {
 
     test('two buys calculates weighted average', () {
       final txs = [
-        Transaction(id: '1', date: '2025-01-01', account: '본석',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 300, currency: Currency.usd, exchangeRate: 1400),
-        Transaction(id: '2', date: '2025-01-02', account: '본석',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 400, currency: Currency.usd, exchangeRate: 1500),
+        Transaction(
+          id: '1',
+          date: '2025-01-01',
+          account: '본석',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 300,
+          currency: Currency.usd,
+          exchangeRate: 1400,
+        ),
+        Transaction(
+          id: '2',
+          date: '2025-01-02',
+          account: '본석',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 400,
+          currency: Currency.usd,
+          exchangeRate: 1500,
+        ),
       ];
       final holdings = replayTransactions(txs);
       expect(holdings.length, 1);
       expect(holdings[0].shares, 20);
       expect(holdings[0].avgCost, 350);
-      expect(holdings[0].avgExchangeRate, 1450);
+      expect(holdings[0].avgExchangeRate, closeTo(10200000 / 7000, 0.000001));
+      expect(holdings[0].costKRW, 10200000);
     });
 
     test('sell reduces shares', () {
       final txs = [
-        Transaction(id: '1', date: '2025-01-01', account: '본석',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 300, currency: Currency.usd, exchangeRate: 1400),
-        Transaction(id: '2', date: '2025-01-02', account: '본석',
-          type: TransactionType.sell, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 5, price: 400, currency: Currency.usd, exchangeRate: 1500),
+        Transaction(
+          id: '1',
+          date: '2025-01-01',
+          account: '본석',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 300,
+          currency: Currency.usd,
+          exchangeRate: 1400,
+        ),
+        Transaction(
+          id: '2',
+          date: '2025-01-02',
+          account: '본석',
+          type: TransactionType.sell,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 5,
+          price: 400,
+          currency: Currency.usd,
+          exchangeRate: 1500,
+        ),
       ];
       final holdings = replayTransactions(txs);
       expect(holdings.length, 1);
@@ -50,49 +101,121 @@ void main() {
 
     test('sell all removes holding', () {
       final txs = [
-        Transaction(id: '1', date: '2025-01-01', account: '본석',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 300, currency: Currency.usd, exchangeRate: 1400),
-        Transaction(id: '2', date: '2025-01-02', account: '본석',
-          type: TransactionType.sell, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 400, currency: Currency.usd, exchangeRate: 1500),
+        Transaction(
+          id: '1',
+          date: '2025-01-01',
+          account: '본석',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 300,
+          currency: Currency.usd,
+          exchangeRate: 1400,
+        ),
+        Transaction(
+          id: '2',
+          date: '2025-01-02',
+          account: '본석',
+          type: TransactionType.sell,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 400,
+          currency: Currency.usd,
+          exchangeRate: 1500,
+        ),
       ];
       expect(replayTransactions(txs).length, 0);
     });
 
     test('different accounts are separate', () {
       final txs = [
-        Transaction(id: '1', date: '2025-01-01', account: '본석',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 300, currency: Currency.usd, exchangeRate: 1400),
-        Transaction(id: '2', date: '2025-01-01', account: '연지',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 5, price: 350, currency: Currency.usd, exchangeRate: 1450),
+        Transaction(
+          id: '1',
+          date: '2025-01-01',
+          account: '본석',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 300,
+          currency: Currency.usd,
+          exchangeRate: 1400,
+        ),
+        Transaction(
+          id: '2',
+          date: '2025-01-01',
+          account: '연지',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 5,
+          price: 350,
+          currency: Currency.usd,
+          exchangeRate: 1450,
+        ),
       ];
       expect(replayTransactions(txs).length, 2);
     });
 
     test('opening_balance works like buy', () {
       final txs = [
-        Transaction(id: '1', date: '2025-01-01', account: '본석',
-          type: TransactionType.openingBalance, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 300, currency: Currency.usd, exchangeRate: 1400),
+        Transaction(
+          id: '1',
+          date: '2025-01-01',
+          account: '본석',
+          type: TransactionType.openingBalance,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 300,
+          currency: Currency.usd,
+          exchangeRate: 1400,
+        ),
       ];
       final holdings = replayTransactions(txs);
       expect(holdings.length, 1);
       expect(holdings[0].shares, 10);
     });
 
-    test('oversell removes holding', () {
+    test('oversell reports an issue without corrupting valid holdings', () {
       final txs = [
-        Transaction(id: '1', date: '2025-01-01', account: '본석',
-          type: TransactionType.buy, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 5, price: 300, currency: Currency.usd, exchangeRate: 1400),
-        Transaction(id: '2', date: '2025-01-02', account: '본석',
-          type: TransactionType.sell, ticker: 'TSLA', market: Market.us,
-          name: 'Tesla', shares: 10, price: 400, currency: Currency.usd, exchangeRate: 1500),
+        Transaction(
+          id: '1',
+          date: '2025-01-01',
+          account: '본석',
+          type: TransactionType.buy,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 5,
+          price: 300,
+          currency: Currency.usd,
+          exchangeRate: 1400,
+        ),
+        Transaction(
+          id: '2',
+          date: '2025-01-02',
+          account: '본석',
+          type: TransactionType.sell,
+          ticker: 'TSLA',
+          market: Market.us,
+          name: 'Tesla',
+          shares: 10,
+          price: 400,
+          currency: Currency.usd,
+          exchangeRate: 1500,
+        ),
       ];
-      expect(replayTransactions(txs).length, 0);
+      final result = replayPortfolio(txs);
+      expect(result.holdings.single.shares, 5);
+      expect(result.issues.single.recordId, '2');
     });
   });
 }

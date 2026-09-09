@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/transaction.dart';
 import '../providers/portfolio_provider.dart';
-import '../engine/calculations.dart';
 import '../engine/holdings_engine.dart';
 import '../utils/format.dart';
 import '../utils/constants.dart';
 import 'transaction_card.dart';
+import 'edit_transaction_modal.dart';
 
 Future<void> showHoldingTransactionsDialog(
   BuildContext context, {
@@ -14,14 +14,20 @@ Future<void> showHoldingTransactionsDialog(
   required String displayName,
   required String account,
   required String broker,
+  required Market market,
+  required Currency currency,
 }) {
   return showDialog(
     context: context,
     barrierDismissible: true,
     builder: (_) => Center(
       child: HoldingTransactionsModal(
-        ticker: ticker, displayName: displayName,
-        account: account, broker: broker,
+        ticker: ticker,
+        displayName: displayName,
+        account: account,
+        broker: broker,
+        market: market,
+        currency: currency,
       ),
     ),
   );
@@ -32,6 +38,8 @@ class HoldingTransactionsModal extends ConsumerStatefulWidget {
   final String displayName;
   final String account;
   final String broker;
+  final Market market;
+  final Currency currency;
 
   const HoldingTransactionsModal({
     super.key,
@@ -39,13 +47,17 @@ class HoldingTransactionsModal extends ConsumerStatefulWidget {
     required this.displayName,
     required this.account,
     required this.broker,
+    required this.market,
+    required this.currency,
   });
 
   @override
-  ConsumerState<HoldingTransactionsModal> createState() => _HoldingTransactionsModalState();
+  ConsumerState<HoldingTransactionsModal> createState() =>
+      _HoldingTransactionsModalState();
 }
 
-class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsModal>
+class _HoldingTransactionsModalState
+    extends ConsumerState<HoldingTransactionsModal>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _periodFilter = '전체';
@@ -66,11 +78,15 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
   Widget build(BuildContext context) {
     final portfolio = ref.watch(portfolioProvider);
     final transactions = portfolio.transactions
-        .where((tx) => tx.ticker == widget.ticker
-            && tx.account == widget.account
-            && tx.broker == widget.broker)
-        .toList()
-      ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
+        .where(
+          (tx) =>
+              tx.ticker == widget.ticker &&
+              tx.account == widget.account &&
+              tx.broker == widget.broker &&
+              tx.market == widget.market &&
+              tx.currency == widget.currency,
+        )
+        .toList();
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -90,17 +106,23 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    widget.displayName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
+                  Expanded(
+                    child: Text(
+                      widget.displayName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
                     ),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.close, size: 22, color: Color(0xFF888888)),
+                    child: const Icon(
+                      Icons.close,
+                      size: 22,
+                      color: Color(0xFF888888),
+                    ),
                   ),
                 ],
               ),
@@ -111,8 +133,14 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
               controller: _tabController,
               labelColor: const Color(0xFF1A1A1A),
               unselectedLabelColor: const Color(0xFFAAAAAA),
-              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
               indicatorColor: const Color(0xFF1A1A1A),
               indicatorWeight: 2,
               overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -141,23 +169,35 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
 
   // ─── 거래내역 탭 ───
 
-  Widget _buildTransactionsTab(List<Transaction> transactions, dynamic portfolio) {
+  Widget _buildTransactionsTab(
+    List<Transaction> transactions,
+    PortfolioState portfolio,
+  ) {
     if (transactions.isEmpty) {
       return const Center(
-        child: Text('거래내역이 없습니다', style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
+        child: Text(
+          '거래내역이 없습니다',
+          style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
+        ),
       );
     }
+    final ordered = transactions.indexed.toList()
+      ..sort((a, b) {
+        final byTime = b.$2.sortKey.compareTo(a.$2.sortKey);
+        return byTime != 0 ? byTime : a.$1.compareTo(b.$1);
+      });
     return ListView.builder(
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       itemCount: transactions.length,
       itemBuilder: (_, i) {
-        final tx = transactions[i];
+        final tx = ordered[i].$2;
         return Padding(
           padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
           child: TransactionCard(
             transaction: tx,
             stockName: portfolio.quotes[tx.ticker]?.name,
+            onTap: () => showEditTransactionDialog(context, tx),
           ),
         );
       },
@@ -205,15 +245,21 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
                         period,
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                          color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFFAAAAAA),
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: isSelected
+                              ? const Color(0xFF1A1A1A)
+                              : const Color(0xFFAAAAAA),
                         ),
                       ),
                       const SizedBox(height: 2),
                       Container(
                         height: 2,
                         width: 20,
-                        color: isSelected ? const Color(0xFF1A1A1A) : Colors.transparent,
+                        color: isSelected
+                            ? const Color(0xFF1A1A1A)
+                            : Colors.transparent,
                       ),
                     ],
                   ),
@@ -230,7 +276,14 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('합계', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                const Text(
+                  '합계',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -240,7 +293,9 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: totalPLNative >= 0 ? positiveColor : negativeColor,
+                          color: totalPLNative >= 0
+                              ? positiveColor
+                              : negativeColor,
                         ),
                       ),
                     Text(
@@ -262,7 +317,10 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
         if (plItems.isEmpty)
           const Expanded(
             child: Center(
-              child: Text('실현손익이 없습니다', style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
+              child: Text(
+                '실현손익이 없습니다',
+                style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
+              ),
             ),
           )
         else
@@ -276,7 +334,9 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
                 return Container(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: const Color(0xFFF0F0F0))),
+                    border: Border(
+                      bottom: BorderSide(color: const Color(0xFFF0F0F0)),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -285,14 +345,23 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.date,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A))),
+                            Text(
+                              item.date,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
                             const SizedBox(height: 2),
                             Text(
                               isKRW
                                   ? '${formatShares(item.shares)}주 × ${formatKRW(item.sellPrice)}'
                                   : '${formatShares(item.shares)}주 × ${formatUSD(item.sellPrice)} · ₩${formatShares(item.sellRate)}',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF888888),
+                              ),
                             ),
                           ],
                         ),
@@ -304,13 +373,19 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
                           if (!isKRW)
                             Text(
                               '${item.plNative >= 0 ? '+' : ''}${formatUSD(item.plNative)}',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: plColor),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: plColor,
+                              ),
                             ),
                           Text(
                             '${item.plKRW >= 0 ? '+' : ''}${formatKRW(item.plKRW)}',
                             style: TextStyle(
                               fontSize: isKRW ? 13 : 11,
-                              fontWeight: isKRW ? FontWeight.w600 : FontWeight.w500,
+                              fontWeight: isKRW
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                               color: plColor,
                             ),
                           ),
@@ -340,11 +415,20 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
     final now = DateTime.now();
     final Duration duration;
     switch (_periodFilter) {
-      case '1개월': duration = const Duration(days: 30); break;
-      case '3개월': duration = const Duration(days: 90); break;
-      case '6개월': duration = const Duration(days: 180); break;
-      case '1년': duration = const Duration(days: 365); break;
-      default: return sells;
+      case '1개월':
+        duration = const Duration(days: 30);
+        break;
+      case '3개월':
+        duration = const Duration(days: 90);
+        break;
+      case '6개월':
+        duration = const Duration(days: 180);
+        break;
+      case '1년':
+        duration = const Duration(days: 365);
+        break;
+      default:
+        return sells;
     }
     final cutoff = now.subtract(duration);
     return sells.where((tx) {
@@ -353,52 +437,29 @@ class _HoldingTransactionsModalState extends ConsumerState<HoldingTransactionsMo
     }).toList();
   }
 
-  /// 매도 거래별 실현손익 계산 (FIFO 기반 평단가)
+  /// 공통 이동평균 원장 계산 결과를 화면 항목으로 변환
   List<_RealizedPLItem> _calcRealizedPLList(
     List<Transaction> allTx,
     List<Transaction> targetSells,
   ) {
-    // 시간순 정렬하여 평단가 추적
-    final sorted = List<Transaction>.from(allTx)
-      ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
-
-    double avgCost = 0;
-    double avgRate = 0;
-    double totalShares = 0;
-    final targetIds = targetSells.map((s) => s.id).toSet();
-    final results = <_RealizedPLItem>[];
-
-    for (final tx in sorted) {
-      if (tx.type == TransactionType.buy ||
-          tx.type == TransactionType.openingBalance ||
-          tx.type == TransactionType.adjustment) {
-        final newTotal = totalShares + tx.shares;
-        if (newTotal > 0) {
-          avgCost = (totalShares * avgCost + tx.shares * tx.price) / newTotal;
-          avgRate = (totalShares * avgRate + tx.shares * tx.exchangeRate) / newTotal;
-        }
-        totalShares = newTotal;
-      } else if (tx.type == TransactionType.sell) {
-        if (targetIds.contains(tx.id)) {
-          final pl = calcRealizedPL(tx.shares, tx.price, tx.exchangeRate, avgCost, avgRate);
-          results.add(_RealizedPLItem(
-            date: tx.date,
-            shares: tx.shares,
-            sellPrice: tx.price,
-            sellRate: tx.exchangeRate,
-            avgCost: avgCost,
-            avgRate: avgRate,
-            plNative: pl.usd,
-            plKRW: tx.currency == Currency.krw ? pl.usd : pl.krw,
-          ));
-        }
-        totalShares -= tx.shares;
-        if (totalShares < 0) totalShares = 0;
-      }
-    }
-
-    // 날짜 내림차순으로 반환
-    return results.reversed.toList();
+    final targetIds = targetSells.map((tx) => tx.id).toSet();
+    return replayPortfolio(allTx).realizedTrades
+        .where((trade) => targetIds.contains(trade.transaction.id))
+        .map(
+          (trade) => _RealizedPLItem(
+            date: trade.transaction.date,
+            shares: trade.transaction.shares,
+            sellPrice: trade.transaction.price,
+            sellRate: trade.transaction.exchangeRate,
+            avgCost: trade.avgCost,
+            avgRate: trade.avgRate,
+            plNative: trade.profitNative,
+            plKRW: trade.profitKRW,
+          ),
+        )
+        .toList()
+        .reversed
+        .toList();
   }
 }
 

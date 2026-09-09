@@ -21,10 +21,13 @@ class TickerSearch extends StatefulWidget {
   final ValueChanged<TickerSearchResult>? onSelected;
   final ValueChanged<String>? onManualInput;
   final String hint;
+
   /// 한국 주식 모드: 종목명으로 검색하고, 선택 시 종목명 표시 + 코드 자동 세팅
   final bool isKorean;
+
   /// 기존 거래 종목 목록 (포커스 시 드롭다운 표시)
   final List<TickerSearchResult> existingTickers;
+  final String? Function(String?)? validator;
 
   const TickerSearch({
     super.key,
@@ -35,6 +38,7 @@ class TickerSearch extends StatefulWidget {
     this.hint = '예: TSLA',
     this.isKorean = false,
     this.existingTickers = const [],
+    this.validator,
   });
 
   @override
@@ -50,6 +54,7 @@ class _TickerSearchState extends State<TickerSearch> {
   Timer? _debounce;
   List<TickerSearchResult> _results = [];
   bool _isLoading = false;
+  int _requestVersion = 0;
 
   @override
   void initState() {
@@ -62,6 +67,7 @@ class _TickerSearchState extends State<TickerSearch> {
 
   @override
   void dispose() {
+    _requestVersion++;
     _debounce?.cancel();
     _removeOverlay();
     _focusNode.removeListener(_onFocusChange);
@@ -86,17 +92,25 @@ class _TickerSearchState extends State<TickerSearch> {
     final q = query.toUpperCase();
     final filtered = q.isEmpty
         ? widget.existingTickers
-        : widget.existingTickers.where((t) =>
-            t.ticker.toUpperCase().contains(q) ||
-            t.name.toUpperCase().contains(q)).toList();
+        : widget.existingTickers
+              .where(
+                (t) =>
+                    t.ticker.toUpperCase().contains(q) ||
+                    t.name.toUpperCase().contains(q),
+              )
+              .toList();
     if (filtered.isNotEmpty) {
       _results = filtered;
       _showOverlay();
+    } else {
+      _removeOverlay();
     }
   }
 
   void _onChanged(String value) {
     _debounce?.cancel();
+    _requestVersion++;
+    setState(() => _isLoading = false);
     final trimmed = value.trim();
 
     if (widget.isKorean) {
@@ -122,24 +136,35 @@ class _TickerSearchState extends State<TickerSearch> {
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      _search(trimmed);
+      _search(trimmed, _requestVersion);
     });
   }
 
-  Future<void> _search(String query) async {
+  Future<void> _search(String query, int version) async {
+    if (!mounted || version != _requestVersion) return;
     setState(() => _isLoading = true);
     try {
-      final uri = Uri.parse('$corsProxyBase/search?q=$query');
+      final uri = Uri.parse(
+        '$corsProxyBase/search',
+      ).replace(queryParameters: {'q': query});
       final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      if (!mounted || version != _requestVersion) return;
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         _results = data
+            .map(
+              (item) => TickerSearchResult(
+                ticker: item['ticker'] ?? item['symbol'] ?? '',
+                name: item['name'] ?? '',
+                exchange: item['exchange'] ?? '',
+              ),
+            )
+            .where(
+              (result) => widget.isKorean
+                  ? RegExp(r'^\d{6}$').hasMatch(result.ticker)
+                  : !RegExp(r'^\d{6}$').hasMatch(result.ticker),
+            )
             .take(5)
-            .map((item) => TickerSearchResult(
-                  ticker: item['ticker'] ?? item['symbol'] ?? '',
-                  name: item['name'] ?? '',
-                  exchange: item['exchange'] ?? '',
-                ))
             .toList();
         if (_results.isNotEmpty && _focusNode.hasFocus) {
           _showOverlay();
@@ -151,9 +176,11 @@ class _TickerSearchState extends State<TickerSearch> {
       }
     } catch (_) {
       // Network failure: hide dropdown, allow manual input
-      _removeOverlay();
+      if (mounted && version == _requestVersion) _removeOverlay();
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && version == _requestVersion) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -242,8 +269,13 @@ class _TickerSearchState extends State<TickerSearch> {
   }
 
   void _selectResult(TickerSearchResult result) {
+    _debounce?.cancel();
+    _requestVersion++;
+    setState(() => _isLoading = false);
     // 한국주식: 종목명 표시, 미국주식: 티커 표시
-    _controller.text = widget.isKorean ? result.name : result.ticker.toUpperCase();
+    _controller.text = widget.isKorean
+        ? result.name
+        : result.ticker.toUpperCase();
     _removeOverlay();
     _focusNode.unfocus();
     widget.onSelected?.call(result);
@@ -262,8 +294,10 @@ class _TickerSearchState extends State<TickerSearch> {
         decoration: InputDecoration(
           hintText: widget.hint,
           hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 14,
+          ),
           suffixIcon: _isLoading
               ? const Padding(
                   padding: EdgeInsets.all(12),
@@ -277,8 +311,10 @@ class _TickerSearchState extends State<TickerSearch> {
                   ),
                 )
               : null,
-          suffixIconConstraints:
-              const BoxConstraints(maxWidth: 40, maxHeight: 40),
+          suffixIconConstraints: const BoxConstraints(
+            maxWidth: 40,
+            maxHeight: 40,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(color: Color(0xFFE5E5E5)),
@@ -301,7 +337,9 @@ class _TickerSearchState extends State<TickerSearch> {
           ),
           isDense: true,
         ),
-        validator: (v) => (v == null || v.isEmpty) ? '필수' : null,
+        validator:
+            widget.validator ??
+            (v) => (v == null || v.trim().isEmpty) ? '필수' : null,
       ),
     );
   }

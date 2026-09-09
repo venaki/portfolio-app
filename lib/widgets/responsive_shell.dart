@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'sidebar.dart';
 import 'custom_tab_bar.dart';
-import '../providers/filter_provider.dart';
 
-class ResponsiveShell extends ConsumerWidget {
+class ResponsiveShell extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final Widget child;
+  final bool isEditingPortfolio;
 
   const ResponsiveShell({
     super.key,
     required this.currentIndex,
     required this.onTap,
     required this.child,
+    this.isEditingPortfolio = false,
   });
 
   static const breakpoint = 1024.0;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= breakpoint;
-    final isEditMode = ref.watch(portfolioEditModeProvider);
+    final isEditMode = currentIndex == 1 && isEditingPortfolio;
 
     if (isDesktop) {
       return Row(
@@ -35,8 +35,7 @@ class ResponsiveShell extends ConsumerWidget {
     return Column(
       children: [
         Expanded(child: child),
-        if (!isEditMode)
-          CustomTabBar(currentIndex: currentIndex, onTap: onTap),
+        if (!isEditMode) CustomTabBar(currentIndex: currentIndex, onTap: onTap),
       ],
     );
   }

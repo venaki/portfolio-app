@@ -4,142 +4,201 @@ import '../models/other_asset.dart';
 import '../models/app_settings.dart';
 import '../models/portfolio_snapshot.dart';
 import 'sheets_service.dart';
+import 'portfolio_backup.dart';
 import 'mock_data.dart';
 
-/// Dev 모드용 MockSheetsService — API 호출 없이 로컬 메모리로 동작
+/// Real in-memory CRUD for development and tests, never a network fallback.
 class MockSheetsService extends SheetsService {
-  MockSheetsService() : super(getAuthHeaders: () async => {});
-
-  final List<PortfolioSnapshot> _snapshots = [];
-
+  final Map<String, _MemoryPortfolio> _databases;
+  final PortfolioData _seed;
+  MockSheetsService({PortfolioData? data})
+    : _databases = {},
+      _seed =
+          data ??
+          (
+            transactions: MockData.transactions,
+            quotes: MockData.quotes,
+            exchangeRate: MockData.exchangeRate,
+            otherAssets: MockData.otherAssets,
+            settings: MockData.settings,
+          ),
+      super(getAuthHeaders: () async => {});
+  MockSheetsService._(this._databases, this._seed, String id)
+    : super(getAuthHeaders: () async => {}, spreadsheetId: id);
+  _MemoryPortfolio get _store => _databases.putIfAbsent(
+    spreadsheetId ?? 'mock-spreadsheet-id',
+    () => _MemoryPortfolio(_seed),
+  );
   @override
-  Future<String> createSpreadsheet() async => 'mock-spreadsheet-id';
-
+  SheetsService forSpreadsheet(String id) =>
+      MockSheetsService._(_databases, _seed, id);
   @override
-  Future<
-    ({
-      List<Transaction> transactions,
-      List<StockQuote> quotes,
-      double exchangeRate,
-      List<OtherAsset> otherAssets,
-      AppSettings settings,
-    })
-  >
-  loadAll() async {
-    return (
-      transactions: MockData.transactions,
-      quotes: MockData.quotes,
+  Future<String> createSpreadsheet() async {
+    final id = 'mock-${_databases.length + 1}';
+    _databases[id] = _MemoryPortfolio((
+      transactions: [],
+      quotes: [],
       exchangeRate: MockData.exchangeRate,
-      otherAssets: MockData.otherAssets,
-      settings: MockData.settings,
+      otherAssets: [],
+      settings: const AppSettings(),
+    ));
+    return id;
+  }
+
+  @override
+  Future<PortfolioData> loadAll() async {
+    spreadsheetName = '개발용 포트폴리오';
+    exchangeRateValid = _store.rate.isFinite && _store.rate > 0;
+    historyDirtyFrom = _store.dirty;
+    return (
+      transactions: [..._store.transactions],
+      quotes: [..._store.quotes],
+      exchangeRate: _store.rate,
+      otherAssets: [..._store.assets],
+      settings: _store.settings,
     );
   }
 
   @override
-  Future<({List<StockQuote> quotes, double exchangeRate})> loadPrices() async {
-    // no-op: 고정 시세 반환
-    return (quotes: MockData.quotes, exchangeRate: MockData.exchangeRate);
+  Future<PriceData> loadPrices() async {
+    exchangeRateValid = _store.rate.isFinite && _store.rate > 0;
+    return (quotes: [..._store.quotes], exchangeRate: _store.rate);
   }
 
   @override
-  Future<({List<StockQuote> quotes, double exchangeRate})> forceRefreshPrices({
-    int waitSeconds = 3,
-  }) async => loadPrices();
-
-  // ─── CRUD no-op (로컬 state에서 처리됨) ───
+  Future<PriceData> forceRefreshPrices({int waitSeconds = 3}) => loadPrices();
+  @override
+  Future<void> addTransaction(Transaction tx) async {
+    if (_store.transactions.any((t) => t.id == tx.id)) {
+      throw StateError('중복 거래 ID');
+    }
+    _store.transactions.add(tx);
+  }
 
   @override
-  Future<void> addTransaction(Transaction tx) async {}
+  Future<void> updateTransaction(Transaction tx) async {
+    final i = _store.transactions.indexWhere((t) => t.id == tx.id);
+    if (i < 0) throw StateError('거래를 찾을 수 없습니다.');
+    _store.transactions[i] = tx;
+  }
 
   @override
-  Future<void> updateTransaction(Transaction tx) async {}
+  Future<void> deleteTransaction(String id) async =>
+      _store.transactions.removeWhere((t) => t.id == id);
+  @override
+  Future<void> addOtherAsset(OtherAsset asset) async {
+    if (_store.assets.any((a) => a.id == asset.id)) {
+      throw StateError('중복 자산 ID');
+    }
+    _store.assets.add(asset);
+  }
 
   @override
-  Future<void> deleteTransaction(String id) async {}
+  Future<void> updateOtherAsset(OtherAsset asset) async {
+    final i = _store.assets.indexWhere((a) => a.id == asset.id);
+    if (i < 0) throw StateError('자산을 찾을 수 없습니다.');
+    _store.assets[i] = asset;
+  }
 
   @override
-  Future<void> addOtherAsset(OtherAsset asset) async {}
-
-  @override
-  Future<void> updateOtherAsset(OtherAsset asset) async {}
-
-  @override
-  Future<void> deleteOtherAsset(String id) async {}
-
+  Future<void> deleteOtherAsset(String id) async =>
+      _store.assets.removeWhere((a) => a.id == id);
   @override
   Future<void> addPriceRow(
     String ticker,
     String market,
     String currency,
   ) async {}
-
   @override
-  Future<void> saveSettings(AppSettings settings) async {}
-
+  Future<void> saveSettings(AppSettings settings) async =>
+      _store.settings = settings;
   @override
-  Future<List<PortfolioSnapshot>> loadSnapshots() async {
-    return [..._snapshots]..sort((a, b) => a.date.compareTo(b.date));
+  Future<void> setHistoryDirtyFrom(String? date) async {
+    historyDirtyFrom = date;
+    _store.dirty = date;
   }
 
   @override
-  Future<void> upsertSnapshot(PortfolioSnapshot snapshot) async {
-    final index = _snapshots.indexWhere((s) => s.date == snapshot.date);
-    if (index >= 0) {
-      _snapshots[index] = snapshot;
-    } else {
-      _snapshots.add(snapshot);
-    }
-  }
-
+  Future<List<PortfolioSnapshot>> loadSnapshots() async =>
+      [..._store.snapshots]..sort((a, b) => a.date.compareTo(b.date));
+  @override
+  Future<void> upsertSnapshot(PortfolioSnapshot snapshot) =>
+      upsertSnapshots([snapshot]);
   @override
   Future<void> upsertSnapshots(List<PortfolioSnapshot> snapshots) async {
     for (final snapshot in snapshots) {
-      await upsertSnapshot(snapshot);
+      final i = _store.snapshots.indexWhere((s) => s.date == snapshot.date);
+      if (i < 0) {
+        _store.snapshots.add(snapshot);
+      } else if (snapshot.source == 'live' ||
+          _store.snapshots[i].source != 'live') {
+        _store.snapshots[i] = snapshot;
+      }
     }
   }
 
+  @override
+  Future<HistoricalPriceImport> loadHistoricalPrices() async => _store.history;
+  @override
+  Future<void> saveHistoricalPrices(HistoricalPriceImport imported) async =>
+      _store.history = _store.history.merge(imported);
   @override
   Future<BackfillPriceData> loadBackfillPriceData({
     required List<BackfillPriceRequest> requests,
     required DateTime start,
     required DateTime end,
     int waitSeconds = 20,
-  }) async {
-    final dates = <String>[];
-    for (
-      var date = start;
-      !date.isAfter(end);
-      date = date.add(const Duration(days: 1))
-    ) {
-      final y = date.year.toString().padLeft(4, '0');
-      final m = date.month.toString().padLeft(2, '0');
-      final d = date.day.toString().padLeft(2, '0');
-      dates.add('$y-$m-$d');
-    }
-
-    final prices = <String, Map<String, double>>{};
-    for (final request in requests) {
-      final quote = MockData.quotes.firstWhere(
-        (q) => q.ticker == request.ticker,
-        orElse: () => StockQuote(
-          ticker: request.ticker,
-          name: request.ticker,
-          price: 1,
-          changePct: 0,
-          closeYest: 1,
-          currency: 'USD',
-        ),
-      );
-      prices[request.ticker] = {for (final date in dates) date: quote.price};
-    }
-
-    return BackfillPriceData(
-      pricesByTicker: prices,
-      exchangeRates: {for (final date in dates) date: MockData.exchangeRate},
-      failedSymbols: const [],
-    );
+  }) async => _store.history.toBackfillData(requests);
+  @override
+  Future<PortfolioBackup> createBackup() async => PortfolioBackup(
+    transactions: [..._store.transactions],
+    otherAssets: [..._store.assets],
+    settings: _store.settings,
+    snapshots: [..._store.snapshots],
+    historicalPrices: _store.history,
+    extraSettings: {
+      ..._store.extraSettings,
+      if (_store.dirty != null) 'history_dirty_from': _store.dirty!,
+    },
+    exchangeRateSource: _store.exchangeRateSource,
+  );
+  @override
+  Future<void> restoreBackup(PortfolioBackup backup) async {
+    backup.validate();
+    _store.transactions = [...backup.transactions];
+    _store.assets = [...backup.otherAssets];
+    _store.settings = backup.settings;
+    _store.snapshots = [...backup.snapshots];
+    _store.history = backup.historicalPrices;
+    _store.extraSettings = {...backup.extraSettings};
+    _store.exchangeRateSource = backup.exchangeRateSource;
+    _store.dirty = backup.extraSettings['history_dirty_from'];
+    final rate = double.tryParse(backup.exchangeRateSource);
+    if (rate != null) _store.rate = rate;
   }
 
   @override
-  Future<int> findRowById(String sheetName, String id) async => 0;
+  Future<int> findRowById(String sheetName, String id) async =>
+      sheetName == 'Transactions'
+      ? _store.transactions.indexWhere((t) => t.id == id)
+      : _store.assets.indexWhere((a) => a.id == id);
+}
+
+class _MemoryPortfolio {
+  List<Transaction> transactions;
+  List<OtherAsset> assets;
+  List<StockQuote> quotes;
+  AppSettings settings;
+  double rate;
+  String? dirty;
+  Map<String, String> extraSettings = {};
+  String exchangeRateSource = '=GOOGLEFINANCE("CURRENCY:USDKRW")';
+  List<PortfolioSnapshot> snapshots = [];
+  HistoricalPriceImport history = const HistoricalPriceImport();
+  _MemoryPortfolio(PortfolioData seed)
+    : transactions = [...seed.transactions],
+      assets = [...seed.otherAssets],
+      quotes = [...seed.quotes],
+      settings = seed.settings,
+      rate = seed.exchangeRate;
 }

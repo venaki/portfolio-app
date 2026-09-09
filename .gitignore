@@ -54,3 +54,7 @@ app.*.map.json
 # Node (legacy)
 node_modules/
 .firebase/
+
+# Local portfolio exports (already tracked historical files are unchanged)
+/portfolio-backup-*.json
+/_backup/save/*.json

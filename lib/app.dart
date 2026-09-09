@@ -10,6 +10,7 @@ import 'screens/history_screen.dart';
 import 'screens/assets_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/responsive_shell.dart';
+import 'widgets/portfolio_status_banner.dart';
 import 'utils/constants.dart';
 
 const _devMode = bool.fromEnvironment('DEV_MODE');
@@ -46,11 +47,13 @@ class PortfolioApp extends ConsumerWidget {
       home: _devMode
           ? const MainApp()
           : authState.when(
-              loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+              loading: () => const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              ),
               error: (_, __) => const LoginScreen(),
               data: (user) {
                 if (user == null) return const LoginScreen();
-                return const SheetConnectGate();
+                return SheetConnectGate(key: ValueKey(user.uid));
               },
             ),
     );
@@ -65,17 +68,18 @@ class SheetConnectGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ssId = ref.watch(spreadsheetIdProvider);
     return ssId.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (_, __) => const SheetConnectScreen(),
       data: (id) {
         if (id == null || id.isEmpty) return const SheetConnectScreen();
-        return const MainApp();
+        return MainApp(key: ValueKey(id));
       },
     );
   }
 }
 
-/// 메인 앱 (탭 네비게이션) — Phase 1에서는 대시보드와 포트폴리오만
+/// 연결된 사용자/시트 수명에 맞춘 탭 화면.
 class MainApp extends ConsumerStatefulWidget {
   const MainApp({super.key});
 
@@ -83,28 +87,50 @@ class MainApp extends ConsumerStatefulWidget {
   ConsumerState<MainApp> createState() => _MainAppState();
 }
 
-class _MainAppState extends ConsumerState<MainApp> {
+class _MainAppState extends ConsumerState<MainApp> with WidgetsBindingObserver {
   int _currentIndex = 0;
+  bool _editingPortfolio = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initData();
   }
 
   Future<void> _initData() async {
     if (_devMode) return; // 이미 PortfolioNotifier 생성자에서 로드됨
-    final ssId = await ref.read(spreadsheetIdProvider.future);
-    if (ssId != null) {
-      await ref.read(portfolioProvider.notifier).connect(ssId);
+    try {
+      final ssId = await ref.read(spreadsheetIdProvider.future);
+      if (!mounted) return;
+      if (ssId != null && ref.read(portfolioProvider).spreadsheetId != ssId) {
+        await ref.read(portfolioProvider.notifier).connect(ssId);
+      }
+    } catch (_) {
+      // The connection gate or PortfolioStatusBanner provides retry controls.
     }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    ref
+        .read(portfolioProvider.notifier)
+        .setForeground(state == AppLifecycleState.resumed);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final screens = [
       const DashboardScreen(),
-      const PortfolioScreen(),
+      PortfolioScreen(
+        onEditModeChanged: (value) => setState(() => _editingPortfolio = value),
+      ),
       const HistoryScreen(),
       const AssetsScreen(),
       const SettingsScreen(),
@@ -117,8 +143,17 @@ class _MainAppState extends ConsumerState<MainApp> {
           constraints: const BoxConstraints(maxWidth: 1280),
           child: ResponsiveShell(
             currentIndex: _currentIndex,
-            onTap: (i) => setState(() => _currentIndex = i),
-            child: screens[_currentIndex],
+            isEditingPortfolio: _editingPortfolio,
+            onTap: (i) => setState(() {
+              if (i != _currentIndex) _editingPortfolio = false;
+              _currentIndex = i;
+            }),
+            child: Column(
+              children: [
+                const PortfolioStatusBanner(),
+                Expanded(child: screens[_currentIndex]),
+              ],
+            ),
           ),
         ),
       ),
