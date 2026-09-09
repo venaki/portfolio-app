@@ -2,7 +2,7 @@ name: portfolio_flutter
 description: "A personal portfolio ledger backed by Google Sheets."
 publish_to: 'none'
 
-version: 0.1.11+12
+version: 0.1.12+13
 
 environment:
   sdk: ^3.11.3
