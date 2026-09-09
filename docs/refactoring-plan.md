@@ -1,6 +1,6 @@
 # Portfolio reliability refactoring
 
-Status: implementation and local verification complete (2026-09-08). Release v0.1.11 authorized and being prepared (2026-09-09).
+Status: implementation and local verification complete (2026-09-08). Release v0.1.11 committed, pushed and deployed to Worker and both web hosts (2026-09-09). See the deployment verification record below for remaining checks.
 
 ## Scope and constraints
 
@@ -63,3 +63,12 @@ See `README.md` for user-facing data formats, calculation definitions and develo
 ## 2026-09-09 인증 설정 후속 확인
 
 Cloudflare 재로그인 후 운영 Worker secret 등록, Firebase provider·도메인·API 활성화 및 Google callback 등록을 확인했다. 자세한 결과와 남은 종단 간 검증은 `docs/auth-readiness.md`에 기록했다. 기존 종목 검색 응답 계약 불일치도 수정해 Worker 검증은 총 19개(인증 12 + 검색 7)로 늘었다. 이후 커밋·배포 승인을 받아 v0.1.11 릴리스를 준비한다.
+
+## 2026-09-09 v0.1.11 배포 확인
+
+- 소스 커밋 `4ea3c7b`를 main에 푸시했다. 버전은 `0.1.11+12`이며 Flutter 분석, 138개 테스트와 두 웹 빌드가 통과했다.
+- Worker 버전 `715a4001-b54a-4153-b37b-275b28bac7fd`를 배포했다. 19개 테스트와 타입 검사, 빌드가 통과했다.
+- GitHub Pages 배포 커밋은 `7b9c13d`이며 Firebase Hosting도 같은 앱 버전을 배포했다. 두 운영 사이트의 JavaScript 번들 해시가 로컬 산출물과 일치한다.
+- 운영 Worker에서 세 웹 origin의 CORS, 미인증 요청 거부, 구형 migrate 제거, Durable Object 인증 시도 생성과 취소 callback, 미국·한국 종목 검색을 확인했다.
+- 두 웹의 로그인 화면이 표시되고 브라우저 오류·경고가 없는 것을 확인했다. Firebase 앱의 Google 계정 선택 팝업을 열었으며 실제 사용자 로그인과 시트 연동 확인은 사용자에게 넘겼다. 운영 자산 원장에 테스트 쓰기를 하지 않았다.
+- 첫 GitHub CI의 Worker 설치에서 lockfile이 사내 npm 주소를 참조해 E401이 발생했다. 공개 npm 레지스트리를 명시하는 후속 수정으로 검증한다. 이 설정 변경은 배포된 앱 코드를 바꾸지 않는다.
