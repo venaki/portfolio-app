@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
+import '../models/ticker_symbol.dart';
 import '../providers/portfolio_provider.dart';
 import 'form_fields.dart';
 import 'ticker_search.dart';
@@ -14,9 +15,7 @@ String? validateTicker(String? value, Market market) {
         ? null
         : '올바른 미국 종목 티커를 입력해주세요';
   }
-  return RegExp(r'^\d{6}$').hasMatch(ticker)
-      ? null
-      : '검색 결과를 선택하거나 6자리 종목코드를 입력해주세요';
+  return isKoreanTicker(ticker) ? null : '검색 결과를 선택하거나 6자리 종목코드를 입력해주세요';
 }
 
 class TransactionForm extends ConsumerStatefulWidget {
@@ -215,21 +214,29 @@ class _TransactionFormState extends ConsumerState<TransactionForm> {
                 padding: EdgeInsets.only(bottom: 16),
                 child: Text('설정에서 명의를 먼저 등록해주세요.'),
               ),
-            FormChoices(
-              label: '시장',
-              options: const {
-                Market.us: '미국',
-                Market.krx: 'KRX',
-                Market.kosdaq: 'KOSDAQ',
-              },
-              value: _market,
+            FormChoices<bool>(
+              label: '자산유형',
+              options: const {true: '미국', false: '한국'},
+              value: _market == Market.us,
               enabled: !_busy && canWrite,
-              onChanged: (value) => setState(() {
-                _market = value;
+              onChanged: (us) => setState(() {
+                _market = us ? Market.us : Market.krx;
                 _ticker = '';
                 _name = '';
               }),
             ),
+            if (_market != Market.us)
+              FormChoices<Market>(
+                label: '거래소',
+                options: const {Market.krx: 'KRX', Market.kosdaq: 'KOSDAQ'},
+                value: _market,
+                enabled: !_busy && canWrite,
+                onChanged: (market) => setState(() {
+                  _market = market;
+                  _ticker = '';
+                  _name = '';
+                }),
+              ),
             FormChoices(
               label: '명의',
               options: {for (final account in accounts) account: account},
@@ -240,16 +247,17 @@ class _TransactionFormState extends ConsumerState<TransactionForm> {
             FormChoices(
               label: '증권사',
               options: {
-                '': '미지정',
+                if (_broker.isEmpty) '': '미지정',
                 for (final broker in brokers) broker: broker,
               },
               value: _broker,
               enabled: !_busy && canWrite,
               onChanged: (value) => setState(() => _broker = value),
             ),
-            const Text('종목'),
-            const SizedBox(height: 8),
+            Text(_market == Market.us ? '티커' : '종목코드', style: recordLabelStyle),
+            const SizedBox(height: 6),
             TickerSearch(
+              hint: _market == Market.us ? '예: TSLA' : '예: 삼성전자',
               key: ValueKey(_market),
               initialValue: _ticker,
               isKorean: _market != Market.us,
@@ -272,7 +280,7 @@ class _TransactionFormState extends ConsumerState<TransactionForm> {
             ),
             const SizedBox(height: 16),
             FormChoices(
-              label: '거래 유형',
+              label: '거래유형',
               options: const {
                 TransactionType.buy: '매수',
                 TransactionType.sell: '매도',
@@ -305,11 +313,15 @@ class _TransactionFormState extends ConsumerState<TransactionForm> {
                 enabled: !_busy && canWrite,
                 validator: validateAmount,
               ),
+            const Text('날짜 / 시간', style: recordLabelStyle),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
+                  flex: 3,
                   child: FormInput(
                     label: '날짜',
+                    showLabel: false,
                     controller: _dateText,
                     readOnly: true,
                     enabled: !_busy && canWrite,
@@ -334,10 +346,12 @@ class _TransactionFormState extends ConsumerState<TransactionForm> {
                     },
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
+                  flex: 2,
                   child: FormInput(
                     label: '시간',
+                    showLabel: false,
                     controller: _timeText,
                     readOnly: true,
                     enabled: !_busy && canWrite,
@@ -363,27 +377,36 @@ class _TransactionFormState extends ConsumerState<TransactionForm> {
               maxLines: 2,
               enabled: !_busy && canWrite,
             ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 if (_editing) ...[
-                  OutlinedButton(
-                    onPressed: _busy || !canWrite ? null : _delete,
-                    child: const Text('삭제'),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: recordButtonStyle(context, destructive: true),
+                      onPressed: _busy || !canWrite ? null : _delete,
+                      child: const Text('삭제'),
+                    ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                 ],
                 Expanded(
+                  flex: _editing ? 2 : 1,
                   child: FilledButton(
+                    style: recordButtonStyle(context),
                     onPressed: _busy || !canWrite || accounts.isEmpty
                         ? null
                         : _save,
                     child: _busy
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : Text(_editing ? '저장' : '거래 추가'),
+                        : Text(_editing ? '저장' : '추가'),
                   ),
                 ),
               ],

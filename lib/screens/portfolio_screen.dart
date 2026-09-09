@@ -214,15 +214,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               ),
             if (!isEditMode) const SizedBox(height: 16),
             // 합계
-            if (!isEditMode)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => showRealizedTradesDialog(context),
-                  icon: const Icon(Icons.receipt_long),
-                  label: const Text('전체 실현손익 · 매도 완료 종목'),
-                ),
-              ),
             if (!isEditMode &&
                 (holdings.isNotEmpty || consolidatedAssets.isNotEmpty))
               _buildSummary(
@@ -249,6 +240,19 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                 portfolio,
                 showOtherOnly,
                 showStocksOnly,
+              ),
+
+            if (!isEditMode)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    textStyle: const TextStyle(fontSize: 12),
+                    foregroundColor: const Color(0xFF888888),
+                  ),
+                  onPressed: () => showRealizedTradesDialog(context),
+                  child: const Text('전체 실현손익 · 매도 완료 종목'),
+                ),
               ),
 
             // 편집 버튼 (정상 모드에서만, 주식이 있을 때만)
@@ -395,20 +399,39 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     );
   }
 
-  Widget _buildAccountFilter(List<String> accounts, String selected) => Wrap(
-    spacing: 6,
-    runSpacing: 6,
-    children: accounts
-        .map(
-          (account) => ChoiceChip(
-            label: Text(account),
-            selected: account == selected,
-            onSelected: (_) =>
-                ref.read(portfolioAccountFilter.notifier).state = account,
+  Widget _buildAccountFilter(List<String> accounts, String selected) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    return Wrap(
+      spacing: 0,
+      runSpacing: 6,
+      children: accounts.map((account) {
+        final isSelected = account == selected;
+        return GestureDetector(
+          onTap: () =>
+              ref.read(portfolioAccountFilter.notifier).state = account,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: isSelected ? accentColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              border: isSelected
+                  ? null
+                  : Border.all(color: const Color(0xFFE5E5E5)),
+            ),
+            child: Text(
+              account,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? Colors.white : const Color(0xFF888888),
+              ),
+            ),
           ),
-        )
-        .toList(),
-  );
+        );
+      }).toList(),
+    );
+  }
 
   Widget _buildSummary(
     List<Holding> holdings,

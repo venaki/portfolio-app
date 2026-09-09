@@ -99,6 +99,34 @@ void main() {
     },
   );
 
+  test('Korean alphanumeric codes survive transaction and quote imports', () {
+    for (final code in ['0195R0', '00088K', '005930']) {
+      final row = [...transactionRow]..[4] = code.toLowerCase();
+      final tx = Transaction.fromSheetRow(row);
+      expect(tx.ticker, code);
+      expect(Transaction.fromSheetRow(tx.toSheetRow()).ticker, code);
+      final quote = StockQuote.fromSheetRow([
+        code.toLowerCase(),
+        'KRX',
+        'KRX:$code',
+        '100',
+        'Example',
+        '0',
+        '100',
+        'KRW',
+      ]);
+      expect(quote.ticker, tx.ticker);
+    }
+    for (final code in ['0195R', '0195R00', '0195.R', '=1+100', '삼성전자']) {
+      final row = [...transactionRow]..[4] = code;
+      expect(
+        () => Transaction.fromSheetRow(row),
+        throwsFormatException,
+        reason: code,
+      );
+    }
+  });
+
   test('asset row supports legacy cash category and time defaults', () {
     final asset = OtherAsset.fromSheetRow([
       'a',

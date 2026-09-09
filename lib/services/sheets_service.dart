@@ -5,6 +5,7 @@ import '../models/other_asset.dart';
 import '../models/portfolio_snapshot.dart';
 import '../models/stock_quote.dart';
 import '../models/transaction.dart';
+import '../models/ticker_symbol.dart';
 import 'historical_prices.dart';
 import 'portfolio_backup.dart';
 import 'sheets_api_client.dart';
@@ -384,26 +385,25 @@ class SheetsService {
 
   Future<void> addPriceRow(String ticker, String market, String currency) =>
       _write(() async {
+        market = market.trim().toUpperCase();
+        ticker = _normalizeTicker(ticker, market);
         final row = _priceRow(ticker, market, currency);
         final existing = await _getValues('Prices!A2:H');
         if (existing.any(
           (r) =>
               r.length >= 2 &&
-              _normalizeTicker(r[0], r[1]) == ticker &&
-              r[1] == market,
+              _normalizeTicker(r[0], r[1].trim().toUpperCase()) == ticker &&
+              r[1].trim().toUpperCase() == market,
         )) {
           return;
         }
         await _appendValues('Prices!A:H', [row], userEntered: true);
       });
   static String _normalizeTicker(String ticker, String market) =>
-      (market == 'KRX' || market == 'KOSDAQ') &&
-          RegExp(r'^\d+$').hasMatch(ticker)
-      ? ticker.padLeft(6, '0')
-      : ticker;
+      normalizeTicker(ticker, isKorean: market == 'KRX' || market == 'KOSDAQ');
   static List<String> _priceRow(String ticker, String market, String currency) {
     final korean = market == 'KRX' || market == 'KOSDAQ';
-    if ((korean && !RegExp(r'^\d{6}$').hasMatch(ticker)) ||
+    if ((korean && !isKoreanTicker(ticker)) ||
         (!korean && !RegExp(r'^[A-Z0-9.^:=-]{1,30}$').hasMatch(ticker))) {
       throw const FormatException('종목 코드 형식이 올바르지 않습니다.');
     }

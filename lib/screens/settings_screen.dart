@@ -184,104 +184,372 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(portfolioProvider);
-    final settings = state.settings;
-    final user = ref.watch(authStateProvider).asData?.value;
+    final portfolio = ref.watch(portfolioProvider);
+    final authState = ref.watch(authStateProvider);
     final disabled =
-        _busy || state.isLoading || state.isSaving || state.isBackfilling;
-    final writeDisabled = disabled || !state.canWrite;
+        _busy ||
+        portfolio.isLoading ||
+        portfolio.isSaving ||
+        portfolio.isBackfilling;
+    final writeDisabled = disabled || !portfolio.canWrite;
+    final settings = portfolio.settings;
+    final accentColor = Theme.of(context).colorScheme.primary;
+    final isWide = MediaQuery.of(context).size.width >= 1024;
+    final hPadding = isWide ? 40.0 : 24.0;
+
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 40),
       children: [
+        const SizedBox(height: 16),
         if (_busy) const LinearProgressIndicator(),
         if (_error != null)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              _error!,
+              style: const TextStyle(fontSize: 13, color: Color(0xFFD32F2F)),
+            ),
+          ),
+
+        // 1. ACCOUNT
+        _sectionLabel('ACCOUNT'),
+        _card(
+          child: Column(
+            children: [
+              authState.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (user) {
+                  if (user == null) return const SizedBox.shrink();
+                  return Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundImage: user.photoURL != null
+                            ? NetworkImage(user.photoURL!)
+                            : null,
+                        child: user.photoURL == null
+                            ? const Icon(Icons.person, size: 20)
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.email ?? '',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Google 계정 연결됨',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF888888),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-            ),
-          ),
-        _section('계정', [
-          if (user != null)
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: Text(user.email ?? ''),
-              subtitle: const Text('Google 계정 연결됨'),
-            ),
-          TextButton(
-            onPressed: disabled
-                ? null
-                : () => _run(
-                    () => ref.read(authStateProvider.notifier).signOut(),
-                  ),
-            child: const Text('로그아웃'),
-          ),
-        ]),
-        _section('명의', [
-          if (settings.accounts.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text('거래와 자산을 추가하려면 명의를 먼저 등록해주세요.'),
-            ),
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: settings.accounts.length,
-            onReorder: (oldIndex, newIndex) async {
-              if (writeDisabled) return;
-              final accounts = [...settings.accounts];
-              if (newIndex > oldIndex) newIndex--;
-              accounts.insert(newIndex, accounts.removeAt(oldIndex));
-              await _save(settings.copyWith(accounts: accounts));
-            },
-            itemBuilder: (_, index) {
-              final name = settings.accounts[index];
-              return ListTile(
-                key: ValueKey(name),
-                title: Text(name),
-                trailing: Padding(
-                  padding: const EdgeInsets.only(right: 28),
-                  child: IconButton(
-                    tooltip: '$name 삭제',
-                    onPressed: writeDisabled ? null : () => _remove(name, true),
-                    icon: const Icon(Icons.close),
+              Center(
+                child: GestureDetector(
+                  onTap: disabled
+                      ? null
+                      : () => _run(
+                          () => ref.read(authStateProvider.notifier).signOut(),
+                        ),
+                  child: Text(
+                    '로그아웃',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: accentColor,
+                    ),
                   ),
                 ),
-              );
-            },
-          ),
-          _nameInput(_account, '명의 이름', writeDisabled, () => _add(true)),
-        ]),
-        _section('증권사', [
-          for (final broker in settings.brokers)
-            ListTile(
-              title: Text(broker),
-              trailing: IconButton(
-                tooltip: '$broker 삭제',
-                onPressed: writeDisabled ? null : () => _remove(broker, false),
-                icon: const Icon(Icons.close),
               ),
-            ),
-          _nameInput(_broker, '증권사 이름', writeDisabled, () => _add(false)),
-        ]),
-        _section('화면', [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: accentPresets
-                  .map(
-                    (preset) => IconButton(
-                      tooltip:
-                          '강조 색상 ${preset.color.toARGB32().toRadixString(16)}',
-                      style: IconButton.styleFrom(
-                        backgroundColor: preset.color,
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // 2. ACCOUNTS
+        _sectionLabel('ACCOUNTS'),
+        _card(
+          child: Column(
+            children: [
+              if (settings.accounts.isNotEmpty)
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: settings.accounts.length,
+                  proxyDecorator: (child, index, animation) {
+                    return Material(
+                      elevation: 2,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      child: child,
+                    );
+                  },
+                  onReorder: (oldIndex, newIndex) {
+                    if (!writeDisabled) _reorderAccounts(oldIndex, newIndex);
+                  },
+                  itemBuilder: (context, idx) {
+                    final name = settings.accounts[idx];
+                    return Column(
+                      key: ValueKey(name),
+                      children: [
+                        if (idx > 0)
+                          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              ReorderableDragStartListener(
+                                index: idx,
+                                child: const Padding(
+                                  padding: EdgeInsets.only(right: 12),
+                                  child: Icon(
+                                    Icons.drag_handle,
+                                    size: 18,
+                                    color: Color(0xFFCCCCCC),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF1A1A1A),
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: writeDisabled
+                                    ? null
+                                    : () => _remove(name, true),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Color(0xFFAAAAAA),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              if (settings.accounts.isNotEmpty)
+                const Divider(height: 1, color: Color(0xFFE5E5E5)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _account,
+                      enabled: !writeDisabled,
+                      decoration: InputDecoration(
+                        hintText: '명의 이름',
+                        hintStyle: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFAAAAAA),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E5E5),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E5E5),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: accentColor),
+                        ),
+                        isDense: true,
                       ),
-                      onPressed: writeDisabled
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: writeDisabled ? null : () => _add(true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '추가',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // 3. INVESTMENT BANKS
+        _sectionLabel('INVESTMENT BANKS'),
+        _card(
+          child: Column(
+            children: [
+              ...settings.brokers.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final name = entry.value;
+                return Column(
+                  children: [
+                    if (idx > 0)
+                      const Divider(height: 1, color: Color(0xFFE5E5E5)),
+                    GestureDetector(
+                      onTap: writeDisabled ? null : () => _remove(name, false),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Color(0xFFAAAAAA),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+              if (settings.brokers.isNotEmpty)
+                const Divider(height: 1, color: Color(0xFFE5E5E5)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _broker,
+                      enabled: !writeDisabled,
+                      decoration: InputDecoration(
+                        hintText: '증권사',
+                        hintStyle: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFAAAAAA),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E5E5),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E5E5),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: accentColor),
+                        ),
+                        isDense: true,
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: writeDisabled ? null : () => _add(false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '추가',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // 4. APPEARANCE
+        _sectionLabel('APPEARANCE'),
+        _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '강조 색상',
+                style: TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: accentPresets.map((preset) {
+                  final isSelected =
+                      '#${preset.color.toARGB32().toRadixString(16).substring(2).toUpperCase()}' ==
+                          settings.accentColor.toUpperCase() ||
+                      hexToColor(settings.accentColor) == preset.color;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: GestureDetector(
+                      onTap: writeDisabled
                           ? null
                           : () => _save(
                               settings.copyWith(
@@ -289,187 +557,368 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     '#${preset.color.toARGB32().toRadixString(16).substring(2)}',
                               ),
                             ),
-                      icon: Icon(
-                        hexToColor(settings.accentColor) == preset.color
-                            ? Icons.check
-                            : Icons.circle,
-                        color: Colors.white,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: preset.color,
+                          shape: BoxShape.circle,
+                          border: isSelected
+                              ? Border.all(
+                                  color: const Color(0xFF1A1A1A),
+                                  width: 2,
+                                )
+                              : null,
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                size: 16,
+                                color: Colors.white,
+                              )
+                            : null,
                       ),
                     ),
-                  )
-                  .toList(),
-            ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
-        ]),
-        _section('데이터 새로고침', [
-          ListTile(
-            title: const Text('시세 자동 새로고침'),
-            trailing: DropdownButton<int>(
-              value: settings.refreshInterval,
-              onChanged: writeDisabled
-                  ? null
-                  : (value) {
-                      if (value != null) {
-                        _save(settings.copyWith(refreshInterval: value));
-                      }
-                    },
-              items:
-                  {
-                        ...[60, 300, 600, 900, 1800, 3600],
-                        settings.refreshInterval,
-                      }
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text('${value ~/ 60}분'),
-                        ),
-                      )
-                      .toList(),
-            ),
-          ),
-          ListTile(
-            title: const Text('강제 시세 갱신 대기'),
-            trailing: DropdownButton<int>(
-              value: settings.forceRefreshWait,
-              onChanged: writeDisabled
-                  ? null
-                  : (value) {
-                      if (value != null) {
-                        _save(settings.copyWith(forceRefreshWait: value));
-                      }
-                    },
-              items:
-                  {
-                        ...[1, 3, 5, 10],
-                        settings.forceRefreshWait,
-                      }
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text('$value초'),
-                        ),
-                      )
-                      .toList(),
-            ),
-          ),
-          ListTile(
-            title: const Text('전체 데이터 다시 불러오기'),
-            subtitle: const Text('시트에서 직접 수정한 거래와 자산도 반영합니다.'),
-            trailing: const Icon(Icons.sync),
-            onTap: disabled
-                ? null
-                : () => _run(
-                    () => ref.read(portfolioProvider.notifier).loadAll(),
+        ),
+        const SizedBox(height: 32),
+
+        // 4. DATA REFRESH
+        _sectionLabel('DATA REFRESH'),
+        _card(
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '자동 새로고침 간격',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
                   ),
-          ),
-        ]),
-        _section('시트와 백업', [
-          ListTile(
-            title: Text(state.spreadsheetName ?? '연결된 시트'),
-            subtitle: Text(state.spreadsheetId ?? '시트를 연결해주세요'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: disabled
-                ? null
-                : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SheetConnectScreen(),
+                  PopupMenuButton<int>(
+                    enabled: !writeDisabled,
+                    onSelected: (value) =>
+                        _save(settings.copyWith(refreshInterval: value)),
+                    itemBuilder: (_) => _refreshOptions.entries
+                        .map(
+                          (e) =>
+                              PopupMenuItem(value: e.key, child: Text(e.value)),
+                        )
+                        .toList(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E5E5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _refreshLabel(settings.refreshInterval),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: Color(0xFF888888),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-          ),
-          if (state.spreadsheetId != null)
-            ListTile(
-              title: const Text('시트 URL 복사'),
-              trailing: const Icon(Icons.copy),
-              onTap: () async {
-                await Clipboard.setData(
-                  ClipboardData(
-                    text:
-                        'https://docs.google.com/spreadsheets/d/${state.spreadsheetId}/edit',
+                ],
+              ),
+              const Divider(height: 24, color: Color(0xFFE5E5E5)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '강제 새로고침 대기',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
                   ),
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('시트 URL을 복사했습니다.')),
+                  PopupMenuButton<int>(
+                    enabled: !writeDisabled,
+                    onSelected: (value) =>
+                        _save(settings.copyWith(forceRefreshWait: value)),
+                    itemBuilder: (_) => _forceRefreshWaitOptions.entries
+                        .map(
+                          (e) =>
+                              PopupMenuItem(value: e.key, child: Text(e.value)),
+                        )
+                        .toList(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E5E5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _forceRefreshWaitLabel(settings.forceRefreshWait),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: Color(0xFF888888),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // 5. DATA & SHEETS
+        _sectionLabel('DATA & SHEETS'),
+        _card(
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: disabled
+                    ? null
+                    : () => _run(
+                        () async =>
+                            csv_export.downloadCsv(portfolio.transactions),
+                      ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'CSV 내보내기',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                      Icon(Icons.download, size: 18, color: Color(0xFF888888)),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE5E5E5)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '연결된 시트',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+                    ),
+                    GestureDetector(
+                      onTap: disabled
+                          ? null
+                          : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SheetConnectScreen(),
+                              ),
+                            ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE5E5E5)),
+                        ),
+                        child: const Text(
+                          '변경',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF666666),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (portfolio.spreadsheetId != null) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    portfolio.spreadsheetName ?? portfolio.spreadsheetId!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF888888),
+                    ),
+                  ),
+                ),
+                _dataAction('시트 URL 복사', Icons.copy, () async {
+                  await Clipboard.setData(
+                    ClipboardData(
+                      text:
+                          'https://docs.google.com/spreadsheets/d/${portfolio.spreadsheetId}/edit',
+                    ),
                   );
-                }
-              },
-            ),
-          ListTile(
-            title: const Text('과거 가격 CSV 가져오기'),
-            subtitle: const Text('date,ticker,price · USDKRW는 원/달러 환율'),
-            trailing: const Icon(Icons.upload_file),
-            onTap: writeDisabled ? null : _importPrices,
+                }),
+              ],
+              _dataAction(
+                '전체 데이터 다시 불러오기',
+                Icons.sync,
+                disabled
+                    ? null
+                    : () => _run(
+                        () => ref.read(portfolioProvider.notifier).loadAll(),
+                      ),
+              ),
+              _dataAction(
+                '과거 가격 CSV 가져오기',
+                Icons.upload_file,
+                writeDisabled ? null : _importPrices,
+              ),
+              _dataAction(
+                '전체 백업 내보내기',
+                Icons.download,
+                disabled ? null : _exportBackup,
+              ),
+              _dataAction(
+                '백업 파일 복원',
+                Icons.upload_file,
+                disabled ? null : _importBackup,
+              ),
+            ],
           ),
-          ListTile(
-            title: const Text('주식 거래 CSV 내보내기'),
-            subtitle: const Text('주식 거래 14개 필드 · 전체 백업은 아래 JSON을 사용하세요.'),
-            trailing: const Icon(Icons.download),
-            onTap: disabled
-                ? null
-                : () => _run(
-                    () async => csv_export.downloadCsv(state.transactions),
-                  ),
-          ),
-          ListTile(
-            title: const Text('전체 백업 내보내기'),
-            subtitle: const Text('거래, 기타자산, 설정, 스냅샷과 과거 가격'),
-            trailing: const Icon(Icons.download),
-            onTap: disabled ? null : _exportBackup,
-          ),
-          ListTile(
-            title: const Text('백업 파일 복원'),
-            subtitle: const Text('파일 검증 및 미리보기 후 현재 데이터를 대체합니다.'),
-            trailing: const Icon(Icons.upload_file),
-            onTap: disabled ? null : _importBackup,
-          ),
-        ]),
+        ),
+        const SizedBox(height: 40),
+
+        // Version
         FutureBuilder<PackageInfo>(
           future: _packageInfo,
-          builder: (_, snapshot) =>
-              Center(child: Text('v${snapshot.data?.version ?? ''}')),
+          builder: (context, snapshot) {
+            final version = snapshot.data?.version ?? '';
+            return Center(
+              child: Text(
+                'v$version',
+                style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _section(String title, List<Widget> children) => Padding(
-    padding: const EdgeInsets.only(bottom: 24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Card(child: Column(children: children)),
-      ],
-    ),
-  );
-  Widget _nameInput(
-    TextEditingController controller,
-    String label,
-    bool disabled,
-    VoidCallback onAdd,
-  ) => Padding(
-    padding: const EdgeInsets.all(12),
-    child: Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            enabled: !disabled,
-            onSubmitted: (_) => onAdd(),
-            decoration: InputDecoration(
-              labelText: label,
-              border: const OutlineInputBorder(),
+  // --- Section label ---
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'JetBrains Mono',
+          fontSize: 11,
+          letterSpacing: 2,
+          color: Color(0xFF888888),
+        ),
+      ),
+    );
+  }
+
+  // --- Card wrapper ---
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E5E5)),
+      ),
+      child: child,
+    );
+  }
+
+  // --- Refresh interval options (seconds → label) ---
+  static const _refreshOptions = <int, String>{
+    300: '5분',
+    600: '10분',
+    900: '15분',
+    1800: '30분',
+    3600: '60분',
+  };
+
+  String _refreshLabel(int seconds) {
+    return _refreshOptions[seconds] ?? '${seconds ~/ 60}분';
+  }
+
+  // --- Force refresh wait options (seconds → label) ---
+  static const _forceRefreshWaitOptions = <int, String>{
+    1: '1초',
+    3: '3초',
+    5: '5초',
+    10: '10초',
+  };
+
+  String _forceRefreshWaitLabel(int seconds) {
+    return _forceRefreshWaitOptions[seconds] ?? '$seconds초';
+  }
+
+  // --- Actions ---
+
+  void _reorderAccounts(int oldIndex, int newIndex) {
+    final settings = ref.read(portfolioProvider).settings;
+    final accounts = [...settings.accounts];
+    if (newIndex > oldIndex) newIndex--;
+    final value = accounts.removeAt(oldIndex);
+    accounts.insert(newIndex, value);
+    _save(settings.copyWith(accounts: accounts));
+  }
+
+  Widget _dataAction(String title, IconData icon, VoidCallback? onTap) =>
+      Column(
+        children: [
+          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+          InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ),
+                  Icon(icon, size: 18, color: const Color(0xFF888888)),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        FilledButton(
-          onPressed: disabled ? null : onAdd,
-          child: const Text('추가'),
-        ),
-      ],
-    ),
-  );
+        ],
+      );
 }

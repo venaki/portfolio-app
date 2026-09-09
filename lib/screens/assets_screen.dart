@@ -61,6 +61,8 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
         tooltip: '자산 내역 추가',
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
         onPressed: () => showAddAssetDialog(context),
         child: const Icon(Icons.add),
       ),
@@ -167,18 +169,36 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
     );
   }
 
-  Widget _buildAccountFilter(List<String> accounts, String selected) => Wrap(
-    spacing: 6,
-    runSpacing: 6,
-    children: accounts
-        .map(
-          (account) => ChoiceChip(
-            label: Text(account),
-            selected: account == selected,
-            onSelected: (_) =>
-                ref.read(assetsAccountFilter.notifier).state = account,
+  Widget _buildAccountFilter(List<String> accounts, String selected) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    return Wrap(
+      spacing: 0,
+      runSpacing: 6,
+      children: accounts.map((account) {
+        final isSelected = account == selected;
+        return GestureDetector(
+          onTap: () => ref.read(assetsAccountFilter.notifier).state = account,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: isSelected ? accentColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              border: isSelected
+                  ? null
+                  : Border.all(color: const Color(0xFFE5E5E5)),
+            ),
+            child: Text(
+              account,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? Colors.white : const Color(0xFF888888),
+              ),
+            ),
           ),
-        )
-        .toList(),
-  );
+        );
+      }).toList(),
+    );
+  }
 }

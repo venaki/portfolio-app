@@ -100,7 +100,8 @@ function searchResults(data: unknown): { ticker: string; name: string; exchange:
     if (typeof item.symbol !== 'string' || !item.symbol.trim() ||
       !['EQUITY', 'ETF'].includes(String(item.quoteType)) || item.isYahooFinance === false) return [];
     const symbol = item.symbol.trim().toUpperCase();
-    const korean = /^(\d{6})\.(KS|KQ)$/.exec(symbol);
+    // KRX short codes include letters (for example 0195R0 and 00088K).
+    const korean = /^([0-9A-Z]{6})\.(KS|KQ)$/.exec(symbol);
     const exchangeCode = typeof item.exchange === 'string' ? item.exchange : '';
     // The app supports US and Korean securities; another market must not become a USD holding.
     const exchange = korean ? (korean[2] === 'KQ' ? 'KOSDAQ' : 'KRX')

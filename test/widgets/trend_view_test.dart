@@ -58,8 +58,16 @@ void main() {
       expect(chart.data.minY, lessThanOrEqualTo(-30000));
       expect(chart.data.maxY, greaterThanOrEqualTo(-10000));
       expect(chart.data.gridData.horizontalInterval, greaterThan(0));
-      expect(find.textContaining('2026-01-01 대비'), findsOneWidget);
-      expect(find.text('이전 순자산 기록'), findsOneWidget);
+      expect(
+        find.textContaining('2026-01-01 대비', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.textContaining('이전 순자산 기록'), findsOneWidget);
+      expect(find.text('투자 자산'), findsOneWidget);
+      expect(find.text('스냅샷 기록 / 복원'), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(tester.getSize(find.byType(LineChart)).height, 260);
+      expect(chart.data.lineBarsData.first.barWidth, 2.5);
       expect(tester.takeException(), isNull);
     },
   );

@@ -32,6 +32,9 @@ class _AssetTransactionsDialog extends ConsumerWidget {
             .toList()
           ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
     return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560, maxHeight: 640),
         child: Padding(
@@ -44,7 +47,11 @@ class _AssetTransactionsDialog extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       '${asset.name} 내역',
-                      style: Theme.of(context).textTheme.titleLarge,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
                     ),
                   ),
                   IconButton(

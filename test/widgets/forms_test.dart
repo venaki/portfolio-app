@@ -17,6 +17,73 @@ Widget formApp(PortfolioNotifier notifier, Widget form) => ProviderScope(
   child: MaterialApp(home: Scaffold(body: form)),
 );
 void main() {
+  testWidgets('asset add restores existing-name suggestions without saving', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final notifier = await connected();
+    final count = notifier.state.otherAssets.length;
+    final names =
+        notifier.state.otherAssets.map((asset) => asset.name).toSet().toList()
+          ..sort();
+    await tester.pumpWidget(formApp(notifier, const AssetForm()));
+    await tester.pumpAndSettle();
+    final nameField = find.byType(TextFormField).first;
+    await tester.ensureVisible(nameField);
+    await tester.tap(nameField);
+    await tester.pumpAndSettle();
+    expect(find.text(names.first), findsOneWidget);
+
+    final query = names.first.substring(0, 2).toUpperCase();
+    await tester.enterText(nameField, query);
+    await tester.pumpAndSettle();
+    final suggestion = find.widgetWithText(InkWell, names.first);
+    expect(suggestion, findsOneWidget);
+    expect(tester.getRect(suggestion).right, lessThanOrEqualTo(390));
+    await tester.tap(suggestion);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextFormField>(nameField).controller!.text,
+      names.first,
+    );
+    expect(find.widgetWithText(InkWell, names.first), findsNothing);
+    expect(notifier.state.otherAssets.length, count);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(nameField);
+    await tester.enterText(nameField, '새로운 자유 입력 자산');
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(InkWell, names.first), findsNothing);
+    expect(
+      tester.widget<TextFormField>(nameField).controller!.text,
+      '새로운 자유 입력 자산',
+    );
+    // Closing while the suggestions are open must dispose their overlay.
+    await tester.enterText(nameField, '');
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(InkWell, names.first), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(find.text(names.first), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('asset edit retains its original plain name field', (
+    tester,
+  ) async {
+    final notifier = await connected();
+    final asset = notifier.state.otherAssets.first;
+    await tester.pumpWidget(formApp(notifier, AssetForm(asset: asset)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextFormField).first);
+    await tester.pumpAndSettle();
+    expect(find.byType(RawAutocomplete<String>), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('asset form blocks NaN before touching the ledger', (
     tester,
   ) async {

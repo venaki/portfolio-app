@@ -97,111 +97,50 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       }
       rows.add(item.tx ?? item.asset!);
     }
+    final accentColor = Theme.of(context).colorScheme.primary;
+    final hPadding = MediaQuery.of(context).size.width >= 1024 ? 40.0 : 24.0;
     return Scaffold(
+      backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
         tooltip: '내역 추가',
-        onPressed: _add,
-        child: const Icon(Icons.add),
+        onPressed: () => _showAddOptions(context),
+        backgroundColor: accentColor,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: CustomScrollView(
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 0),
             sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  FormChoices(
-                    label: '명의',
-                    options: {for (final name in accounts) name: name},
-                    value: account,
-                    onChanged: (value) =>
-                        ref.read(historyAccountFilter.notifier).state = value,
+                  _buildAccountFilter(accounts.toList(), account),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [_buildFilterToggle(), _buildMarketFilter()],
                   ),
-                  FormChoices(
-                    label: '시장',
-                    options: const {
-                      '전체': '전체',
-                      '미국': '미국',
-                      '한국': '한국',
-                      '기타': '기타',
-                    },
-                    value: market,
-                    onChanged: (value) =>
-                        ref.read(historyMarketFilter.notifier).state = value,
-                  ),
-                  TextField(
-                    controller: _search,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: '종목·자산명·메모 검색',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                  if (ref.watch(historyFilterExpanded)) ...[
+                    const SizedBox(height: 12),
+                    _buildExpandedFilters(
+                      brokers.where((name) => name != '전체').toList(),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () async {
-                          final dates = await showDateRangePicker(
-                            context: context,
-                            firstDate: DateTime(1900),
-                            lastDate: DateTime.now(),
-                            initialDateRange: _dates,
-                          );
-                          if (dates != null && mounted) {
-                            setState(() => _dates = dates);
-                          }
-                        },
-                        icon: const Icon(Icons.date_range),
-                        label: Text(
-                          _dates == null
-                              ? '기간 선택'
-                              : '${_dates!.start.toIso8601String().substring(0, 10)} ~ ${_dates!.end.toIso8601String().substring(0, 10)}',
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _reset,
-                        child: const Text('필터 초기화'),
-                      ),
-                    ],
-                  ),
-                  ExpansionTile(
-                    title: const Text('거래 유형·증권사'),
-                    children: [
-                      FormChoices(
-                        label: '거래 유형',
-                        options: const {
-                          '전체': '전체',
-                          '매수': '매수',
-                          '매도': '매도',
-                          '잔고 조정': '잔고 조정',
-                          '기타자산': '기타자산',
-                        },
-                        value: type,
-                        onChanged: (value) =>
-                            ref.read(historyTypeFilter.notifier).state = value,
-                      ),
-                      FormChoices(
-                        label: '증권사 (선택 시 주식 거래만 표시)',
-                        options: {for (final name in brokers) name: name},
-                        value: broker,
-                        onChanged: (value) =>
-                            ref.read(historyBrokerFilter.notifier).state =
-                                value,
-                      ),
-                    ],
-                  ),
+                  ],
+                  const SizedBox(height: 16),
                   if (state.isLoading && rows.isEmpty)
                     const LinearProgressIndicator(),
                   if (!state.isLoading && rows.isEmpty)
                     const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        '조건에 맞는 내역이 없습니다.',
-                        textAlign: TextAlign.center,
+                      padding: EdgeInsets.only(top: 80),
+                      child: Center(
+                        child: Text(
+                          '거래내역이 없습니다',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF888888),
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -209,15 +148,25 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 96),
+            padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 80),
             sliver: SliverList.builder(
               itemCount: rows.length,
               itemBuilder: (_, index) {
                 final row = rows[index];
                 if (row is String) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(row),
+                    padding: EdgeInsets.only(
+                      bottom: 12,
+                      top: index == 0 ? 4 : 12,
+                    ),
+                    child: Text(
+                      _monthKey(row),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        letterSpacing: 2,
+                        color: Color(0xFF888888),
+                      ),
+                    ),
                   );
                 }
                 return Padding(
@@ -243,30 +192,318 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  void _add() => showModalBottomSheet(
-    context: context,
-    builder: (sheetContext) => SafeArea(
+  Widget _buildAccountFilter(List<String> accounts, String selected) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    return Wrap(
+      spacing: 0,
+      runSpacing: 6,
+      children: accounts.map((account) {
+        final isSelected = account == selected;
+        return GestureDetector(
+          onTap: () => ref.read(historyAccountFilter.notifier).state = account,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: isSelected ? accentColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              border: isSelected
+                  ? null
+                  : Border.all(color: const Color(0xFFE5E5E5)),
+            ),
+            child: Text(
+              account,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? Colors.white : const Color(0xFF888888),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildFilterToggle() {
+    final hasActiveFilter =
+        ref.watch(historyTypeFilter) != '전체' ||
+        ref.watch(historyBrokerFilter) != '전체' ||
+        _search.text.isNotEmpty ||
+        _dates != null;
+    return GestureDetector(
+      onTap: () => ref.read(historyFilterExpanded.notifier).state = !ref.read(
+        historyFilterExpanded,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: hasActiveFilter ? const Color(0xFF1A1A1A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: hasActiveFilter
+              ? null
+              : Border.all(color: const Color(0xFFE5E5E5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              ref.watch(historyFilterExpanded)
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+              size: 16,
+              color: hasActiveFilter ? Colors.white : const Color(0xFF888888),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '필터',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: hasActiveFilter ? FontWeight.w600 : FontWeight.w400,
+                color: hasActiveFilter ? Colors.white : const Color(0xFF888888),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandedFilters(List<String> brokers) {
+    const types = ['전체', '매수', '매도', '잔고 조정', '기타자산'];
+    final brokerOptions = ['전체', ...brokers];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E5E5)),
+      ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(
-            leading: const Icon(Icons.show_chart),
-            title: const Text('주식 거래 추가'),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              showAddTransactionDialog(context);
-            },
+          TextField(
+            controller: _search,
+            onChanged: (_) => setState(() {}),
+            style: const TextStyle(fontSize: 13),
+            decoration: recordInputDecoration(
+              context,
+              hint: '종목·자산명·메모 검색',
+            ).copyWith(prefixIcon: const Icon(Icons.search, size: 18)),
           ),
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet),
-            title: const Text('기타자산 내역 추가'),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              showAddAssetDialog(context);
-            },
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: () async {
+                  final dates = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime.now(),
+                    initialDateRange: _dates,
+                  );
+                  if (dates != null && mounted) {
+                    setState(() => _dates = dates);
+                  }
+                },
+                icon: const Icon(Icons.date_range),
+                label: Text(
+                  _dates == null
+                      ? '기간 선택'
+                      : '${_dates!.start.toIso8601String().substring(0, 10)} ~ ${_dates!.end.toIso8601String().substring(0, 10)}',
+                ),
+              ),
+              TextButton(onPressed: _reset, child: const Text('필터 초기화')),
+            ],
           ),
+          const SizedBox(height: 12),
+          // 거래유형
+          const Text(
+            '거래유형',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF888888),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: types.map((type) {
+              final isSelected = ref.watch(historyTypeFilter) == type;
+              return GestureDetector(
+                onTap: () => ref.read(historyTypeFilter.notifier).state = type,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF1A1A1A)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: isSelected
+                        ? null
+                        : Border.all(color: const Color(0xFFE5E5E5)),
+                  ),
+                  child: Text(
+                    type,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF888888),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          if (brokers.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            // 증권사
+            const Text(
+              '증권사',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF888888),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: brokerOptions.map((broker) {
+                final isSelected = ref.watch(historyBrokerFilter) == broker;
+                return GestureDetector(
+                  onTap: () =>
+                      ref.read(historyBrokerFilter.notifier).state = broker,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF1A1A1A)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      border: isSelected
+                          ? null
+                          : Border.all(color: const Color(0xFFE5E5E5)),
+                    ),
+                    child: Text(
+                      broker,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF888888),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _buildMarketFilter() {
+    const options = ['전체', '미국', '한국', '기타'];
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Row(
+        children: options.map((option) {
+          final isSelected = option == ref.watch(historyMarketFilter);
+          return GestureDetector(
+            onTap: () => ref.read(historyMarketFilter.notifier).state = option,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Column(
+                children: [
+                  Text(
+                    option,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: isSelected
+                          ? const Color(0xFF1A1A1A)
+                          : const Color(0xFFAAAAAA),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    height: 2,
+                    width: 20,
+                    color: isSelected
+                        ? const Color(0xFF1A1A1A)
+                        : Colors.transparent,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showAddOptions(BuildContext context) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.show_chart, color: accentColor),
+                title: const Text('주식 거래 추가'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showAddTransactionDialog(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.account_balance_wallet, color: accentColor),
+                title: const Text('기타 자산 추가'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showAddAssetDialog(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _monthKey(String date) {
+    if (date.length < 7) return date;
+    final year = date.substring(0, 4);
+    final month = date.substring(5, 7);
+    return '$year년 $month월';
+  }
 }

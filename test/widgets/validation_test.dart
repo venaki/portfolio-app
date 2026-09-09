@@ -9,6 +9,7 @@ import 'package:portfolio_flutter/screens/csv_export.dart';
 import 'package:portfolio_flutter/screens/sheet_connect_screen.dart';
 import 'package:portfolio_flutter/models/transaction.dart';
 import 'package:portfolio_flutter/models/sheet_schema.dart';
+import 'package:portfolio_flutter/widgets/ticker_search.dart';
 
 void main() {
   test('account deletion protects accounts with only other assets', () {
@@ -40,7 +41,29 @@ void main() {
     expect(validateTicker('AAPL', Market.krx), isNotNull);
     expect(validateTicker('005930', Market.us), isNotNull);
     expect(validateTicker('005930', Market.krx), isNull);
+    expect(validateTicker('0195R0', Market.krx), isNull);
+    expect(validateTicker('00088K', Market.kosdaq), isNull);
+    expect(validateTicker('0195R', Market.krx), isNotNull);
+    expect(validateTicker('0195R00', Market.krx), isNotNull);
     expect(validateTicker('BRK.B', Market.us), isNull);
+  });
+  test('search classifies a symbol by exchange rather than its shape', () {
+    expect(
+      TickerSearchResult(
+        ticker: '0195R0',
+        name: 'ETF',
+        exchange: 'KRX',
+      ).isKorean,
+      isTrue,
+    );
+    expect(
+      TickerSearchResult(
+        ticker: 'ABCDEF',
+        name: 'US stock',
+        exchange: 'NASDAQ',
+      ).isKorean,
+      isFalse,
+    );
   });
   test('sheet URL validation requires Google Sheets host or standalone id', () {
     const id = 'abcdefghijklmnopqrstuv';

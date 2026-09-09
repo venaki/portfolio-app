@@ -16,6 +16,9 @@ class _RealizedTradesDialog extends ConsumerWidget {
     final trades = result.realizedTrades.reversed.toList();
     final total = trades.fold<double>(0, (sum, trade) => sum + trade.profitKRW);
     return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640, maxHeight: 680),
         child: Padding(
@@ -28,7 +31,11 @@ class _RealizedTradesDialog extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       '전체 실현손익',
-                      style: Theme.of(context).textTheme.titleLarge,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
                     ),
                   ),
                   IconButton(

@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/portfolio_provider.dart';
 import '../../engine/portfolio_valuation.dart';
+import '../../models/other_asset.dart';
 import '../../models/transaction.dart';
+import '../../widgets/total_asset_card.dart';
+import '../../widgets/account_card.dart';
+import '../../widgets/type_group_card.dart';
 import '../../widgets/segmented_filter.dart';
-import '../../widgets/holding_transactions_modal.dart';
-import '../../widgets/asset_transactions_modal.dart';
+import '../../utils/constants.dart';
 import '../../utils/format.dart';
 
 class DashboardOverviewView extends ConsumerWidget {
@@ -16,204 +20,190 @@ class DashboardOverviewView extends ConsumerWidget {
   });
   final PortfolioState portfolio;
   final PortfolioValuation valuation;
+
+  double _usd(double amount) =>
+      portfolio.exchangeRate.isFinite && portfolio.exchangeRate > 0
+      ? amount / portfolio.exchangeRate
+      : double.nan;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final total = valuation.total;
     final mode = ref.watch(dashboardViewModeProvider);
-    final accounts = {
-      ...portfolio.settings.accounts,
-      ...valuation.byAccount.keys,
-    };
+    final isWide = MediaQuery.of(context).size.width >= 1024;
+    final accounts = valuation.byAccount.entries.toList()
+      ..sort((a, b) {
+        final order = portfolio.settings.accounts;
+        final ai = order.indexOf(a.key), bi = order.indexOf(b.key);
+        return (ai < 0 ? order.length : ai).compareTo(
+          bi < 0 ? order.length : bi,
+        );
+      });
+    final updated = portfolio.lastUpdated;
+    final accountCards = accounts.indexed.map((entry) {
+      final index = entry.$1, value = entry.$2.value;
+      return AccountCard(
+        account: entry.$2.key,
+        color: getAccountColor(index),
+        valueKRW: value.valueKRW,
+        valueUSD: _usd(value.valueKRW),
+        dailyChangeKRW: valuation.isDailyComplete
+            ? value.dailyChangeKRW
+            : double.nan,
+        dailyChangePct: valuation.isDailyComplete
+            ? value.dailyChangePct
+            : double.nan,
+        profitKRW: valuation.isComplete ? value.profitKRW : double.nan,
+        profitPct: valuation.isComplete ? value.profitPct : double.nan,
+        subCategories: {
+          if (value.usValueKRW != 0) '미국': value.usValueKRW,
+          if (value.krValueKRW != 0) '한국': value.krValueKRW,
+          if (value.otherValueKRW != 0) '기타': value.otherValueKRW,
+        },
+      );
+    }).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  valuation.isComplete ? '총 순자산' : '확인된 평가금액 · 일부 미평가',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      formatKRW(total.valueKRW),
-                      style: Theme.of(context).textTheme.headlineLarge,
-                    ),
-                    if (portfolio.exchangeRate.isFinite &&
-                        portfolio.exchangeRate > 0)
-                      Text(formatUSD(total.valueKRW / portfolio.exchangeRate)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  valuation.isDailyComplete
-                      ? '보유자산 주가 변동 ${formatKRW(total.dailyChangeKRW)} (${formatPercent(total.dailyChangePct)})'
-                      : '일간 주가 변동: 시세 확인 필요',
-                ),
-                const Divider(height: 24),
-                Text('현재 보유 원가 ${formatKRW(total.costKRW)}'),
-                Text(
-                  valuation.isComplete
-                      ? '평가손익 ${formatKRW(total.profitKRW)} (${formatPercent(total.profitPct)})'
-                      : '평가손익: 시세 확인 필요',
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '평가손익은 현재 보유자산 기준이며, 실현손익·수수료·세금은 포함하지 않습니다.',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SegmentedFilter(
-          options: const ['By Account', 'By Type'],
-          selected: mode,
-          onChanged: (value) =>
-              ref.read(dashboardViewModeProvider.notifier).state = value,
+        TotalAssetCard(
+          totalValueKRW: total.valueKRW,
+          totalValueUSD: _usd(total.valueKRW),
+          dailyChangeKRW: valuation.isDailyComplete
+              ? total.dailyChangeKRW
+              : double.nan,
+          dailyChangePct: valuation.isDailyComplete
+              ? total.dailyChangePct
+              : double.nan,
+          totalCostKRW: total.costKRW,
+          totalProfitKRW: valuation.isComplete ? total.profitKRW : double.nan,
+          totalProfitPct: valuation.isComplete ? total.profitPct : double.nan,
         ),
         const SizedBox(height: 12),
-        if (mode == 'By Account')
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final count = constraints.maxWidth >= 700 ? 2 : 1;
-              final width = (constraints.maxWidth - (count - 1) * 12) / count;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final account in accounts)
-                    if (valuation.byAccount.containsKey(account))
-                      SizedBox(
-                        width: width,
-                        child: _AccountSummary(
-                          account: account,
-                          totals: valuation.byAccount[account]!,
-                          complete: valuation.isComplete,
-                          dailyComplete: valuation.isDailyComplete,
-                        ),
-                      ),
-                ],
-              );
-            },
-          )
-        else ...[
-          for (final market in [Market.us, Market.krx])
-            _group(context, market == Market.us ? '미국주식' : '한국주식', [
-              for (final position in valuation.positions.where(
-                (position) =>
-                    (position.holding.market == Market.us) ==
-                    (market == Market.us),
-              ))
-                ListTile(
-                  title: Text(position.quote?.name ?? position.holding.ticker),
-                  subtitle: Text(
-                    '${position.holding.account} · ${position.holding.ticker}',
-                  ),
-                  trailing: Text(
-                    position.valueKRW == null
-                        ? '미평가'
-                        : formatKRW(position.valueKRW!),
-                  ),
-                  onTap: () => showHoldingTransactionsDialog(
-                    context,
-                    ticker: position.holding.ticker,
-                    displayName:
-                        position.quote?.name ?? position.holding.ticker,
-                    account: position.holding.account,
-                    broker: position.holding.broker,
-                    market: position.holding.market,
-                    currency: position.holding.currency,
-                  ),
-                ),
-            ]),
-          _group(context, '기타자산', [
-            for (final value in valuation.assets)
-              ListTile(
-                title: Text(value.asset.name),
-                subtitle: Text(
-                  '${value.asset.account} · ${value.asset.categoryLabel}',
-                ),
-                trailing: Text(
-                  value.valueKRW == null ? '미평가' : formatKRW(value.valueKRW!),
-                ),
-                onTap: () => showAssetTransactionsDialog(context, value.asset),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '1 USD = ${formatKRW(portfolio.exchangeRate)}',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF888888),
               ),
-          ]),
-        ],
+            ),
+            if (updated != null)
+              Text(
+                '${updated.hour.toString().padLeft(2, '0')}:${updated.minute.toString().padLeft(2, '0')} 업데이트',
+                style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        SizedBox(
+          width: 240,
+          child: SegmentedFilter(
+            options: const ['By Account', 'By Type'],
+            selected: mode,
+            onChanged: (value) =>
+                ref.read(dashboardViewModeProvider.notifier).state = value,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (mode == 'By Account') ...[
+          if (isWide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: accountCards.indexed
+                  .map(
+                    (entry) => Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: entry.$1 == 0 ? 0 : 8),
+                        child: entry.$2,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            )
+          else
+            ...accountCards.indexed.map(
+              (entry) => Padding(
+                padding: EdgeInsets.only(top: entry.$1 == 0 ? 0 : 8),
+                child: entry.$2,
+              ),
+            ),
+        ] else
+          ..._typeCards(),
       ],
     );
   }
 
-  Widget _group(BuildContext context, String title, List<Widget> rows) =>
-      rows.isEmpty
-      ? const SizedBox.shrink()
-      : Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              ...rows,
-            ],
-          ),
-        );
-}
-
-class _AccountSummary extends StatelessWidget {
-  const _AccountSummary({
-    required this.account,
-    required this.totals,
-    required this.complete,
-    required this.dailyComplete,
-  });
-  final String account;
-  final ValuationTotals totals;
-  final bool complete, dailyComplete;
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(account, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            formatKRW(totals.valueKRW),
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            dailyComplete
-                ? '주가 변동 ${formatKRW(totals.dailyChangeKRW)} (${formatPercent(totals.dailyChangePct)})'
-                : '주가 변동: 시세 확인 필요',
-          ),
-          Text(
-            complete
-                ? '평가손익 ${formatKRW(totals.profitKRW)} (${formatPercent(totals.profitPct)})'
-                : '평가손익: 시세 확인 필요',
-          ),
-          const Divider(),
-          Text('미국 ${formatKRW(totals.usValueKRW)}'),
-          Text('한국 ${formatKRW(totals.krValueKRW)}'),
-          Text('기타 ${formatKRW(totals.otherValueKRW)}'),
-        ],
+  List<Widget> _typeCards() {
+    final us = <String, HoldingRow>{}, kr = <String, HoldingRow>{};
+    for (final position in valuation.positions) {
+      final h = position.holding;
+      final map = h.market == Market.us ? us : kr;
+      final key = jsonEncode([h.ticker, h.market.name, h.currency.name]);
+      final old = map[key];
+      map[key] = HoldingRow(
+        name: position.quote?.name ?? h.ticker,
+        ticker: h.ticker,
+        valueKRW: (old?.valueKRW ?? 0) + (position.valueKRW ?? 0),
+        costKRW: (old?.costKRW ?? 0) + position.costKRW,
+        dailyChangeKRW:
+            (old?.dailyChangeKRW ?? 0) + (position.dailyChangeKRW ?? 0),
+        yestValueKRW: (old?.yestValueKRW ?? 0) + (position.yestValueKRW ?? 0),
+        shares: (old?.shares ?? 0) + h.shares,
+        isComplete:
+            (old?.isComplete ?? true) &&
+            position.valueKRW != null &&
+            position.quote?.isStale != true,
+        hasPrice: (old?.hasPrice ?? true) && position.hasPrice,
+        isDailyComplete:
+            (old?.isDailyComplete ?? true) && position.dailyChangeKRW != null,
+      );
+    }
+    final other = <AssetCategory, List<HoldingRow>>{};
+    for (final value in valuation.assets) {
+      final asset = value.asset;
+      (other[asset.category] ??= []).add(
+        HoldingRow(
+          name: asset.name,
+          ticker: asset.name,
+          valueKRW: value.valueKRW ?? 0,
+          costKRW: value.valueKRW ?? 0,
+          dailyChangeKRW: 0,
+          yestValueKRW: value.valueKRW ?? 0,
+          hasPrice: value.valueKRW != null,
+          isComplete: value.valueKRW != null,
+        ),
+      );
+    }
+    final groups = <(String, List<HoldingRow>)>[
+      (
+        '미국주식',
+        us.values.toList()..sort((a, b) => b.valueKRW.compareTo(a.valueKRW)),
       ),
-    ),
-  );
+      (
+        '한국주식',
+        kr.values.toList()..sort((a, b) => b.valueKRW.compareTo(a.valueKRW)),
+      ),
+      for (final category in AssetCategory.values)
+        (
+          switch (category) {
+            AssetCategory.savings => '예금',
+            AssetCategory.bond => '채권',
+            AssetCategory.loan => '대출',
+            AssetCategory.other => '기타',
+          },
+          other[category] ?? [],
+        ),
+    ].where((group) => group.$2.isNotEmpty).toList();
+    return groups.indexed
+        .map(
+          (entry) => Padding(
+            padding: EdgeInsets.only(top: entry.$1 == 0 ? 0 : 8),
+            child: TypeGroupCard(title: entry.$2.$1, items: entry.$2.$2),
+          ),
+        )
+        .toList();
+  }
 }

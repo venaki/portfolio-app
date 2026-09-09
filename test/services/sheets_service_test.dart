@@ -100,6 +100,68 @@ SheetsService service(http.Client client) => SheetsService(
 
 void main() {
   test(
+    'valid alphanumeric Korean rows do not trigger the save restriction',
+    () async {
+      final rows = [
+        for (final code in ['0195R0', '00088K', '5930'])
+          transaction.toSheetRow()
+            ..[0] = 'tx-$code'
+            ..[4] = code
+            ..[5] = 'KRX'
+            ..[9] = 'KRW'
+            ..[10] = '1',
+      ];
+      final client = MockClient(
+        (request) async => request.url.path.endsWith('values:batchGet')
+            ? jsonResponse(batchData(transactions: rows))
+            : jsonResponse(metadata()),
+      );
+      final repository = service(client);
+      addTearDown(repository.close);
+      final data = await repository.loadAll();
+      expect(data.transactions.map((t) => t.ticker), [
+        '0195R0',
+        '00088K',
+        '005930',
+      ]);
+      expect(repository.dataIssues, isEmpty);
+    },
+  );
+
+  test(
+    'Korean price rows preserve alphanumeric codes and avoid duplicates',
+    () async {
+      final writes = <List<dynamic>>[];
+      final client = MockClient((request) async {
+        if (request.method == 'GET') {
+          return jsonResponse({'values': writes});
+        }
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        for (final raw in body['values'] as List) {
+          final row = List<dynamic>.from(raw as List);
+          expect(row[0], "'0195R0");
+          expect(row[2], 'KRX:0195R0');
+          expect(row[3], '=GOOGLEFINANCE("KRX:0195R0","price")');
+          row[0] =
+              '0195R0'; // Sheets stores the apostrophe-prefixed code as text.
+          writes.add(row);
+        }
+        return jsonResponse({});
+      });
+      final repository = service(client);
+      addTearDown(repository.close);
+      await repository.addPriceRow('0195r0', 'KRX', 'KRW');
+      await repository.addPriceRow('0195R0', 'KRX', 'KRW');
+      expect(writes, hasLength(1));
+      await expectLater(
+        repository.addPriceRow('0195.R', 'KRX', 'KRW'),
+        throwsFormatException,
+      );
+      expect(writes, hasLength(1));
+    },
+  );
+
+  test(
     'real repository reads and preserves all fourteen transaction columns',
     () async {
       final client = MockClient((request) async {

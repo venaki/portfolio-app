@@ -1,3 +1,4 @@
+import '../widgets/form_fields.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -115,77 +116,258 @@ class _SheetConnectScreenState extends ConsumerState<SheetConnectScreen> {
     if (selected != null && mounted) await _connect(selected['id'] as String);
   });
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_busy,
-    child: Scaffold(
-      appBar: Navigator.canPop(context)
-          ? AppBar(title: const Text('스프레드시트 연결'))
-          : null,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.table_chart, size: 40),
-                const SizedBox(height: 16),
-                Text(
-                  '스프레드시트 연결',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Portfolio 데이터가 있는 시트를 선택하거나 새 시트를 만드세요.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                if (_busy) const LinearProgressIndicator(),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_busy,
+      child: Scaffold(
+        appBar: Navigator.canPop(context)
+            ? AppBar(
+                backgroundColor: const Color(0xFFFAFAFA),
+                elevation: 0,
+                title: const Text('스프레드시트 연결', style: TextStyle(fontSize: 14)),
+              )
+            : null,
+        backgroundColor: const Color(0xFFFAFAFA),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Logo area
+                  const Column(
+                    children: [
+                      Icon(
+                        Icons.table_chart,
+                        size: 40,
+                        color: Color(0xFF0D6E6E),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '스프레드시트 연결',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '데이터를 저장할 Google Sheets를 선택하세요',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF888888),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 40),
+                  if (_busy) const LinearProgressIndicator(),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFFD32F2F),
+                        ),
                       ),
                     ),
+
+                  // Options card
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E5E5)),
+                    ),
+                    child: Column(
+                      children: [
+                        // Option 1: Create new
+                        GestureDetector(
+                          onTap: _busy ? null : _createNew,
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 20,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8F5E9),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: _busy
+                                      ? const Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Color(0xFF0D6E6E),
+                                            ),
+                                          ),
+                                        )
+                                      : const Center(
+                                          child: Icon(
+                                            Icons.add,
+                                            size: 20,
+                                            color: Color(0xFF0D6E6E),
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '새 스프레드시트 생성',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        '빈 Portfolio DB를 자동으로 만듭니다',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF888888),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  size: 18,
+                                  color: Color(0xFFAAAAAA),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Divider
+                        Container(
+                          height: 1,
+                          width: double.infinity,
+                          color: const Color(0xFFF0F0F0),
+                        ),
+
+                        // Option 2: Connect existing (now opens sheet picker)
+                        GestureDetector(
+                          onTap: _busy ? null : _pickSheet,
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 20,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0F0F0),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.folder_open,
+                                      size: 20,
+                                      color: Color(0xFF666666),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '기존 스프레드시트 연결',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Google Drive에서 시트를 선택합니다',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF888888),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  size: 18,
+                                  color: Color(0xFFAAAAAA),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _createNew,
-                  icon: const Icon(Icons.add),
-                  label: const Text('새 스프레드시트 생성'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _pickSheet,
-                  icon: const Icon(Icons.folder_open),
-                  label: const Text('Google Drive에서 선택'),
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _url,
-                  enabled: !_busy,
-                  onSubmitted: (_) => _connectUrl(),
-                  decoration: const InputDecoration(
-                    labelText: 'Google Sheets URL 또는 ID',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 20),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Google Sheets URL 또는 ID',
+                      style: recordLabelStyle,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _busy ? null : _connectUrl,
-                  child: const Text('URL로 연결'),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _url,
+                    enabled: !_busy,
+                    onSubmitted: (_) => _connectUrl(),
+                    style: const TextStyle(fontSize: 14),
+                    decoration: recordInputDecoration(
+                      context,
+                      hint: 'https://docs.google.com/spreadsheets/...',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: recordButtonStyle(context),
+                      onPressed: _busy ? null : _connectUrl,
+                      child: const Text('URL로 연결'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _SheetPickerDialog extends StatefulWidget {

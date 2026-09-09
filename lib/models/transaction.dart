@@ -1,4 +1,5 @@
 import 'sheet_schema.dart';
+import 'ticker_symbol.dart';
 
 enum TransactionType { buy, sell, openingBalance, adjustment }
 
@@ -51,8 +52,8 @@ class Transaction {
     if (ticker.trim().isEmpty ||
         !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._:-]*$').hasMatch(ticker))
       '종목코드가 올바르지 않습니다.',
-    if (market != Market.us && !RegExp(r'^\d{6}$').hasMatch(ticker))
-      '한국 종목코드는 6자리 숫자여야 합니다.',
+    if (market != Market.us && !isKoreanTicker(ticker))
+      '한국 종목코드는 숫자 또는 영문 대문자로 된 6자리 코드여야 합니다.',
     if (!shares.isFinite || shares <= 0) '수량은 0보다 큰 유한한 숫자여야 합니다.',
     if (!price.isFinite ||
         price < 0 ||
@@ -68,13 +69,10 @@ class Transaction {
 
   factory Transaction.fromSheetRow(List<String> row) {
     final market = _parseMarket(sheetCell(row, 5));
-    var ticker = sheetCell(row, 4).trim().toUpperCase();
-    // 한국 종목코드: 6자리로 정규화 (Sheets가 숫자로 해석해 앞자리 0 제거하는 문제 대응)
-    if ((market == Market.krx || market == Market.kosdaq) &&
-        RegExp(r'^\d+$').hasMatch(ticker) &&
-        ticker.length < 6) {
-      ticker = ticker.padLeft(6, '0');
-    }
+    final ticker = normalizeTicker(
+      sheetCell(row, 4),
+      isKorean: market != Market.us,
+    );
     final currency = parseCurrency(sheetCell(row, 9));
     final rawTime = sheetCell(row, 13).trim();
     final transaction = Transaction(

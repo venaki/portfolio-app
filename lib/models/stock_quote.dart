@@ -1,4 +1,5 @@
 import 'sheet_schema.dart';
+import 'ticker_symbol.dart';
 
 class StockQuote {
   final String ticker;
@@ -24,14 +25,11 @@ class StockQuote {
   });
 
   factory StockQuote.fromSheetRow(List<String> row) {
-    final market = sheetCell(row, 1);
-    var ticker = sheetCell(row, 0).trim().toUpperCase();
-    // 한국 종목코드: 6자리로 정규화 (Sheets가 숫자로 해석해 앞자리 0 제거하는 문제 대응)
-    if ((market == 'KRX' || market == 'KOSDAQ') &&
-        RegExp(r'^\d+$').hasMatch(ticker) &&
-        ticker.length < 6) {
-      ticker = ticker.padLeft(6, '0');
-    }
+    final market = sheetCell(row, 1).trim().toUpperCase();
+    final ticker = normalizeTicker(
+      sheetCell(row, 0),
+      isKorean: market == 'KRX' || market == 'KOSDAQ',
+    );
     return StockQuote(
       ticker: ticker,
       name: sheetCell(row, 4),

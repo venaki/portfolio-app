@@ -39,6 +39,32 @@ for (const [name, query, expected] of [
   });
 }
 
+test('search preserves six-character alphanumeric Korean codes without widening supported markets', async (t) => {
+  // KRX KIND confirms 0195R0 (KR70195R0008), listed on 2026-05-27:
+  // https://kind.krx.co.kr/disclosure/etfisudetail.do?method=searchEtfIsuSummary&strIsurCd=0195R
+  // Hanwha's issuer IR confirms its 00088K preferred-share code:
+  // https://www.hanwhacorp.co.kr/common/fileDownload.do?name=Hanwha+Corp._IR+news%282020.07%29.pdf&path=%2Fupload%2Fhanwha%2FIRData%2Fpr%2F20210422%2F36248571-70b0-46b3-ab07-cbd326c5fe2b.pdf
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ quotes: [
+    { symbol: '0195R0.KS', exchange: 'KSC', quoteType: 'ETF', shortname: 'TIGER 삼성전자단일종목레버리지' },
+    { symbol: '00088k.ks', exchange: 'KSC', quoteType: 'EQUITY', shortname: '한화3우B' },
+    // Synthetic code exercises KQ normalization independently of an actual listing.
+    { symbol: '0123A4.KQ', exchange: 'KOE', quoteType: 'EQUITY', shortname: 'KOSDAQ fixture' },
+    { symbol: '0195R.KS', exchange: 'KSC', quoteType: 'ETF' },
+    { symbol: '00195R0.KS', exchange: 'KSC', quoteType: 'ETF' },
+    { symbol: '0195-0.KS', exchange: 'KSC', quoteType: 'ETF' },
+    { symbol: '0195R0.L', exchange: 'LSE', quoteType: 'ETF' },
+    { symbol: '0195R0-USD', exchange: 'CCC', quoteType: 'CRYPTOCURRENCY' },
+    { symbol: '0195R0', exchange: 'KSC', quoteType: 'ETF' },
+  ] }));
+  const response = await worker.fetch(request('0195R0'), env);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), [
+    { ticker: '0195R0', name: 'TIGER 삼성전자단일종목레버리지', exchange: 'KRX' },
+    { ticker: '00088K', name: '한화3우B', exchange: 'KRX' },
+    { ticker: '0123A4', name: 'KOSDAQ fixture', exchange: 'KOSDAQ' },
+  ]);
+});
+
 test('search maps exchange codes and keeps only supported equity/ETF records', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => Response.json({ quotes: [
     { symbol: 'JPM', exchange: 'NYQ', quoteType: 'EQUITY', shortname: 'JPMorgan Chase & Co.' },

@@ -13,6 +13,8 @@ class TickerSearchResult {
     required this.name,
     required this.exchange,
   });
+
+  bool get isKorean => exchange == 'KRX' || exchange == 'KOSDAQ';
 }
 
 class TickerSearch extends StatefulWidget {
@@ -159,11 +161,7 @@ class _TickerSearchState extends State<TickerSearch> {
                 exchange: item['exchange'] ?? '',
               ),
             )
-            .where(
-              (result) => widget.isKorean
-                  ? RegExp(r'^\d{6}$').hasMatch(result.ticker)
-                  : !RegExp(r'^\d{6}$').hasMatch(result.ticker),
-            )
+            .where((result) => result.isKorean == widget.isKorean)
             .take(5)
             .toList();
         if (_results.isNotEmpty && _focusNode.hasFocus) {

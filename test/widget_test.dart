@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_flutter/app.dart';
 import 'package:portfolio_flutter/providers/portfolio_provider.dart';
 import 'package:portfolio_flutter/services/mock_sheets_service.dart';
+import 'package:portfolio_flutter/widgets/custom_tab_bar.dart';
 
 void main() {
   testWidgets(
@@ -48,7 +49,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
-      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(CustomTabBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
