@@ -1,0 +1,11 @@
+name: portfolio_cli
+publish_to: none
+version: 0.1.0
+environment:
+  sdk: ^3.11.3
+dependencies:
+  args: ^2.7.0
+  crypto: ^3.0.7
+  http: ^1.2.2
+dev_dependencies:
+  test: ^1.25.0

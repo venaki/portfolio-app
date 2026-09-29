@@ -2,6 +2,10 @@
 
 Flutter 웹으로 만든 개인 자산 원장입니다. Google 로그인 후 본인의 Google Sheets에 주식 거래, 기타자산, 설정과 일별 평가 기록을 저장합니다. Cloudflare Worker는 Google OAuth와 종목 검색을 담당합니다.
 
+## 거래·자산 관리 CLI
+
+브라우저 없이 같은 원장을 관리하는 [Portfolio CLI](cli/README.md)를 제공합니다. `bash scripts/install_cli.sh`로 설치하며, 저장은 기본 미리보기 후 `--apply`로 실행합니다. 웹앱 재배포는 필요하지 않으며 최초 CLI 전용 Google 인증이 필요합니다.
+
 ## 실행
 
 검증 환경은 Flutter **3.41.5 / Dart 3.11.3**, Worker는 Node.js **22.19.0**입니다.
